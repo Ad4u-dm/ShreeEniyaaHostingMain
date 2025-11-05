@@ -1,10 +1,6 @@
-// Components
-import { InvoiceMain } from "@/app/components";
+import { redirect } from "next/navigation";
 
+// Redirect to ChitFund Management System login
 export default function Home() {
-    return (
-        <main className="py-10 lg:container">
-            <InvoiceMain />
-        </main>
-    );
+    redirect("/login");
 }

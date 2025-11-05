@@ -32,7 +32,7 @@ const defaultChargesContext = {
     setShippingType: (newValue: SetStateAction<string>) => {},
     totalInWordsSwitch: true,
     setTotalInWordsSwitch: (newValue: boolean) => {},
-    currency: "USD",
+    currency: "INR",
     subTotal: 0,
     totalAmount: 0,
     calculateTotal: () => {},
@@ -54,6 +54,11 @@ export const ChargesContextProvider = ({ children }: ChargesContextProps) => {
     // Form Fields
     const itemsArray = useWatch({
         name: `details.items`,
+        control,
+    });
+
+    const selectedPlan = useWatch({
+        name: `details.selectedPlan`,
         control,
     });
 
@@ -157,6 +162,7 @@ export const ChargesContextProvider = ({ children }: ChargesContextProps) => {
         calculateTotal();
     }, [
         itemsArray,
+        selectedPlan,
         totalInWordsSwitch,
         discountType,
         discount?.amount,
@@ -171,13 +177,23 @@ export const ChargesContextProvider = ({ children }: ChargesContextProps) => {
      * Calculates the subtotal, total, and the total amount in words on the invoice.
      */
     const calculateTotal = () => {
-        // Here Number(item.total) fixes a bug where an extra zero appears
-        // at the beginning of subTotal caused by toFixed(2) in item.total in single item
-        // Reason: toFixed(2) returns string, not a number instance
-        const totalSum: number = itemsArray.reduce(
-            (sum: number, item: ItemType) => sum + Number(item.total),
-            0
-        );
+        let totalSum: number = 0;
+        
+        // If a plan is selected, use the invoice amount (one-time or monthly)
+        if (selectedPlan && selectedPlan.invoiceAmount) {
+            totalSum = selectedPlan.invoiceAmount;
+        } else if (selectedPlan && selectedPlan.total_value) {
+            // Fallback to total_value if invoiceAmount is not set
+            totalSum = selectedPlan.total_value;
+        } else {
+            // Here Number(item.total) fixes a bug where an extra zero appears
+            // at the beginning of subTotal caused by toFixed(2) in item.total in single item
+            // Reason: toFixed(2) returns string, not a number instance
+            totalSum = itemsArray.reduce(
+                (sum: number, item: ItemType) => sum + Number(item.total),
+                0
+            );
+        }
 
         setValue("details.subTotal", totalSum);
         setSubTotal(totalSum);

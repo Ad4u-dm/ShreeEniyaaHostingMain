@@ -29,6 +29,7 @@ import WizardProgress from "./invoice/form/wizard/WizardProgress";
 import BillFromSection from "./invoice/form/sections/BillFromSection";
 import BillToSection from "./invoice/form/sections/BillToSection";
 import InvoiceDetails from "./invoice/form/sections/InvoiceDetails";
+import SelectPlan from "./invoice/form/sections/SelectPlan";
 import Items from "./invoice/form/sections/Items";
 import PaymentInformation from "./invoice/form/sections/PaymentInformation";
 import InvoiceSummary from "./invoice/form/sections/InvoiceSummary";
@@ -107,6 +108,7 @@ export {
     BillFromSection,
     BillToSection,
     InvoiceDetails,
+    SelectPlan,
     Items,
     SingleItem,
     Charges,

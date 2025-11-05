@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
+import { useFormContext } from "react-hook-form";
+
 // Components
 import {
-    CurrencySelector,
     DatePickerFormField,
     FormInput,
     FormFile,
@@ -15,6 +17,16 @@ import { useTranslationContext } from "@/contexts/TranslationContext";
 
 const InvoiceDetails = () => {
     const { _t } = useTranslationContext();
+    const { setValue, watch } = useFormContext();
+    
+    const currentCurrency = watch("details.currency");
+    
+    // Force set currency to INR if it's not already set correctly
+    useEffect(() => {
+        if (currentCurrency !== "INR") {
+            setValue("details.currency", "INR");
+        }
+    }, [currentCurrency, setValue]);
 
     return (
         <section className="flex flex-col flex-wrap gap-5">
@@ -46,12 +58,6 @@ const InvoiceDetails = () => {
                     <DatePickerFormField
                         name="details.dueDate"
                         label={_t("form.steps.invoiceDetails.dueDate")}
-                    />
-
-                    <CurrencySelector
-                        name="details.currency"
-                        label={_t("form.steps.invoiceDetails.currency")}
-                        placeholder="Select Currency"
                     />
                 </div>
 

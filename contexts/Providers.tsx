@@ -62,6 +62,12 @@ const Providers = ({ children }: ProvidersProps) => {
     if (draft) {
       form.reset(draft, { keepDefaultValues: false });
     }
+    
+    // Force set currency to INR to fix any existing USD references
+    const currentCurrency = form.getValues("details.currency");
+    if (currentCurrency !== "INR") {
+      form.setValue("details.currency", "INR");
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

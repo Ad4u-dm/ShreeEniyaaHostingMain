@@ -7,7 +7,9 @@
         "build": "next build",
         "start": "next start",
         "lint": "next lint",
-        "analyze": "cross-env ANALYZE=true next build"
+        "analyze": "cross-env ANALYZE=true next build",
+        "seed": "node scripts/seedFromJson.js",
+        "seed-chitfund": "tsx scripts/seed.ts"
     },
     "dependencies": {
         "@dnd-kit/core": "^6.1.0",
@@ -31,12 +33,20 @@
         "@react-email/components": "^0.0.11",
         "@react-email/render": "^0.0.9",
         "@react-email/tailwind": "^0.0.12",
+        "@types/bcryptjs": "^2.4.6",
+        "@types/jsonwebtoken": "^9.0.10",
         "@types/node": "20.6.2",
         "@vercel/analytics": "^1.1.1",
         "autoprefixer": "10.4.15",
+        "bcryptjs": "^3.0.3",
+        "chart.js": "^4.5.1",
         "class-variance-authority": "^0.7.0",
         "clsx": "^2.0.0",
+        "dotenv": "^17.2.3",
+        "firebase": "^12.5.0",
+        "jsonwebtoken": "^9.0.2",
         "lucide-react": "^0.279.0",
+        "mongoose": "^8.19.2",
         "next": "^15.3.3",
         "next-intl": "^4.1.0",
         "next-themes": "^0.2.1",
@@ -45,6 +55,7 @@
         "postcss": "8.4.31",
         "puppeteer-core": "^24.9.0",
         "react": "18.2.0",
+        "react-chartjs-2": "^5.3.1",
         "react-day-picker": "^8.8.2",
         "react-dom": "18.2.0",
         "react-email": "^4.0.16",
@@ -71,7 +82,10 @@
         "@types/react-signature-canvas": "^1.0.4",
         "@types/xml2js": "^0.4.13",
         "cross-env": "^7.0.3",
+        "eslint": "9.39.0",
+        "eslint-config-next": "16.0.1",
         "ignore-loader": "^0.1.2",
-        "puppeteer": "^24.10.0"
+        "puppeteer": "^24.10.0",
+        "tsx": "^4.20.6"
     }
 }

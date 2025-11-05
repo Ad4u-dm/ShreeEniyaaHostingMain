@@ -1,4 +1,4 @@
-import { AUTHOR_WEBSITE, BASE_URL } from "@/lib/variables";
+import { BASE_URL } from "@/lib/variables";
 
 export const ROOTKEYWORDS = [
     "invoice",
@@ -12,19 +12,14 @@ export const ROOTKEYWORDS = [
 export const JSONLD = {
     "@context": "https://schema.org",
     "@type": "Website",
-    name: "Invoify",
-    description: "An Invoice Generator Web App",
+    name: "Invoice Management",
+    description: "Professional Invoice Management System and Generator",
     keywords: ROOTKEYWORDS,
     url: BASE_URL,
     image: "https://invoify.vercel.app/_next/static/media/invoify-logo.7ef8fa33.svg",
     mainEntityOfPage: {
         "@type": "WebPage",
         "@id": `${BASE_URL}/#website`,
-    },
-    author: {
-        "@type": "Person",
-        name: "Ali Abbasov",
-        url: AUTHOR_WEBSITE,
     },
     "@graph": [
         {

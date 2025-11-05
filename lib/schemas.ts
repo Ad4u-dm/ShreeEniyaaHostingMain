@@ -143,6 +143,22 @@ const SignatureSchema = z.object({
     fontFamily: fieldValidators.string.optional(),
 });
 
+const PlanSchema = z.object({
+    _id: z.string(),
+    plan_name: z.string(),
+    total_value: z.number(),
+    months: z.number(),
+    data: z.array(z.object({
+        month_number: z.number(),
+        installment_amount: z.number(),
+        dividend: z.number(),
+        payable_amount: z.number()
+    })),
+    paymentType: z.enum(["onetime", "monthly"]).optional(),
+    selectedMonth: z.number().optional(),
+    invoiceAmount: z.number().optional()
+});
+
 const InvoiceDetailsSchema = z.object({
     invoiceLogo: fieldValidators.stringOptional,
     invoiceNumber: fieldValidators.stringMin1,
@@ -151,6 +167,7 @@ const InvoiceDetailsSchema = z.object({
     purchaseOrderNumber: fieldValidators.stringOptional,
     currency: fieldValidators.string,
     language: fieldValidators.string,
+    selectedPlan: PlanSchema.optional(),
     items: z.array(ItemSchema),
     paymentInformation: PaymentInformationSchema.optional(),
     taxDetails: TaxDetailsSchema.optional(),

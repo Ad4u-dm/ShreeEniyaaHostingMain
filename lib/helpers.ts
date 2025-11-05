@@ -9,17 +9,35 @@ import currenciesDetails from "@/public/assets/data/currencies.json";
 import { CurrencyDetails } from "@/types";
 
 /**
- * Formats a number with commas and decimal places
+ * Formats a number with Indian number system (lakhs, crores)
  *
  * @param {number} number - Number to format
- * @returns {string} A styled number to be displayed on the invoice
+ * @returns {string} A styled number to be displayed on the invoice with Indian formatting
  */
 const formatNumberWithCommas = (number: number) => {
-    return number.toLocaleString("en-US", {
+    return number.toLocaleString("en-IN", {
         style: "decimal",
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
     });
+};
+
+/**
+ * Formats number in Indian format with words (lakhs, crores)
+ *
+ * @param {number} number - Number to format
+ * @returns {string} Number with Indian suffix (e.g., "10.50 Lakhs")
+ */
+const formatIndianNumber = (number: number): string => {
+    if (number >= 10000000) { // 1 crore
+        return `${(number / 10000000).toFixed(2)} Crores`;
+    } else if (number >= 100000) { // 1 lakh
+        return `${(number / 100000).toFixed(2)} Lakhs`;
+    } else if (number >= 1000) { // 1 thousand
+        return `${(number / 1000).toFixed(2)} Thousands`;
+    } else {
+        return number.toFixed(2);
+    }
 };
 
 /**
@@ -204,6 +222,7 @@ const fileToBuffer = async (file: File) => {
 
 export {
     formatNumberWithCommas,
+    formatIndianNumber,
     formatPriceToString,
     flattenObject,
     isValidEmail,

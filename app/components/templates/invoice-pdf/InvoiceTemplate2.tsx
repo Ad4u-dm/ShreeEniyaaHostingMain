@@ -92,52 +92,124 @@ const InvoiceTemplate2 = (data: InvoiceType) => {
             </div>
 
             <div className="mt-3">
-                <div className="border border-gray-200 p-1 rounded-lg space-y-1">
-                    <div className="hidden sm:grid sm:grid-cols-5">
-                        <div className="sm:col-span-2 text-xs font-medium text-gray-500 uppercase">
-                            Item
-                        </div>
-                        <div className="text-left text-xs font-medium text-gray-500 uppercase">
-                            Qty
-                        </div>
-                        <div className="text-left text-xs font-medium text-gray-500 uppercase">
-                            Rate
-                        </div>
-                        <div className="text-right text-xs font-medium text-gray-500 uppercase">
-                            Amount
-                        </div>
-                    </div>
-                    <div className="hidden sm:block border-b border-gray-200"></div>
-                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-y-1">
-                        {details.items.map((item, index) => (
-                            <React.Fragment key={index}>
-                                <div className="col-span-full sm:col-span-2 border-b border-gray-300">
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    {/* Plan Details Section */}
+                    {details.selectedPlan ? (
+                        <div>
+                            {/* Header */}
+                            <div className="hidden sm:grid sm:grid-cols-5 bg-gray-50 px-4 py-2 border-b border-gray-200">
+                                <div className="sm:col-span-2 text-xs font-medium text-gray-700 uppercase">Description</div>
+                                <div className="text-center text-xs font-medium text-gray-700 uppercase">Qty</div>
+                                <div className="text-center text-xs font-medium text-gray-700 uppercase">Rate</div>
+                                <div className="text-right text-xs font-medium text-gray-700 uppercase">Amount</div>
+                            </div>
+                            
+                            {/* Plan Line Item */}
+                            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 p-4 border-b border-gray-100">
+                                <div className="col-span-full sm:col-span-2">
                                     <p className="font-medium text-gray-800">
-                                        {item.name}
+                                        {details.selectedPlan.plan_name}
+                                        {details.selectedPlan.paymentType === 'monthly' && details.selectedPlan.selectedMonth && 
+                                            ` - Month ${details.selectedPlan.selectedMonth}`
+                                        }
                                     </p>
-                                    <p className="text-xs text-gray-600 whitespace-pre-line">
-                                        {item.description}
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        {details.selectedPlan.paymentType === 'onetime' 
+                                            ? 'Full plan payment' 
+                                            : `Monthly installment payment`
+                                        }
                                     </p>
                                 </div>
-                                <div className="border-b border-gray-300">
+                                <div className="text-center">
+                                    <p className="text-gray-800">1</p>
+                                </div>
+                                <div className="text-center">
                                     <p className="text-gray-800">
-                                        {item.quantity}
+                                        {formatNumberWithCommas(details.selectedPlan.invoiceAmount || details.selectedPlan.total_value)}
                                     </p>
                                 </div>
-                                <div className="border-b border-gray-300">
-                                    <p className="text-gray-800">
-                                        {item.unitPrice} {details.currency}
+                                <div className="text-right">
+                                    <p className="font-medium text-gray-800">
+                                        {formatNumberWithCommas(details.selectedPlan.invoiceAmount || details.selectedPlan.total_value)} {details.currency}
                                     </p>
                                 </div>
-                                <div className="border-b border-gray-300">
-                                    <p className="sm:text-right text-gray-800">
-                                        {item.total} {details.currency}
-                                    </p>
+                            </div>
+                            
+                            {/* Additional Details for Monthly Payments */}
+                            {details.selectedPlan.paymentType === 'monthly' && details.selectedPlan.selectedMonth && details.selectedPlan.data && (
+                                <div className="px-4 py-3 bg-gray-25 border-b border-gray-100 text-xs">
+                                    <div className="grid grid-cols-3 gap-4 text-gray-600">
+                                        <div>
+                                            <span className="font-medium">Total Plan Value:</span> ₹{formatNumberWithCommas(details.selectedPlan.total_value)}
+                                        </div>
+                                        <div>
+                                            <span className="font-medium">Duration:</span> {details.selectedPlan.months} months
+                                        </div>
+                                        <div>
+                                            <span className="font-medium">Month {details.selectedPlan.selectedMonth} Details:</span>
+                                            {(() => {
+                                                const monthData = details.selectedPlan.data.find(m => m.month_number === details.selectedPlan.selectedMonth);
+                                                return monthData ? (
+                                                    <span className="ml-1">
+                                                        Installment: ₹{formatNumberWithCommas(monthData.installment_amount)}, 
+                                                        Dividend: ₹{formatNumberWithCommas(monthData.dividend)}
+                                                    </span>
+                                                ) : null;
+                                            })()}
+                                        </div>
+                                    </div>
                                 </div>
-                            </React.Fragment>
-                        ))}
-                    </div>
-                    <div className="sm:hidden border-b border-gray-200"></div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            <div className="hidden sm:grid sm:grid-cols-5">
+                                <div className="sm:col-span-2 text-xs font-medium text-gray-500 uppercase">
+                                    Item
+                                </div>
+                                <div className="text-left text-xs font-medium text-gray-500 uppercase">
+                                    Qty
+                                </div>
+                                <div className="text-left text-xs font-medium text-gray-500 uppercase">
+                                    Rate
+                                </div>
+                                <div className="text-right text-xs font-medium text-gray-500 uppercase">
+                                    Amount
+                                </div>
+                            </div>
+                            <div className="hidden sm:block border-b border-gray-200"></div>
+                            <div className="grid grid-cols-3 sm:grid-cols-5 gap-y-1">
+                                {details.items.map((item, index) => (
+                                    <React.Fragment key={index}>
+                                        <div className="col-span-full sm:col-span-2 border-b border-gray-300">
+                                            <p className="font-medium text-gray-800">
+                                                {item.name}
+                                            </p>
+                                            <p className="text-xs text-gray-600 whitespace-pre-line">
+                                                {item.description}
+                                            </p>
+                                        </div>
+                                        <div className="border-b border-gray-300">
+                                            <p className="text-gray-800">
+                                                {item.quantity}
+                                            </p>
+                                        </div>
+                                        <div className="border-b border-gray-300">
+                                            <p className="text-gray-800">
+                                                {item.unitPrice} {details.currency}
+                                            </p>
+                                        </div>
+                                        <div className="border-b border-gray-300">
+                                            <p className="sm:text-right text-gray-800">
+                                                {item.total} {details.currency}
+                                            </p>
+                                        </div>
+                                    </React.Fragment>
+                                ))}
+                            </div>
+                            <div className="sm:hidden border-b border-gray-200"></div>
+                        </div>
+                    )}
                 </div>
             </div>
 

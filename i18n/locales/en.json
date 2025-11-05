@@ -6,7 +6,7 @@
         "wizard": {
             "fromAndTo": "From & To",
             "invoiceDetails": "Invoice Details",
-            "lineItems": "Line Items",
+            "lineItems": "Plan Selection",
             "paymentInfo": "Payment Info",
             "summary": "Summary",
             "next": "Next",

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-// This page only renders when the app is built statically (output: 'export')
+// Redirect to login page for ChitFund Management System
 export default function RootPage() {
-    redirect("/en");
+    redirect("/login");
 }

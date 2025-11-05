@@ -1,12 +1,23 @@
 import { ReactNode } from "react";
 import "@/app/globals.css";
+import { Toaster } from "@/components/ui/toaster";
+import { outfit } from "@/lib/fonts";
 
 type Props = {
     children: ReactNode;
 };
 
-// Since we have a `not-found.tsx` page on the root, a layout file
-// is required, even if it's just passing children through.
+// Root layout with proper HTML structure for ChitFund Management System
 export default function RootLayout({ children }: Props) {
-    return children;
+    return (
+        <html lang="en" suppressHydrationWarning>
+            <body 
+                className={`${outfit.className} min-h-screen bg-background font-sans antialiased`}
+                suppressHydrationWarning
+            >
+                {children}
+                <Toaster />
+            </body>
+        </html>
+    );
 }

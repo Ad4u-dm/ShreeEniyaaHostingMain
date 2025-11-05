@@ -1,25 +1,17 @@
 "use client";
 
-import { useTranslationContext } from "@/contexts/TranslationContext";
-
-// Variables
-import { AUTHOR_GITHUB } from "@/lib/variables";
-
 const BaseFooter = () => {
-    const { _t } = useTranslationContext();
-
     return (
-        <footer className="container py-10">
-            <p>
-                {_t("footer.developedBy")}{" "}
-                <a
-                    href={AUTHOR_GITHUB}
-                    target="_blank"
-                    style={{ textDecoration: "underline" }}
-                >
-                    Ali Abbasov
-                </a>
-            </p>
+        <footer className="border-t border-border/50 bg-muted/30 backdrop-blur-sm mt-16">
+            <div className="container py-8">
+                <div className="flex flex-col items-center justify-center space-y-4 text-center">
+                    <div className="flex items-center space-x-1 text-xs text-muted-foreground">
+                        <span>Professional Invoice Generator</span>
+                        <span className="text-primary">•</span>
+                        <span>Built with Next.js & Tailwind CSS</span>
+                    </div>
+                </div>
+            </div>
         </footer>
     );
 };
