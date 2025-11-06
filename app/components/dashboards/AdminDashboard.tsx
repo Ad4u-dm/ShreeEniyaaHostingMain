@@ -46,6 +46,7 @@ ChartJS.register(
   ArcElement
 );
 import { formatIndianNumber } from '@/lib/helpers';
+import InvoiceActionModal from '@/app/components/modals/InvoiceActionModal';
 
 interface AdminDashboardData {
   stats: {
@@ -65,26 +66,6 @@ interface AdminDashboardData {
     payments: any[];
   };
   staffPerformance: any[];
-}
-
-interface InvoiceCustomer {
-  name: string;
-  email?: string;
-  phone?: string;
-}
-
-interface InvoiceAmounts {
-  total: number;
-  subtotal?: number;
-  tax?: number;
-}
-
-interface Invoice {
-  invoiceNumber: string;
-  customer: InvoiceCustomer;
-  amounts: InvoiceAmounts;
-  invoiceDate: string;
-  _id?: string;
 }
 
 export default function AdminDashboard() {
@@ -261,7 +242,11 @@ export default function AdminDashboard() {
             </Button>
             <Button onClick={() => setShowInvoiceManager(true)} className="bg-green-600 hover:bg-green-700">
               <Receipt className="h-4 w-4 mr-2" />
-              Manage Invoices
+              Quick Invoices
+            </Button>
+            <Button onClick={() => window.location.href = '/admin/invoices'} className="bg-emerald-600 hover:bg-emerald-700">
+              <FileText className="h-4 w-4 mr-2" />
+              All Invoices
             </Button>
             <Button onClick={fetchDashboardData} variant="outline">
               Refresh Data
@@ -872,9 +857,10 @@ function CreatePlanModal({ onClose, onSuccess }: any) {
 
 // Invoice Manager Modal Component
 function InvoiceManagerModal({ onClose }: any) {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+  const [showActionModal, setShowActionModal] = useState(false);
 
   useEffect(() => {
     fetchInvoices();
@@ -912,12 +898,103 @@ function InvoiceManagerModal({ onClose }: any) {
       const result = await response.json();
       if (result.success) {
         setSelectedInvoice(result.invoice);
-        alert('Invoice generated successfully!');
+        // Ask user for preferred format
+        const useHTML = window.confirm(
+          'Invoice generated successfully!\n\n' +
+          'Choose receipt format:\n' +
+          '• Click OK for HTML (Better for thermal printers)\n' +
+          '• Click Cancel for PDF format'
+        );
+        
+        if (useHTML) {
+          // Download HTML thermal receipt
+          downloadThermalHTML(result.invoice._id);
+        } else {
+          // Download PDF thermal receipt
+          downloadThermalPDF(result.invoice._id);
+        }
       }
     } catch (error) {
       console.error('Failed to generate invoice:', error);
       alert('Failed to generate invoice');
     }
+  };
+
+  const printInvoice = (invoiceId: string) => {
+    const printWindow = window.open(`/receipt/thermal/${invoiceId}`, '_blank');
+    if (printWindow) {
+      printWindow.focus();
+    }
+  };
+
+  const downloadThermalHTML = async (invoiceId: string) => {
+    try {
+      const response = await fetch('/api/invoice/thermal', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        },
+        body: JSON.stringify({ invoiceId })
+      });
+
+      if (response.ok) {
+        const htmlContent = await response.text();
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `thermal-receipt-${invoiceId}.html`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        alert('Thermal receipt (HTML) downloaded! Open the file and print on your thermal printer.');
+      } else {
+        alert('Failed to download thermal receipt');
+      }
+    } catch (error) {
+      console.error('Failed to download thermal receipt:', error);
+      alert('Failed to download thermal receipt');
+    }
+  };
+
+  const downloadThermalPDF = async (invoiceId: string) => {
+    try {
+      const response = await fetch('/api/invoice/thermal-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        },
+        body: JSON.stringify({ invoiceId })
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `thermal-receipt-${invoiceId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        alert('Thermal receipt (PDF) downloaded! Print on your thermal printer.');
+      } else {
+        alert('Failed to download thermal PDF');
+      }
+    } catch (error) {
+      console.error('Failed to download thermal PDF:', error);
+      alert('Failed to download thermal PDF');
+    }
+  };
+
+  const downloadInvoice = downloadThermalHTML; // Default to HTML
+
+  const viewPaymentDetails = (invoice: any) => {
+    setSelectedInvoice(invoice);
+    setShowActionModal(true);
   };
 
   return (
@@ -963,7 +1040,11 @@ function InvoiceManagerModal({ onClose }: any) {
                       >
                         Generate Invoice
                       </Button>
-                      <Button size="sm" variant="outline">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => viewPaymentDetails(invoice)}
+                      >
                         View Details
                       </Button>
                     </div>
@@ -984,16 +1065,38 @@ function InvoiceManagerModal({ onClose }: any) {
             <div className="mt-6 p-4 bg-slate-50 rounded-lg">
               <h3 className="font-semibold mb-2">Generated Invoice Preview</h3>
               <div className="text-sm space-y-1">
-                <p><strong>Invoice #:</strong> {selectedInvoice.invoiceNumber}</p>
-                <p><strong>Customer:</strong> {selectedInvoice.customer.name}</p>
-                <p><strong>Amount:</strong> ₹{selectedInvoice.amounts.total.toLocaleString('en-IN')}</p>
-                <p><strong>Date:</strong> {selectedInvoice.invoiceDate}</p>
+                <p><strong>Invoice #:</strong> {selectedInvoice.invoiceNumber || 'N/A'}</p>
+                <p><strong>Customer:</strong> {selectedInvoice.customer?.name || 'N/A'}</p>
+                <p><strong>Amount:</strong> ₹{selectedInvoice.amounts?.total?.toLocaleString('en-IN') || '0'}</p>
+                <p><strong>Date:</strong> {selectedInvoice.invoiceDate || 'N/A'}</p>
               </div>
-              <Button className="mt-2" size="sm">Download PDF</Button>
+              <div className="flex gap-2 mt-3">
+                <Button 
+                  size="sm" 
+                  onClick={() => downloadInvoice(selectedInvoice._id)}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  Download PDF
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => printInvoice(selectedInvoice._id)}
+                >
+                  Print Invoice
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
       </Card>
+      
+      {/* Invoice Action Modal */}
+      <InvoiceActionModal
+        invoice={selectedInvoice}
+        isOpen={showActionModal}
+        onClose={() => setShowActionModal(false)}
+      />
     </div>
   );
 }

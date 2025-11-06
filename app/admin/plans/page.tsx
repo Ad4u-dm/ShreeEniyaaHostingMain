@@ -48,6 +48,8 @@ export default function PlansPage() {
     processingFee: 0,
     description: ''
   });
+  const [createMode, setCreateMode] = useState<'auto' | 'manual'>('auto');
+  const [manualMonthlyData, setManualMonthlyData] = useState<MonthlyData[]>([]);
 
   useEffect(() => {
     fetchPlans();
@@ -135,22 +137,33 @@ export default function PlansPage() {
       return;
     }
 
-    // Generate monthly data with equal distribution
-    const baseAmount = Math.round(newPlan.totalAmount / newPlan.duration);
-    const monthlyData = [];
+    let monthlyData;
     
-    for (let i = 1; i <= newPlan.duration; i++) {
-      // Decrease dividend each month (starting high, ending low)
-      const dividend = Math.round((baseAmount * 0.4) * ((newPlan.duration - i + 1) / newPlan.duration));
-      const installmentAmount = baseAmount;
-      const payableAmount = installmentAmount - dividend;
+    if (createMode === 'manual') {
+      // Use manually configured monthly data
+      if (manualMonthlyData.length !== newPlan.duration) {
+        alert('Please configure all monthly data before creating the plan');
+        return;
+      }
+      monthlyData = manualMonthlyData;
+    } else {
+      // Generate monthly data with equal distribution (auto mode)
+      const baseAmount = Math.round(newPlan.totalAmount / newPlan.duration);
+      monthlyData = [];
       
-      monthlyData.push({
-        monthNumber: i,
-        installmentAmount,
-        dividend,
-        payableAmount
-      });
+      for (let i = 1; i <= newPlan.duration; i++) {
+        // Decrease dividend each month (starting high, ending low)
+        const dividend = Math.round((baseAmount * 0.4) * ((newPlan.duration - i + 1) / newPlan.duration));
+        const installmentAmount = baseAmount;
+        const payableAmount = installmentAmount - dividend;
+        
+        monthlyData.push({
+          monthNumber: i,
+          installmentAmount,
+          dividend,
+          payableAmount
+        });
+      }
     }
 
     const planData = {
@@ -172,6 +185,8 @@ export default function PlansPage() {
       if (result.success) {
         alert('Plan created successfully!');
         setShowCreateModal(false);
+        setCreateMode('auto');
+        setManualMonthlyData([]);
         setNewPlan({
           planName: '',
           totalAmount: 0,
@@ -210,6 +225,69 @@ export default function PlansPage() {
       ...editingPlan,
       monthlyData: updatedMonthlyData
     });
+  };
+
+  const updateManualMonthlyData = (monthIndex: number, field: keyof MonthlyData, value: number) => {
+    const updatedMonthlyData = [...manualMonthlyData];
+    updatedMonthlyData[monthIndex] = {
+      ...updatedMonthlyData[monthIndex],
+      [field]: value
+    };
+    
+    // Recalculate payableAmount if installmentAmount or dividend changes
+    if (field === 'installmentAmount' || field === 'dividend') {
+      updatedMonthlyData[monthIndex].payableAmount = 
+        updatedMonthlyData[monthIndex].installmentAmount - updatedMonthlyData[monthIndex].dividend;
+    }
+    
+    setManualMonthlyData(updatedMonthlyData);
+  };
+
+  const handleDurationChange = (duration: number) => {
+    setNewPlan({...newPlan, duration});
+    
+    if (createMode === 'manual') {
+      // Generate default monthly data structure when duration changes
+      const baseAmount = newPlan.totalAmount > 0 ? Math.round(newPlan.totalAmount / duration) : 5000;
+      const newMonthlyData = [];
+      
+      for (let i = 1; i <= duration; i++) {
+        const dividend = Math.round((baseAmount * 0.3) * ((duration - i + 1) / duration));
+        const installmentAmount = baseAmount;
+        const payableAmount = installmentAmount - dividend;
+        
+        newMonthlyData.push({
+          monthNumber: i,
+          installmentAmount,
+          dividend,
+          payableAmount
+        });
+      }
+      
+      setManualMonthlyData(newMonthlyData);
+    }
+  };
+
+  const generateAutoMonthlyData = () => {
+    if (!newPlan.totalAmount || !newPlan.duration) return;
+    
+    const baseAmount = Math.round(newPlan.totalAmount / newPlan.duration);
+    const newMonthlyData = [];
+    
+    for (let i = 1; i <= newPlan.duration; i++) {
+      const dividend = Math.round((baseAmount * 0.3) * ((newPlan.duration - i + 1) / newPlan.duration));
+      const installmentAmount = baseAmount;
+      const payableAmount = installmentAmount - dividend;
+      
+      newMonthlyData.push({
+        monthNumber: i,
+        installmentAmount,
+        dividend,
+        payableAmount
+      });
+    }
+    
+    setManualMonthlyData(newMonthlyData);
   };
 
   const getPlanColor = (totalAmount: number) => {
@@ -440,77 +518,382 @@ export default function PlansPage() {
 
         {/* Create Plan Modal */}
         {showCreateModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-md w-full p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold">Create New Plan</h2>
-                <Button variant="ghost" size="sm" onClick={() => setShowCreateModal(false)}>
-                  <X className="h-4 w-4" />
-                </Button>
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+            <div className="bg-white rounded-lg max-w-6xl w-full max-h-[95vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white border-b p-6">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h2 className="text-2xl font-semibold text-slate-800">Create New Plan</h2>
+                    <p className="text-slate-600">Add a new ChitFund investment plan with custom or auto-generated amounts</p>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => {
+                    setShowCreateModal(false);
+                    setCreateMode('auto');
+                    setManualMonthlyData([]);
+                  }}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Plan Name</label>
-                  <Input
-                    placeholder="e.g., ₹3L Plan"
-                    value={newPlan.planName}
-                    onChange={(e) => setNewPlan({...newPlan, planName: e.target.value})}
-                  />
+              
+              <div className="p-6">
+                {/* Creation Mode Selection */}
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-slate-700 mb-4">Creation Mode</h3>
+                  <div className="flex gap-4">
+                    <Button
+                      variant={createMode === 'auto' ? 'default' : 'outline'}
+                      onClick={() => setCreateMode('auto')}
+                      className="flex-1"
+                    >
+                      Auto Generate
+                    </Button>
+                    <Button
+                      variant={createMode === 'manual' ? 'default' : 'outline'}
+                      onClick={() => {
+                        setCreateMode('manual');
+                        if (newPlan.totalAmount && newPlan.duration) {
+                          generateAutoMonthlyData();
+                        }
+                      }}
+                      className="flex-1"
+                    >
+                      Month-wise Custom
+                    </Button>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-2">
+                    {createMode === 'auto' ? 
+                      'Amounts will be automatically calculated with decreasing dividends' : 
+                      'Customize installment and dividend for each month individually'
+                    }
+                  </p>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Total Amount (₹)</label>
-                  <Input
-                    type="number"
-                    placeholder="e.g., 300000"
-                    value={newPlan.totalAmount || ''}
-                    onChange={(e) => setNewPlan({...newPlan, totalAmount: Number(e.target.value)})}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Duration (Months)</label>
-                  <Input
-                    type="number"
-                    value={newPlan.duration}
-                    onChange={(e) => setNewPlan({...newPlan, duration: Number(e.target.value)})}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Total Members</label>
+
+                {/* Basic Plan Details */}
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-slate-700 mb-4">Basic Details</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Plan Name *</label>
+                      <Input
+                        placeholder="e.g., ₹3L Plan"
+                        value={newPlan.planName}
+                        onChange={(e) => setNewPlan({...newPlan, planName: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Total Amount (₹) *</label>
+                      <Input
+                        type="number"
+                        placeholder="e.g., 300000"
+                        value={newPlan.totalAmount || ''}
+                        onChange={(e) => {
+                          const amount = Number(e.target.value);
+                          setNewPlan({...newPlan, totalAmount: amount});
+                          if (createMode === 'manual' && amount && newPlan.duration) {
+                            generateAutoMonthlyData();
+                          }
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Duration (Months) *</label>
+                      <Input
+                        type="number"
+                        value={newPlan.duration}
+                        onChange={(e) => handleDurationChange(Number(e.target.value))}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Total Members</label>
+                      <Input
+                        type="number"
+                        value={newPlan.totalMembers}
+                        onChange={(e) => setNewPlan({...newPlan, totalMembers: Number(e.target.value)})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Commission (%)</label>
+                      <Input
+                        type="number"
+                        value={newPlan.commissionRate}
+                        onChange={(e) => setNewPlan({...newPlan, commissionRate: Number(e.target.value)})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Processing Fee (₹)</label>
+                      <Input
+                        type="number"
+                        value={newPlan.processingFee}
+                        onChange={(e) => setNewPlan({...newPlan, processingFee: Number(e.target.value)})}
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                     <Input
-                      type="number"
-                      value={newPlan.totalMembers}
-                      onChange={(e) => setNewPlan({...newPlan, totalMembers: Number(e.target.value)})}
+                      placeholder="Plan description (optional)"
+                      value={newPlan.description}
+                      onChange={(e) => setNewPlan({...newPlan, description: e.target.value})}
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Commission (%)</label>
-                    <Input
-                      type="number"
-                      value={newPlan.commissionRate}
-                      onChange={(e) => setNewPlan({...newPlan, commissionRate: Number(e.target.value)})}
-                    />
+                </div>
+
+                {/* Month-wise Data Table (Only in Manual Mode) */}
+                {createMode === 'manual' && manualMonthlyData.length > 0 && (
+                  <div className="mb-6">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg font-semibold text-slate-700">Month-wise Amounts</h3>
+                      <Button
+                        variant="outline" 
+                        size="sm"
+                        onClick={generateAutoMonthlyData}
+                      >
+                        Reset to Auto-Generated
+                      </Button>
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded-lg overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Month</th>
+                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Installment (₹)</th>
+                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Dividend (₹)</th>
+                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Payable (₹)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {manualMonthlyData.map((month, index) => (
+                            <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-25'}>
+                              <td className="py-2 px-3 font-medium text-slate-600">
+                                Month {month.monthNumber}
+                              </td>
+                              <td className="py-2 px-3">
+                                <Input
+                                  type="number"
+                                  value={month.installmentAmount}
+                                  onChange={(e) => updateManualMonthlyData(index, 'installmentAmount', Number(e.target.value))}
+                                  className="w-28 text-sm"
+                                />
+                              </td>
+                              <td className="py-2 px-3">
+                                <Input
+                                  type="number"
+                                  value={month.dividend}
+                                  onChange={(e) => updateManualMonthlyData(index, 'dividend', Number(e.target.value))}
+                                  className="w-28 text-sm"
+                                />
+                              </td>
+                              <td className="py-2 px-3">
+                                <div className="w-28 text-sm py-2 px-3 bg-gray-100 rounded border">
+                                  ₹{month.payableAmount.toLocaleString('en-IN')}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="mt-4 text-sm text-gray-600 bg-blue-50 p-3 rounded">
+                      <strong>Note:</strong> Payable Amount is automatically calculated as Installment Amount - Dividend. 
+                      Edit installment or dividend amounts to adjust payables.
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                  <Input
-                    placeholder="Plan description (optional)"
-                    value={newPlan.description}
-                    onChange={(e) => setNewPlan({...newPlan, description: e.target.value})}
-                  />
-                </div>
-                <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded">
-                  <strong>Note:</strong> Monthly amounts will be automatically calculated with decreasing dividends. 
-                  You can edit individual months after creating the plan.
-                </div>
-                <div className="flex gap-3 pt-4">
-                  <Button onClick={handleCreatePlan} className="flex-1">
+                )}
+
+                {/* Auto Mode Preview */}
+                {createMode === 'auto' && newPlan.totalAmount && newPlan.duration && (
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-slate-700 mb-4">Preview (Auto-Generated)</h3>
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <span className="font-semibold">Average Monthly Installment:</span>
+                          <p className="text-lg font-bold text-blue-700">
+                            ₹{Math.round(newPlan.totalAmount / newPlan.duration).toLocaleString('en-IN')}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="font-semibold">Starting Dividend:</span>
+                          <p className="text-lg font-bold text-green-700">
+                            ₹{Math.round((Math.round(newPlan.totalAmount / newPlan.duration) * 0.4)).toLocaleString('en-IN')}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="font-semibold">Ending Dividend:</span>
+                          <p className="text-lg font-bold text-purple-700">
+                            ₹{Math.round((Math.round(newPlan.totalAmount / newPlan.duration) * 0.4) / newPlan.duration).toLocaleString('en-IN')}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-3">
+                        Dividends will decrease gradually each month. You can switch to "Month-wise Custom" for manual control.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex gap-3 justify-end border-t pt-4">
+                  <Button variant="outline" onClick={() => {
+                    setShowCreateModal(false);
+                    setCreateMode('auto');
+                    setManualMonthlyData([]);
+                  }}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleCreatePlan} 
+                    className="bg-green-600 hover:bg-green-700"
+                    disabled={!newPlan.planName || !newPlan.totalAmount || !newPlan.duration}
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Create Plan
                   </Button>
-                  <Button variant="outline" onClick={() => setShowCreateModal(false)} className="flex-1">
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Plan Modal */}
+        {showEditModal && editingPlan && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+            <div className="bg-white rounded-lg max-w-6xl w-full max-h-[95vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white border-b p-6">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h2 className="text-2xl font-semibold text-slate-800">Edit Plan: {editingPlan.planName}</h2>
+                    <p className="text-slate-600">Modify plan details and month-wise amounts</p>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => setShowEditModal(false)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="p-6">
+                {/* Basic Plan Details */}
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-slate-700 mb-4">Basic Details</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Plan Name</label>
+                      <Input
+                        value={editingPlan.planName}
+                        onChange={(e) => setEditingPlan({...editingPlan, planName: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Total Amount (₹)</label>
+                      <Input
+                        type="number"
+                        value={editingPlan.totalAmount}
+                        onChange={(e) => setEditingPlan({...editingPlan, totalAmount: Number(e.target.value)})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Duration (Months)</label>
+                      <Input
+                        type="number"
+                        value={editingPlan.duration}
+                        onChange={(e) => setEditingPlan({...editingPlan, duration: Number(e.target.value)})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Total Members</label>
+                      <Input
+                        type="number"
+                        value={editingPlan.totalMembers}
+                        onChange={(e) => setEditingPlan({...editingPlan, totalMembers: Number(e.target.value)})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Commission (%)</label>
+                      <Input
+                        type="number"
+                        value={editingPlan.commissionRate}
+                        onChange={(e) => setEditingPlan({...editingPlan, commissionRate: Number(e.target.value)})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Processing Fee (₹)</label>
+                      <Input
+                        type="number"
+                        value={editingPlan.processingFee}
+                        onChange={(e) => setEditingPlan({...editingPlan, processingFee: Number(e.target.value)})}
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <Input
+                      value={editingPlan.description || ''}
+                      onChange={(e) => setEditingPlan({...editingPlan, description: e.target.value})}
+                      placeholder="Plan description (optional)"
+                    />
+                  </div>
+                </div>
+
+                {/* Month-wise Data Table */}
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-slate-700 mb-4">Month-wise Amounts</h3>
+                  <div className="bg-slate-50 p-4 rounded-lg overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-2 px-3 font-semibold text-slate-700">Month</th>
+                          <th className="text-left py-2 px-3 font-semibold text-slate-700">Installment (₹)</th>
+                          <th className="text-left py-2 px-3 font-semibold text-slate-700">Dividend (₹)</th>
+                          <th className="text-left py-2 px-3 font-semibold text-slate-700">Payable (₹)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {editingPlan.monthlyData.map((month, index) => (
+                          <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-slate-25'}>
+                            <td className="py-2 px-3 font-medium text-slate-600">
+                              Month {month.monthNumber}
+                            </td>
+                            <td className="py-2 px-3">
+                              <Input
+                                type="number"
+                                value={month.installmentAmount}
+                                onChange={(e) => updateMonthlyData(index, 'installmentAmount', Number(e.target.value))}
+                                className="w-28 text-sm"
+                              />
+                            </td>
+                            <td className="py-2 px-3">
+                              <Input
+                                type="number"
+                                value={month.dividend}
+                                onChange={(e) => updateMonthlyData(index, 'dividend', Number(e.target.value))}
+                                className="w-28 text-sm"
+                              />
+                            </td>
+                            <td className="py-2 px-3">
+                              <div className="w-28 text-sm py-2 px-3 bg-gray-100 rounded border">
+                                ₹{month.payableAmount.toLocaleString('en-IN')}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="mt-4 text-sm text-gray-600 bg-blue-50 p-3 rounded">
+                    <strong>Note:</strong> Payable Amount is automatically calculated as Installment Amount - Dividend. 
+                    Edit installment or dividend amounts to adjust payables.
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3 justify-end border-t pt-4">
+                  <Button variant="outline" onClick={() => setShowEditModal(false)}>
                     Cancel
+                  </Button>
+                  <Button onClick={handleSavePlan} className="bg-blue-600 hover:bg-blue-700">
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Changes
                   </Button>
                 </div>
               </div>
