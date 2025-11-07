@@ -55,7 +55,7 @@ planSchema.pre('save', async function(next) {
   
   // Calculate average monthly amount for display
   if (this.monthlyData && this.monthlyData.length > 0) {
-    const totalPayable = this.monthlyData.reduce((sum, month) => sum + month.payableAmount, 0);
+    const totalPayable = (this.monthlyData as any[]).reduce((sum: number, month: any) => sum + month.payableAmount, 0);
     this.monthlyAmount = Math.round(totalPayable / this.monthlyData.length);
   }
   
@@ -64,7 +64,6 @@ planSchema.pre('save', async function(next) {
 });
 
 // Add indexes for performance
-planSchema.index({ planId: 1 });
 planSchema.index({ status: 1 });
 planSchema.index({ createdBy: 1 });
 

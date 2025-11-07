@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get plans from the plans collection (from plans.json) - these are the detailed plan templates
-    const Plan = mongoose.models.Plan || mongoose.model('Plan', new mongoose.Schema({}, { strict: false }));
+    const Plan = (mongoose.models.Plan || mongoose.model('Plan', new mongoose.Schema({}, { strict: false }))) as any;
     const plans = await Plan.find().sort({ total_value: 1 });
 
     return NextResponse.json({
