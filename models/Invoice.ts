@@ -95,9 +95,9 @@ InvoiceSchema.pre('save', async function(next) {
 
 // Calculate totals before saving
 InvoiceSchema.pre('save', function(next) {
-  this.subtotal = this.items.reduce((sum, item) => sum + item.amount, 0);
+  this.subtotal = (this.items as any[]).reduce((sum: number, item: any) => sum + item.amount, 0);
   this.totalAmount = this.subtotal + this.taxAmount + this.penaltyAmount;
   next();
 });
 
-export default mongoose.models.Invoice || mongoose.model('Invoice', InvoiceSchema);
+export default (mongoose.models.Invoice || mongoose.model('Invoice', InvoiceSchema)) as any;
