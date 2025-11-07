@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
     const savedEnrollment = await enrollment.save();
 
     // Create payment schedule using month-wise data
-    const payments = [];
+    const payments: any[] = [];
     const startDate = new Date();
     
     for (let i = 1; i <= plan.duration; i++) {
@@ -170,9 +170,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Member registration error:', error);
     return NextResponse.json(
-      { 
-        error: 'Failed to register member', 
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      {
+        error: 'Failed to register member',
+        details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : 'Unknown error') : 'Internal server error'
       },
       { status: 500 }
     );

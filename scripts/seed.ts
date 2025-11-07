@@ -78,7 +78,7 @@ async function seedDatabase() {
     await staff2.save();
     
     // Create demo customers
-    const customers = [];
+    const customers: any[] = [];
     for (let i = 1; i <= 10; i++) {
       const customer = new User({
         email: `user${i}@example.com`,
@@ -117,7 +117,7 @@ async function seedDatabase() {
     console.log('Creating chit plans...');
     
     // Create demo chit plans
-    const plans = [];
+    const plans: any[] = [];
     
     const plan1 = new ChitPlan({
       planName: 'Monthly Savings Plan - 50K',
@@ -176,7 +176,7 @@ async function seedDatabase() {
     console.log('Creating enrollments...');
     
     // Create demo enrollments
-    const enrollments = [];
+    const enrollments: any[] = [];
     
     // Enroll customers in different plans
     for (let i = 0; i < customers.length && i < 15; i++) {

@@ -59,11 +59,22 @@ const UserSchema = new mongoose.Schema({
 // Generate userId automatically
 UserSchema.pre('save', async function(next) {
   if (!this.userId) {
-    const count = await mongoose.model('User').countDocuments();
-    this.userId = `CF${String(count + 1).padStart(6, '0')}`;
+    // Find the highest existing userId and increment
+    const lastUser = await mongoose.model('User').findOne({}, { userId: 1 }).sort({ userId: -1 });
+    let nextNumber = 1;
+    
+    if (lastUser && lastUser.userId) {
+      // Extract number from userId (e.g., "CF000020" -> 20)
+      const match = lastUser.userId.match(/CF(\d+)/);
+      if (match) {
+        nextNumber = parseInt(match[1]) + 1;
+      }
+    }
+    
+    this.userId = `CF${String(nextNumber).padStart(6, '0')}`;
   }
   this.updatedAt = new Date();
   next();
 });
 
-export default mongoose.models.User || mongoose.model('User', UserSchema);
+export default (mongoose.models.User as any) || mongoose.model('User', UserSchema);

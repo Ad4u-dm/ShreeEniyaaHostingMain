@@ -146,9 +146,9 @@ const InvoiceTemplate2 = (data: InvoiceType) => {
                                             <span className="font-medium">Duration:</span> {details.selectedPlan.months} months
                                         </div>
                                         <div>
-                                            <span className="font-medium">Month {details.selectedPlan.selectedMonth} Details:</span>
+                                            <span className="font-medium">Month {details.selectedPlan?.selectedMonth} Details:</span>
                                             {(() => {
-                                                const monthData = details.selectedPlan.data.find(m => m.month_number === details.selectedPlan.selectedMonth);
+                                                const monthData = details.selectedPlan?.data?.find(m => m.month_number === details.selectedPlan?.selectedMonth);
                                                 return monthData ? (
                                                     <span className="ml-1">
                                                         Installment: ₹{formatNumberWithCommas(monthData.installment_amount)}, 

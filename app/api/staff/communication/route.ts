@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
           communicationType = 'sms'
         } = data;
 
-        let targetCustomers = [];
+        let targetCustomers: any[] = [];
 
         if (recipients === 'all-due') {
           // Get all customers with payments due today

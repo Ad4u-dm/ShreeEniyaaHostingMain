@@ -249,7 +249,7 @@ export default function PlansPage() {
     if (createMode === 'manual') {
       // Generate default monthly data structure when duration changes
       const baseAmount = newPlan.totalAmount > 0 ? Math.round(newPlan.totalAmount / duration) : 5000;
-      const newMonthlyData = [];
+      const newMonthlyData: any[] = [];
       
       for (let i = 1; i <= duration; i++) {
         const dividend = Math.round((baseAmount * 0.3) * ((duration - i + 1) / duration));
@@ -272,7 +272,7 @@ export default function PlansPage() {
     if (!newPlan.totalAmount || !newPlan.duration) return;
     
     const baseAmount = Math.round(newPlan.totalAmount / newPlan.duration);
-    const newMonthlyData = [];
+    const newMonthlyData: any[] = [];
     
     for (let i = 1; i <= newPlan.duration; i++) {
       const dividend = Math.round((baseAmount * 0.3) * ((newPlan.duration - i + 1) / newPlan.duration));

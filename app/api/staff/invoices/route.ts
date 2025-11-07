@@ -261,7 +261,7 @@ export async function PUT(request: NextRequest) {
           enrollmentId: invoice.enrollmentId,
           status: 'pending',
           installmentNumber: { 
-            $in: invoice.items.map(item => item.installmentNumber).filter(Boolean) 
+            $in: invoice.items.map((item: any) => item.installmentNumber).filter(Boolean) 
           }
         });
 

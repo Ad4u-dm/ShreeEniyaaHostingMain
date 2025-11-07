@@ -3,11 +3,11 @@ import connectDB from '@/lib/mongodb';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { customerId: string } }
+  { params }: { params: Promise<{ customerId: string }> }
 ) {
   try {
     const { status } = await request.json();
-    const { customerId } = params;
+    const { customerId } = await params;
     
     if (!status) {
       return NextResponse.json(

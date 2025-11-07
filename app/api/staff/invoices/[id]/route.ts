@@ -3,7 +3,7 @@ import connectDB from '@/lib/mongodb';
 import Invoice from '@/models/Invoice';
 import { getUserFromRequest, hasMinimumRole } from '@/lib/auth';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
     
@@ -12,7 +12,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const invoiceId = params.id;
+    const { id } = await params;
+    const invoiceId = id;
     const { searchParams } = new URL(request.url);
     const format = searchParams.get('format') || 'json'; // 'json', 'pdf', 'html'
 

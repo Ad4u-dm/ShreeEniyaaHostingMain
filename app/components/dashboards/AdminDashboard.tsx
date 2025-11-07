@@ -693,7 +693,7 @@ function CreatePlanModal({ onClose, onSuccess }: any) {
       const installment = parseInt(formData.installment_amount);
       const initialDividend = parseInt(formData.initial_dividend);
       
-      const monthlyData = [];
+      const monthlyData: any[] = [];
       for (let i = 1; i <= monthsCount; i++) {
         const dividend = Math.max(100, initialDividend - ((i - 1) * 100)); // Decreasing dividend
         const payableAmount = installment - (dividend * 0.04); // 4% reduction for dividend

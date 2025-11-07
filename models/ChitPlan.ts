@@ -52,4 +52,4 @@ ChitPlanSchema.pre('save', async function(next) {
   next();
 });
 
-export default mongoose.models.ChitPlan || mongoose.model('ChitPlan', ChitPlanSchema);
+export default (mongoose.models.ChitPlan || mongoose.model('ChitPlan', ChitPlanSchema)) as any;

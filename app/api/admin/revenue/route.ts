@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
+import connectDB from '@/lib/mongodb';
+import Payment from '@/models/Payment';
 
 export async function GET(request: NextRequest) {
   try {
-    const db = await connectToDatabase();
+    await connectDB();
     
     // Get current date info
     const now = new Date();
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
     const lastYearEnd = new Date(yearStart);
 
     // Aggregate revenue statistics
-    const revenueStats = await db.collection('payments').aggregate([
+    const revenueStats = await Payment.aggregate([
       {
         $match: {
           status: 'completed',
@@ -110,7 +111,7 @@ export async function GET(request: NextRequest) {
           }
         }
       }
-    ]).toArray();
+    ]);
 
     const stats = revenueStats[0] || {
       totalRevenue: 0,
@@ -139,7 +140,7 @@ export async function GET(request: NextRequest) {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const dailyRevenue = await db.collection('payments').aggregate([
+    const dailyRevenue = await Payment.aggregate([
       {
         $match: {
           status: 'completed',
@@ -158,10 +159,10 @@ export async function GET(request: NextRequest) {
       {
         $sort: { _id: 1 }
       }
-    ]).toArray();
+    ]);
 
     // Fill missing days with 0
-    const dailyData = [];
+    const dailyData: any[] = [];
     for (let i = 29; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
@@ -179,7 +180,7 @@ export async function GET(request: NextRequest) {
     const twelveMonthsAgo = new Date();
     twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
 
-    const monthlyRevenue = await db.collection('payments').aggregate([
+    const monthlyRevenue = await Payment.aggregate([
       {
         $match: {
           status: 'completed',
@@ -199,10 +200,10 @@ export async function GET(request: NextRequest) {
       {
         $sort: { '_id.year': 1, '_id.month': 1 }
       }
-    ]).toArray();
+    ]);
 
     // Fill missing months with 0
-    const monthlyData = [];
+    const monthlyData: any[] = [];
     for (let i = 11; i >= 0; i--) {
       const date = new Date();
       date.setMonth(date.getMonth() - i);
@@ -221,7 +222,7 @@ export async function GET(request: NextRequest) {
     const fiveYearsAgo = new Date();
     fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5);
 
-    const yearlyRevenue = await db.collection('payments').aggregate([
+    const yearlyRevenue = await Payment.aggregate([
       {
         $match: {
           status: 'completed',
@@ -238,10 +239,10 @@ export async function GET(request: NextRequest) {
       {
         $sort: { _id: 1 }
       }
-    ]).toArray();
+    ]);
 
     // Fill missing years with 0
-    const yearlyData = [];
+    const yearlyData: any[] = [];
     const currentYear = new Date().getFullYear();
     for (let i = 4; i >= 0; i--) {
       const year = currentYear - i;
@@ -254,7 +255,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get plan-wise revenue
-    const planWiseRevenue = await db.collection('payments').aggregate([
+    const planWiseRevenue = await Payment.aggregate([
       {
         $match: {
           status: 'completed'
@@ -286,10 +287,10 @@ export async function GET(request: NextRequest) {
       {
         $sort: { amount: -1 }
       }
-    ]).toArray();
+    ]);
 
     // Get payment method wise revenue
-    const paymentMethodRevenue = await db.collection('payments').aggregate([
+    const paymentMethodRevenue = await Payment.aggregate([
       {
         $match: {
           status: 'completed'
@@ -305,7 +306,7 @@ export async function GET(request: NextRequest) {
       {
         $sort: { amount: -1 }
       }
-    ]).toArray();
+    ]);
 
     // Calculate averages
     const averageDaily = stats.totalRevenue / Math.max(1, (Date.now() - new Date(yearStart).getTime()) / (1000 * 60 * 60 * 24));

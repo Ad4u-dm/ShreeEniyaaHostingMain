@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import getMongoURI from '@/lib/mongodb';
+import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const mongoURI = getMongoURI();
-    if (mongoose.connection.readyState === 0) {
-      await mongoose.connect(mongoURI);
-    }
+    await connectDB();
 
-    const user = await User.findById(params.id).select('-password');
+    const { id } = await params;
+    const user = await User.findById(id).select('-password');
     
     if (!user) {
       return NextResponse.json({ success: false, message: 'User not found' }, { status: 404 });
@@ -24,19 +22,17 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const mongoURI = getMongoURI();
-    if (mongoose.connection.readyState === 0) {
-      await mongoose.connect(mongoURI);
-    }
+    await connectDB();
 
+    const { id } = await params;
     const { name, email, phone, role } = await request.json();
 
     // Check if email is already taken by another user
     const existingUser = await User.findOne({ 
       email, 
-      _id: { $ne: params.id } 
+      _id: { $ne: id } 
     });
 
     if (existingUser) {
@@ -47,7 +43,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     const updatedUser = await User.findByIdAndUpdate(
-      params.id,
+      id,
       { 
         name: name?.trim(),
         email: email?.toLowerCase().trim(),
@@ -73,14 +69,12 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const mongoURI = getMongoURI();
-    if (mongoose.connection.readyState === 0) {
-      await mongoose.connect(mongoURI);
-    }
+    await connectDB();
 
-    const user = await User.findById(params.id);
+    const { id } = await params;
+    const user = await User.findById(id);
     
     if (!user) {
       return NextResponse.json({ success: false, message: 'User not found' }, { status: 404 });
@@ -94,7 +88,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       }, { status: 403 });
     }
 
-    await User.findByIdAndDelete(params.id);
+    await User.findByIdAndDelete(id);
 
     return NextResponse.json({ 
       success: true, 

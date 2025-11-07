@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get available plans from plans collection (from plans.json)
-    const Plan = mongoose.models.Plan || mongoose.model('Plan', new mongoose.Schema({}, { strict: false }));
+    const Plan = (mongoose.models.Plan || mongoose.model('Plan', new mongoose.Schema({}, { strict: false }))) as any;
     
     // Fetch basic dashboard data
     const totalUsers = await User.countDocuments({ role: 'user' });

@@ -102,7 +102,7 @@ export default function RevenuePage() {
     if (!revenueData) return;
     
     const csvData = revenueData[selectedPeriod].map(item => [
-      selectedPeriod === 'daily' ? item.date : 
+      selectedPeriod === 'daily' ? (item as any).date :
       selectedPeriod === 'monthly' ? (item as any).month : (item as any).year,
       item.amount,
       item.payments
@@ -301,7 +301,7 @@ export default function RevenuePage() {
                         ></div>
                         <div className="text-xs text-slate-500 text-center">
                           {selectedPeriod === 'daily' 
-                            ? new Date(item.date).getDate()
+                            ? new Date((item as any).date).getDate()
                             : selectedPeriod === 'monthly' 
                             ? (item as any).month 
                             : (item as any).year

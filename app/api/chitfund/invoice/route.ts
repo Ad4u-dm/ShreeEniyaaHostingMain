@@ -251,8 +251,8 @@ async function handleBulkCreate(staffId: string, options: any) {
       userId: { $in: customerIds }
     }).populate('userId planId');
 
-    const results = [];
-    const errors = [];
+    const results: any[] = [];
+    const errors: any[] = [];
 
     for (const enrollment of enrollments) {
       try {

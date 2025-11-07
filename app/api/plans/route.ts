@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import getMongoURI from '@/lib/mongodb';
+import connectDB from '@/lib/mongodb';
 import mongoose from 'mongoose';
 import Plan from '@/models/Plan';
 import { getUserFromRequest, hasMinimumRole } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
-    const mongoURI = getMongoURI();
-    if (mongoose.connection.readyState === 0) {
-      await mongoose.connect(mongoURI);
-    }
+    await connectDB();
 
     // Get plans from the plans collection using the new schema
     const plans = await Plan.find({ status: 'active' }).sort({ totalAmount: 1 });
@@ -30,10 +27,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const mongoURI = getMongoURI();
-    if (mongoose.connection.readyState === 0) {
-      await mongoose.connect(mongoURI);
-    }
+    await connectDB();
     
     const user = getUserFromRequest(request);
     if (!user || !hasMinimumRole(user, 'admin')) {

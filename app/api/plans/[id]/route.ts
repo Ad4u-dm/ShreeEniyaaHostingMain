@@ -4,14 +4,15 @@ import mongoose from 'mongoose';
 import Plan from '@/models/Plan';
 import { getUserFromRequest, hasMinimumRole } from '@/lib/auth';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/chitfund';
     if (mongoose.connection.readyState === 0) {
       await mongoose.connect(mongoURI);
     }
 
-    const plan = await Plan.findById(params.id);
+    const { id } = await params;
+    const plan = await Plan.findById(id);
     
     if (!plan) {
       return NextResponse.json({ success: false, message: 'Plan not found' }, { status: 404 });
@@ -24,13 +25,14 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/chitfund';
     if (mongoose.connection.readyState === 0) {
       await mongoose.connect(mongoURI);
     }
     
+    const { id } = await params;
     const user = getUserFromRequest(request);
     if (!user || !hasMinimumRole(user, 'admin')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -67,7 +69,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     const updatedPlan = await Plan.findByIdAndUpdate(
-      params.id,
+      id,
       {
         planName,
         planType: planType || 'monthly',
@@ -102,19 +104,20 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/chitfund';
     if (mongoose.connection.readyState === 0) {
       await mongoose.connect(mongoURI);
     }
     
+    const { id } = await params;
     const user = getUserFromRequest(request);
     if (!user || !hasMinimumRole(user, 'admin')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const plan = await Plan.findById(params.id);
+    const plan = await Plan.findById(id);
     
     if (!plan) {
       return NextResponse.json({ success: false, message: 'Plan not found' }, { status: 404 });

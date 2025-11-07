@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import getMongoURI from '@/lib/mongodb';
+import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
 export async function GET(request: NextRequest) {
   try {
-    const mongoURI = getMongoURI();
-    if (mongoose.connection.readyState === 0) {
-      await mongoose.connect(mongoURI);
-    }
+    await connectDB();
 
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || '';
@@ -64,10 +61,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const mongoURI = getMongoURI();
-    if (mongoose.connection.readyState === 0) {
-      await mongoose.connect(mongoURI);
-    }
+    await connectDB();
 
     const { name, email, phone, role, password } = await request.json();
 
