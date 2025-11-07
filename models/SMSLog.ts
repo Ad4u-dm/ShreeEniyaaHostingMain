@@ -59,4 +59,4 @@ SMSLogSchema.pre('save', async function(next) {
   next();
 });
 
-export default mongoose.models.SMSLog || mongoose.model('SMSLog', SMSLogSchema);
+export default (mongoose.models.SMSLog || mongoose.model('SMSLog', SMSLogSchema)) as any;
