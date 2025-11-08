@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
+import Invoice from '@/models/Invoice';
+import User from '@/models/User';
+import ChitPlan from '@/models/ChitPlan';
 
 export async function GET(
   request: NextRequest,
@@ -17,47 +20,61 @@ export async function GET(
       );
     }
 
-    // For now, return mock data since we don't have Invoice models defined
-    // In a real implementation, you would fetch from the database
-    const mockInvoice = {
-      _id: id,
-      invoiceNumber: `INV-${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`,
+    // Fetch real invoice from database with populated references
+    const invoice = await Invoice.findById(id)
+      .populate('customerId', 'name email phone address')
+      .populate('planId', 'planName totalAmount monthlyAmount duration')
+      .lean();
+
+    if (!invoice) {
+      return NextResponse.json(
+        { success: false, error: 'Invoice not found' },
+        { status: 404 }
+      );
+    }
+
+    // Process invoice to match expected format
+    const processedInvoice = {
+      _id: invoice._id,
+      invoiceNumber: invoice.invoiceNumber,
       customerId: {
-        _id: 'customer-1',
-        name: 'John Doe',
-        email: 'john.doe@example.com',
-        phone: '+91 9876543210',
-        address: '123 Main Street, City, State - 123456'
+        _id: invoice.customerId?._id,
+        name: invoice.customerId?.name || 'Unknown Customer',
+        email: invoice.customerId?.email || 'No email',
+        phone: invoice.customerId?.phone || 'No phone',
+        address: typeof invoice.customerId?.address === 'object'
+          ? `${invoice.customerId.address.street || ''}, ${invoice.customerId.address.city || ''}, ${invoice.customerId.address.state || ''} - ${invoice.customerId.address.pincode || ''}`.replace(/,\s*,/g, ',').replace(/^,\s*|,\s*$/g, '')
+          : invoice.customerId?.address || 'Address not provided'
       },
       planId: {
-        _id: 'plan-1',
-        name: '₹1L Plan',
-        monthlyAmount: 5000
+        _id: invoice.planId?._id,
+        name: invoice.planId?.planName || 'No Plan',
+        monthlyAmount: invoice.planId?.monthlyAmount || 0
       },
-      amount: 5000,
-      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      issueDate: new Date().toISOString(),
-      status: 'sent',
-      description: 'Monthly ChitFund Payment',
-      items: [
+      amount: invoice.amount || invoice.total || 0,
+      dueDate: invoice.dueDate,
+      issueDate: invoice.issueDate || invoice.createdAt,
+      status: invoice.status || 'draft',
+      description: invoice.description || `Payment for ${invoice.planId?.planName || 'Chit Fund'}`,
+      items: invoice.items || [
         {
-          description: 'Monthly ChitFund Contribution',
+          description: `Payment - ${invoice.planId?.planName || 'Chit Fund'}`,
           quantity: 1,
-          rate: 5000,
-          amount: 5000
+          rate: invoice.amount || invoice.total || 0,
+          amount: invoice.amount || invoice.total || 0
         }
       ],
-      subtotal: 5000,
-      tax: 0,
-      total: 5000,
-      paymentTerms: 'Net 30 days',
-      notes: 'Thank you for investing with Shri Iniya Chit Funds',
-      template: 1
+      subtotal: invoice.subtotal || invoice.amount || invoice.total || 0,
+      tax: invoice.tax || 0,
+      total: invoice.total || invoice.amount || 0,
+      paymentTerms: invoice.paymentTerms || 'Net 30 days',
+      notes: invoice.notes || 'Thank you for investing with Sri Sivanathan Chits',
+      template: invoice.template || 1
     };
 
     return NextResponse.json({
       success: true,
-      invoice: mockInvoice
+      invoice: processedInvoice
     });
 
   } catch (error) {

@@ -1,34 +1,89 @@
 import { NextRequest, NextResponse } from 'next/server';
+import connectDB from '@/lib/mongodb';
+import Payment from '@/models/Payment';
+import Invoice from '@/models/Invoice';
+import User from '@/models/User';
+import Enrollment from '@/models/Enrollment';
+import ChitPlan from '@/models/ChitPlan';
+import { getUserFromRequest } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
-    const { invoiceId } = await request.json();
+    await connectDB();
+    
+    const user = getUserFromRequest(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    // Mock invoice data (replace with actual DB call)
-    const invoiceData = {
-      _id: invoiceId,
-      invoiceNumber: `RCP${Date.now()}`,
-      issueDate: new Date().toISOString(),
-      customerId: {
-        _id: 'customer-1',
-        name: 'GOPALKRISHNAN A',
-        email: 'gopal@example.com',
-        phone: '+91 9876543210'
-      },
-      planId: {
-        _id: 'plan-1',
-        name: '₹1L Plan',
-        monthlyAmount: 1658
-      },
-      amount: 1658,
-      total: 1658,
-      enrollment: {
-        memberNumber: 2154
-      },
-      collectedBy: {
-        name: 'ADMIN'
+    const { invoiceId, paymentId } = await request.json();
+
+    let invoiceData;
+
+    if (paymentId) {
+      // Fetch payment data with populated references
+      const payment = await Payment.findOne({ paymentId })
+        .populate('userId', 'name email phone')
+        .populate('planId', 'planName totalAmount monthlyAmount duration')
+        .populate('enrollmentId', 'memberNumber enrollmentDate')
+        .lean();
+
+      if (!payment) {
+        return NextResponse.json({ error: 'Payment not found' }, { status: 404 });
       }
-    };
+
+      invoiceData = {
+        _id: payment._id,
+        invoiceNumber: payment.receiptNumber || `RCP${Date.now()}`,
+        issueDate: payment.paymentDate || new Date().toISOString(),
+        customerId: payment.userId,
+        planId: payment.planId,
+        amount: payment.amount,
+        total: payment.amount,
+        enrollment: payment.enrollmentId,
+        collectedBy: {
+          name: user.name || 'STAFF'
+        },
+        paymentType: payment.paymentType,
+        notes: payment.notes
+      };
+    } else if (invoiceId) {
+      // Fetch invoice data with populated references
+      const invoice = await Invoice.findById(invoiceId)
+        .populate('customerId', 'name email phone')
+        .populate('planId', 'planName totalAmount monthlyAmount duration')
+        .lean();
+
+      if (!invoice) {
+        return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
+      }
+
+      // Get enrollment info
+      const enrollment = await Enrollment.findOne({ 
+        userId: invoice.customerId._id,
+        planId: invoice.planId._id 
+      }).lean();
+
+      invoiceData = {
+        _id: invoice._id,
+        invoiceNumber: invoice.invoiceNumber || `INV${Date.now()}`,
+        issueDate: invoice.issueDate || new Date().toISOString(),
+        customerId: invoice.customerId,
+        planId: invoice.planId,
+        amount: invoice.amount,
+        total: invoice.total,
+        enrollment: enrollment,
+        collectedBy: {
+          name: user.name || 'STAFF'
+        }
+      };
+    } else {
+      return NextResponse.json({ error: 'Invoice ID or Payment ID required' }, { status: 400 });
+    }
+
+    if (!invoiceData) {
+      return NextResponse.json({ error: 'No data found' }, { status: 404 });
+    }
 
     let browser;
     let page;

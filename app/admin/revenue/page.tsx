@@ -50,48 +50,27 @@ export default function RevenuePage() {
       }
     } catch (error) {
       console.error('Failed to fetch revenue data:', error);
-      // Mock data for demonstration
+      
+      // Set empty state on error
       setRevenueData({
-        daily: Array.from({ length: 30 }, (_, i) => ({
-          date: new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          amount: Math.floor(Math.random() * 50000) + 10000,
-          payments: Math.floor(Math.random() * 20) + 3
-        })).reverse(),
-        monthly: Array.from({ length: 12 }, (_, i) => ({
-          month: new Date(2024, i).toLocaleString('en-IN', { month: 'short' }),
-          amount: Math.floor(Math.random() * 500000) + 200000,
-          payments: Math.floor(Math.random() * 200) + 50
-        })),
-        yearly: Array.from({ length: 5 }, (_, i) => ({
-          year: (2020 + i).toString(),
-          amount: Math.floor(Math.random() * 2000000) + 1000000,
-          payments: Math.floor(Math.random() * 2000) + 500
-        })),
+        daily: [],
+        monthly: [],
+        yearly: [],
         stats: {
-          todayRevenue: 25000,
-          monthlyRevenue: 450000,
-          yearlyRevenue: 5400000,
-          totalRevenue: 12500000,
-          averageDaily: 18500,
-          averageMonthly: 375000,
+          todayRevenue: 0,
+          monthlyRevenue: 0,
+          yearlyRevenue: 0,
+          totalRevenue: 0,
+          averageDaily: 0,
+          averageMonthly: 0,
           growth: {
-            daily: 12.5,
-            monthly: 8.3,
-            yearly: 15.7
+            daily: 0,
+            monthly: 0,
+            yearly: 0
           }
         },
-        planWise: [
-          { planName: '₹1L Plan', amount: 180000, count: 36 },
-          { planName: '₹2L Plan', amount: 160000, count: 16 },
-          { planName: '₹5L Plan', amount: 100000, count: 4 },
-          { planName: '₹10L Plan', amount: 90000, count: 2 }
-        ],
-        paymentMethods: [
-          { method: 'Cash', amount: 320000, count: 45 },
-          { method: 'Online', amount: 180000, count: 22 },
-          { method: 'Bank Transfer', amount: 120000, count: 15 },
-          { method: 'Cheque', amount: 80000, count: 8 }
-        ]
+        planWise: [],
+        paymentMethods: []
       });
     } finally {
       setLoading(false);

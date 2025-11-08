@@ -65,32 +65,16 @@ export default function UsersPage() {
       }
     } catch (error) {
       console.error('Failed to fetch customers:', error);
-      // Mock data for demonstration
-      const mockCustomers: Customer[] = Array.from({ length: 50 }, (_, i) => ({
-        _id: `customer-${i + 1}`,
-        name: `Customer ${i + 1}`,
-        email: `customer${i + 1}@example.com`,
-        phone: `+91 ${Math.floor(Math.random() * 9000000000) + 1000000000}`,
-        address: `Address ${i + 1}, City, State - ${Math.floor(Math.random() * 900000) + 100000}`,
-        planId: `plan-${Math.floor(Math.random() * 4) + 1}`,
-        planName: ['₹1L Plan', '₹2L Plan', '₹5L Plan', '₹10L Plan'][Math.floor(Math.random() * 4)],
-        joinDate: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString(),
-        status: ['active', 'inactive', 'suspended'][Math.floor(Math.random() * 3)] as any,
-        totalPaid: Math.floor(Math.random() * 500000) + 50000,
-        pendingAmount: Math.floor(Math.random() * 50000),
-        lastPayment: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-        nextDue: new Date(Date.now() + Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-        paymentHistory: Math.floor(Math.random() * 24) + 1
-      }));
-
-      setCustomers(mockCustomers);
+      
+      // Set empty state on error
+      setCustomers([]);
       setStats({
-        totalUsers: mockCustomers.length,
-        activeUsers: mockCustomers.filter(c => c.status === 'active').length,
-        inactiveUsers: mockCustomers.filter(c => c.status === 'inactive').length,
-        suspendedUsers: mockCustomers.filter(c => c.status === 'suspended').length,
-        newUsersThisMonth: Math.floor(mockCustomers.length * 0.2),
-        totalRevenue: mockCustomers.reduce((sum, c) => sum + c.totalPaid, 0)
+        totalUsers: 0,
+        activeUsers: 0,
+        inactiveUsers: 0,
+        suspendedUsers: 0,
+        newUsersThisMonth: 0,
+        totalRevenue: 0
       });
     } finally {
       setLoading(false);

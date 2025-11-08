@@ -74,13 +74,7 @@ export default function CreateInvoicePage() {
       }
     } catch (error) {
       console.error('Failed to fetch customers:', error);
-      // Mock data
-      setCustomers(Array.from({ length: 20 }, (_, i) => ({
-        _id: `customer-${i + 1}`,
-        name: `Customer ${i + 1}`,
-        email: `customer${i + 1}@example.com`,
-        phone: `+91 ${Math.floor(Math.random() * 9000000000) + 1000000000}`
-      })));
+      setCustomers([]);
     }
   };
 
@@ -93,13 +87,7 @@ export default function CreateInvoicePage() {
       }
     } catch (error) {
       console.error('Failed to fetch plans:', error);
-      // Mock data
-      setPlans([
-        { _id: 'plan-1', planName: '₹1L ChitFund Plan', monthlyAmount: 5000 },
-        { _id: 'plan-2', planName: '₹2L ChitFund Plan', monthlyAmount: 10000 },
-        { _id: 'plan-3', planName: '₹5L ChitFund Plan', monthlyAmount: 25000 },
-        { _id: 'plan-4', planName: '₹10L ChitFund Plan', monthlyAmount: 50000 }
-      ]);
+      setPlans([]);
     }
   };
 

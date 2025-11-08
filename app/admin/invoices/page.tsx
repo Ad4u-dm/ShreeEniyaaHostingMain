@@ -86,50 +86,17 @@ export default function InvoicesPage() {
     } catch (error) {
       console.error('Failed to fetch invoices:', error);
       
-      // Mock data for demonstration
-      const mockInvoices: Invoice[] = Array.from({ length: 50 }, (_, i) => ({
-        _id: `invoice-${i + 1}`,
-        invoiceNumber: `INV-${String(i + 1).padStart(4, '0')}`,
-        customerId: {
-          _id: `customer-${i + 1}`,
-          name: `Customer ${i + 1}`,
-          email: `customer${i + 1}@example.com`,
-          phone: `+91 ${Math.floor(Math.random() * 9000000000) + 1000000000}`
-        },
-        planId: {
-          _id: `plan-${Math.floor(Math.random() * 4) + 1}`,
-          name: ['₹1L Plan', '₹2L Plan', '₹5L Plan', '₹10L Plan'][Math.floor(Math.random() * 4)],
-          monthlyAmount: [5000, 10000, 25000, 50000][Math.floor(Math.random() * 4)]
-        },
-        amount: [5000, 10000, 25000, 50000][Math.floor(Math.random() * 4)],
-        dueDate: new Date(Date.now() + Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-        issueDate: new Date(Date.now() - Math.random() * 10 * 24 * 60 * 60 * 1000).toISOString(),
-        status: ['draft', 'sent', 'paid', 'overdue', 'cancelled'][Math.floor(Math.random() * 5)] as any,
-        description: `Monthly payment for ${['₹1L Plan', '₹2L Plan', '₹5L Plan', '₹10L Plan'][Math.floor(Math.random() * 4)]}`,
-        items: [{
-          description: `Monthly Payment - ${['₹1L Plan', '₹2L Plan', '₹5L Plan', '₹10L Plan'][Math.floor(Math.random() * 4)]}`,
-          quantity: 1,
-          rate: [5000, 10000, 25000, 50000][Math.floor(Math.random() * 4)],
-          amount: [5000, 10000, 25000, 50000][Math.floor(Math.random() * 4)]
-        }],
-        subtotal: [5000, 10000, 25000, 50000][Math.floor(Math.random() * 4)],
-        tax: 0,
-        total: [5000, 10000, 25000, 50000][Math.floor(Math.random() * 4)],
-        paymentTerms: '30 days',
-        notes: 'Thank you for your business!',
-        template: Math.floor(Math.random() * 2) + 1
-      }));
-
-      setInvoices(mockInvoices);
+      // Set empty state on error
+      setInvoices([]);
       setStats({
-        totalInvoices: mockInvoices.length,
-        draftInvoices: mockInvoices.filter(inv => inv.status === 'draft').length,
-        sentInvoices: mockInvoices.filter(inv => inv.status === 'sent').length,
-        paidInvoices: mockInvoices.filter(inv => inv.status === 'paid').length,
-        overdueInvoices: mockInvoices.filter(inv => inv.status === 'overdue').length,
-        totalAmount: mockInvoices.reduce((sum, inv) => sum + inv.total, 0),
-        paidAmount: mockInvoices.filter(inv => inv.status === 'paid').reduce((sum, inv) => sum + inv.total, 0),
-        overdueAmount: mockInvoices.filter(inv => inv.status === 'overdue').reduce((sum, inv) => sum + inv.total, 0)
+        totalInvoices: 0,
+        draftInvoices: 0,
+        sentInvoices: 0,
+        paidInvoices: 0,
+        overdueInvoices: 0,
+        totalAmount: 0,
+        paidAmount: 0,
+        overdueAmount: 0
       });
     } finally {
       setLoading(false);

@@ -189,62 +189,62 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
       <div className="info-row">
         <span className="info-label">Member No</span>
         <span className="info-colon">:</span>
-        <span className="info-value">{invoice.enrollment?.memberNumber || 'SNKR24218-14'}</span>
+        <span className="info-value">{invoice.enrollment?.memberNumber || `M${Date.now().toString().slice(-6)}`}</span>
       </div>
       
       <div className="info-row">
         <span className="info-label">Member Name</span>
         <span className="info-colon">:</span>
-        <span className="info-value">{invoice.customerId?.name || invoice.customer?.name || 'GOPALKRISHNAN A'}</span>
+        <span className="info-value">{invoice.customerId?.name || invoice.customer?.name || 'N/A'}</span>
       </div>
       
       <div className="info-row">
         <span className="info-label">Due No</span>
         <span className="info-colon">:</span>
-        <span className="info-value">14</span>
+        <span className="info-value">{invoice.dueNumber || Math.ceil(Math.random() * 20)}</span>
       </div>
       
       <div className="amount-row">
         <span className="amount-label">Due Amount</span>
         <span className="amount-colon">:</span>
-        <span className="amount-value">{(invoice.planId?.monthlyAmount || invoice.amount || 9100).toLocaleString('en-IN')}</span>
+        <span className="amount-value">{(invoice.planId?.monthlyAmount || invoice.amount || 0).toLocaleString('en-IN')}</span>
       </div>
       
       <div className="amount-row">
         <span className="amount-label">Arrear Amount</span>
         <span className="amount-colon">:</span>
-        <span className="amount-value">0</span>
+        <span className="amount-value">{(invoice.arrearAmount || 0).toLocaleString('en-IN')}</span>
       </div>
       
       <div className="amount-row">
         <span className="amount-label">Pending Amount</span>
         <span className="amount-colon">:</span>
-        <span className="amount-value">{(invoice.planId?.monthlyAmount || invoice.amount || 9100).toLocaleString('en-IN')}</span>
+        <span className="amount-value">{((invoice.planId?.monthlyAmount || 0) - (invoice.total || invoice.amount || 0) + (invoice.arrearAmount || 0)).toLocaleString('en-IN')}</span>
       </div>
       
       <div className="amount-row">
         <span className="amount-label">Received Amount</span>
         <span className="amount-colon">:</span>
-        <span className="amount-value">{invoice.total || invoice.amount || 300}</span>
+        <span className="amount-value">{(invoice.total || invoice.amount || 0).toLocaleString('en-IN')}</span>
       </div>
       
       <div className="amount-row">
-        <span className="amount-label">Balance Amount</span>
-        <span className="amount-colon">:</span>
-        <span className="amount-value">{((invoice.planId?.monthlyAmount || 9100) - (invoice.total || invoice.amount || 300)).toLocaleString('en-IN')}</span>
+        <span className="info-label">Balance Amount</span>
+        <span className="info-colon">:</span>
+        <span className="amount-value">{Math.max(0, (invoice.planId?.monthlyAmount || 0) - (invoice.total || invoice.amount || 0) + (invoice.arrearAmount || 0)).toLocaleString('en-IN')}</span>
       </div>
       
       <div className="total-section">
         <div className="amount-row" style={{ fontWeight: 'bold' }}>
           <span className="amount-label">Total Received Amount</span>
           <span className="amount-colon">:</span>
-          <span className="amount-value">{invoice.total || invoice.amount || 300}</span>
+          <span className="amount-value">{(invoice.total || invoice.amount || 0).toLocaleString('en-IN')}</span>
         </div>
       </div>
       
       <div className="footer-user">
         <span>User</span>
-        <span>: {invoice.collectedBy?.name || 'SANJAY S'}</span>
+        <span>: {invoice.collectedBy?.name || 'STAFF'}</span>
       </div>
       
       <div className="footer-enquiry">For Any Enquiry</div>

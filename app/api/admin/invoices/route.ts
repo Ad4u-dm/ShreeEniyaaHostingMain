@@ -1,61 +1,87 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
+import Invoice from '@/models/Invoice';
+import User from '@/models/User';
+import ChitPlan from '@/models/ChitPlan';
+import { getUserFromRequest, hasMinimumRole } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
     
-    // Generate mock invoice data
-    const mockInvoices = Array.from({ length: 50 }, (_, i) => ({
-      _id: `invoice-${i + 1}`,
-      invoiceNumber: `INV-${String(i + 1).padStart(4, '0')}`,
-      customerId: {
-        _id: `customer-${i + 1}`,
-        name: `Customer ${i + 1}`,
-        email: `customer${i + 1}@example.com`,
-        phone: `+91 ${Math.floor(Math.random() * 9000000000) + 1000000000}`
-      },
-      planId: {
-        _id: `plan-${Math.floor(Math.random() * 4) + 1}`,
-        name: ['₹1L Plan', '₹2L Plan', '₹5L Plan', '₹10L Plan'][Math.floor(Math.random() * 4)],
-        monthlyAmount: [5000, 10000, 25000, 50000][Math.floor(Math.random() * 4)]
-      },
-      amount: [5000, 10000, 25000, 50000][Math.floor(Math.random() * 4)],
-      dueDate: new Date(Date.now() + Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-      issueDate: new Date(Date.now() - Math.random() * 10 * 24 * 60 * 60 * 1000).toISOString(),
-      status: ['draft', 'sent', 'paid', 'overdue', 'cancelled'][Math.floor(Math.random() * 5)],
-      description: `Monthly payment for ${['₹1L Plan', '₹2L Plan', '₹5L Plan', '₹10L Plan'][Math.floor(Math.random() * 4)]}`,
-      items: [{
-        description: `Monthly Payment - ${['₹1L Plan', '₹2L Plan', '₹5L Plan', '₹10L Plan'][Math.floor(Math.random() * 4)]}`,
-        quantity: 1,
-        rate: [5000, 10000, 25000, 50000][Math.floor(Math.random() * 4)],
-        amount: [5000, 10000, 25000, 50000][Math.floor(Math.random() * 4)]
-      }],
-      subtotal: [5000, 10000, 25000, 50000][Math.floor(Math.random() * 4)],
-      tax: 0,
-      total: [5000, 10000, 25000, 50000][Math.floor(Math.random() * 4)],
-      paymentTerms: '30 days',
-      notes: 'Thank you for your business!',
-      template: Math.floor(Math.random() * 2) + 1,
-      createdAt: new Date(Date.now() - Math.random() * 60 * 24 * 60 * 60 * 1000).toISOString(),
-      updatedAt: new Date().toISOString()
-    }));
+    const user = getUserFromRequest(request);
+    if (!user || !hasMinimumRole(user, 'admin')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    // Calculate statistics
+    // Fetch real invoices with populated customer and plan data
+    const invoices = await Invoice.find({})
+      .populate('customerId', 'name email phone')
+      .populate('planId', 'planName totalAmount monthlyAmount duration')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Process invoices to match expected format
+    const processedInvoices = invoices.map(invoice => {
+      // Determine status based on due date and payment status
+      let status = invoice.status || 'draft';
+      if (invoice.dueDate && new Date(invoice.dueDate) < new Date() && status !== 'paid') {
+        status = 'overdue';
+      }
+
+      return {
+        _id: invoice._id,
+        invoiceNumber: invoice.invoiceNumber,
+        customerId: {
+          _id: invoice.customerId?._id,
+          name: invoice.customerId?.name || 'Unknown Customer',
+          email: invoice.customerId?.email || 'No email',
+          phone: invoice.customerId?.phone || 'No phone'
+        },
+        planId: {
+          _id: invoice.planId?._id,
+          name: invoice.planId?.planName || 'No Plan',
+          monthlyAmount: invoice.planId?.monthlyAmount || 0
+        },
+        amount: invoice.amount || invoice.total || 0,
+        dueDate: invoice.dueDate,
+        issueDate: invoice.issueDate || invoice.createdAt,
+        status,
+        description: invoice.description || `Payment for ${invoice.planId?.planName || 'Chit Fund'}`,
+        items: invoice.items || [{
+          description: `Payment - ${invoice.planId?.planName || 'Chit Fund'}`,
+          quantity: 1,
+          rate: invoice.amount || invoice.total || 0,
+          amount: invoice.amount || invoice.total || 0
+        }],
+        subtotal: invoice.subtotal || invoice.amount || invoice.total || 0,
+        tax: invoice.tax || 0,
+        total: invoice.total || invoice.amount || 0,
+        paymentTerms: invoice.paymentTerms || '30 days',
+        notes: invoice.notes || 'Thank you for your business!',
+        template: invoice.template || 1,
+        createdAt: invoice.createdAt,
+        updatedAt: invoice.updatedAt
+      };
+    });
+
+    // Calculate statistics from real data
+    const currentDate = new Date();
     const stats = {
-      totalInvoices: mockInvoices.length,
-      draftInvoices: mockInvoices.filter(inv => inv.status === 'draft').length,
-      sentInvoices: mockInvoices.filter(inv => inv.status === 'sent').length,
-      paidInvoices: mockInvoices.filter(inv => inv.status === 'paid').length,
-      overdueInvoices: mockInvoices.filter(inv => inv.status === 'overdue').length,
-      totalAmount: mockInvoices.reduce((sum, inv) => sum + inv.total, 0),
-      paidAmount: mockInvoices.filter(inv => inv.status === 'paid').reduce((sum, inv) => sum + inv.total, 0),
-      overdueAmount: mockInvoices.filter(inv => inv.status === 'overdue').reduce((sum, inv) => sum + inv.total, 0)
+      totalInvoices: processedInvoices.length,
+      draftInvoices: processedInvoices.filter(inv => inv.status === 'draft').length,
+      sentInvoices: processedInvoices.filter(inv => inv.status === 'sent').length,
+      paidInvoices: processedInvoices.filter(inv => inv.status === 'paid').length,
+      overdueInvoices: processedInvoices.filter(inv => inv.status === 'overdue').length,
+      cancelledInvoices: processedInvoices.filter(inv => inv.status === 'cancelled').length,
+      totalAmount: processedInvoices.reduce((sum, inv) => sum + inv.total, 0),
+      paidAmount: processedInvoices.filter(inv => inv.status === 'paid').reduce((sum, inv) => sum + inv.total, 0),
+      overdueAmount: processedInvoices.filter(inv => inv.status === 'overdue').reduce((sum, inv) => sum + inv.total, 0)
     };
 
     return NextResponse.json({
       success: true,
-      invoices: mockInvoices,
+      invoices: processedInvoices,
       stats
     });
 
@@ -78,20 +104,33 @@ export async function POST(request: NextRequest) {
     
     await connectDB();
     
-    // In a real implementation, you would save to database
-    // For now, return success with mock data
+    // Generate invoice number
+    const latestInvoice = await Invoice.findOne({}, {}, { sort: { 'invoiceNumber': -1 } });
+    let invoiceNumber = 'INV-0001';
     
-    const newInvoice = {
-      _id: `invoice-${Date.now()}`,
-      invoiceNumber: `INV-${String(Math.floor(Math.random() * 9999) + 1).padStart(4, '0')}`,
+    if (latestInvoice && latestInvoice.invoiceNumber) {
+      const lastNumber = parseInt(latestInvoice.invoiceNumber.split('-')[1]) || 0;
+      invoiceNumber = `INV-${String(lastNumber + 1).padStart(4, '0')}`;
+    }
+    
+    // Create new invoice in database
+    const newInvoice = new Invoice({
       ...invoiceData,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
+      invoiceNumber,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+    
+    await newInvoice.save();
+    
+    // Populate references for response
+    const populatedInvoice = await Invoice.findById(newInvoice._id)
+      .populate('customerId', 'name email phone')
+      .populate('planId', 'planName monthlyAmount');
 
     return NextResponse.json({
       success: true,
-      invoice: newInvoice,
+      invoice: populatedInvoice,
       message: 'Invoice created successfully'
     });
 
