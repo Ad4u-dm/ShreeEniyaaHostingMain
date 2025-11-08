@@ -49,7 +49,7 @@ const UserSchema = new mongoose.Schema({
   
   // Additional profile fields
   isActive: { type: Boolean, default: true },
-  createdBy: { type: String, ref: 'User' }, // Staff who created this customer
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Staff/Admin who created this user
   
   // Timestamps
   createdAt: { type: Date, default: Date.now },

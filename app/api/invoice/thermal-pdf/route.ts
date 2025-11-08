@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
         preferCSSPageSize: true
       });
 
-      return new Response(Buffer.from(pdf), {
+      return new Response(pdf, {
         headers: {
           'Content-Type': 'application/pdf',
           'Content-Disposition': `attachment; filename="thermal-receipt-${invoiceId}.pdf"`

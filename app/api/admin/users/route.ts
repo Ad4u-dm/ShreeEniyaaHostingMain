@@ -5,6 +5,7 @@ import Enrollment from '@/models/Enrollment';
 import Payment from '@/models/Payment';
 import ChitPlan from '@/models/ChitPlan';
 import { getUserFromRequest, hasMinimumRole } from '@/lib/auth';
+import mongoose from 'mongoose';
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,8 +18,31 @@ export async function GET(request: NextRequest) {
 
     // Fetch all users with their enrollment and payment data
     const users = await User.find({})
-      .select('name email phone address role createdAt updatedAt')
+      .select('name email phone address role createdAt updatedAt createdBy')
       .lean();
+
+    // Manually populate createdBy to handle mixed data types (ObjectId vs string)
+    const populatedUsers = await Promise.all(users.map(async (user) => {
+      if (user.createdBy) {
+        try {
+          let creator = null;
+          
+          // Check if createdBy is a valid ObjectId
+          if (mongoose.Types.ObjectId.isValid(user.createdBy)) {
+            creator = await User.findById(user.createdBy).select('name role').lean();
+          } else {
+            // If not ObjectId, try to find by userId
+            creator = await User.findOne({ userId: user.createdBy }).select('name role').lean();
+          }
+          
+          user.createdBy = creator;
+        } catch (error) {
+          // If population fails, set to null
+          user.createdBy = null;
+        }
+      }
+      return user;
+    }));
 
     // Get enrollments for all users
     const enrollments = await Enrollment.find({})
@@ -32,7 +56,7 @@ export async function GET(request: NextRequest) {
       .lean();
 
     // Process data to create customer objects with statistics
-    const customers = await Promise.all(users.map(async (userData) => {
+    const customers = await Promise.all(populatedUsers.map(async (userData) => {
       const userEnrollments = enrollments.filter(e => 
         e.userId && e.userId._id.toString() === userData._id.toString()
       );
@@ -49,7 +73,13 @@ export async function GET(request: NextRequest) {
       const activeEnrollment = userEnrollments.find(e => e.status === 'active');
       const planName = activeEnrollment?.planId?.planName || 'No Plan';
       const monthlyAmount = activeEnrollment?.planId?.monthlyAmount || 0;
-      const pendingAmount = monthlyAmount > 0 ? Math.max(0, monthlyAmount - (lastPayment?.amount || 0)) : 0;
+      
+      // Calculate pending amount based on plan duration and payments made
+      let pendingAmount = 0;
+      if (activeEnrollment && activeEnrollment.planId) {
+        const totalPlanAmount = activeEnrollment.planId.totalAmount || 0;
+        pendingAmount = Math.max(0, totalPlanAmount - totalPaid);
+      }
 
       // Calculate next due date (30 days from last payment or enrollment date)
       const referenceDate = lastPayment?.paymentDate || activeEnrollment?.enrollmentDate || userData.createdAt;
@@ -72,7 +102,12 @@ export async function GET(request: NextRequest) {
         lastPayment: lastPayment?.paymentDate || null,
         nextDue: nextDue.toISOString(),
         paymentHistory: userPayments.length,
-        role: userData.role
+        role: userData.role,
+        createdBy: userData.createdBy ? {
+          _id: userData.createdBy._id,
+          name: userData.createdBy.name,
+          role: userData.createdBy.role
+        } : { name: 'Admin', role: 'admin' } // Default for users without createdBy
       };
     }));
 
@@ -101,6 +136,72 @@ export async function GET(request: NextRequest) {
       { 
         success: false, 
         error: 'Failed to fetch users data' 
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// Update user information
+export async function PUT(request: NextRequest) {
+  try {
+    await connectDB();
+    
+    const user = getUserFromRequest(request);
+    if (!user || !hasMinimumRole(user, 'admin')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { userId, userData } = await request.json();
+    
+    if (!userId || !userData) {
+      return NextResponse.json(
+        { success: false, error: 'User ID and user data are required' },
+        { status: 400 }
+      );
+    }
+
+    // Update user in database
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { 
+        ...userData,
+        updatedAt: new Date()
+      },
+      { new: true }
+    ).populate('createdBy', 'name role');
+
+    if (!updatedUser) {
+      return NextResponse.json(
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'User updated successfully',
+      user: {
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        phone: updatedUser.phone,
+        address: updatedUser.address,
+        role: updatedUser.role,
+        createdBy: updatedUser.createdBy ? {
+          _id: updatedUser.createdBy._id,
+          name: updatedUser.createdBy.name,
+          role: updatedUser.createdBy.role
+        } : { name: 'Admin', role: 'admin' }
+      }
+    });
+
+  } catch (error) {
+    console.error('Update user error:', error);
+    return NextResponse.json(
+      { 
+        success: false, 
+        error: 'Failed to update user' 
       },
       { status: 500 }
     );

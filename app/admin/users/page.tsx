@@ -22,6 +22,11 @@ interface Customer {
   lastPayment: string;
   nextDue: string;
   paymentHistory: number;
+  createdBy?: {
+    _id: string;
+    name: string;
+    role: string;
+  };
 }
 
 interface UserStats {
@@ -41,6 +46,8 @@ export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'suspended'>('all');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editFormData, setEditFormData] = useState<any>({});
 
   useEffect(() => {
     fetchCustomers();
@@ -120,6 +127,52 @@ export default function UsersPage() {
     } catch (error) {
       console.error('Failed to update customer status:', error);
     }
+  };
+
+  const updateUser = async (userId: string, userData: any) => {
+    try {
+      const response = await fetch('/api/admin/users', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId, userData }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        // Refresh the customers list
+        fetchCustomers();
+        setIsEditing(false);
+        setSelectedCustomer(null);
+        return result;
+      } else {
+        console.error('Failed to update user');
+      }
+    } catch (error) {
+      console.error('Failed to update user:', error);
+    }
+  };
+
+  const handleEditUser = (customer: Customer) => {
+    setEditFormData({
+      name: customer.name,
+      email: customer.email,
+      phone: customer.phone,
+      address: customer.address
+    });
+    setIsEditing(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (selectedCustomer) {
+      updateUser(selectedCustomer._id, editFormData);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditFormData({});
   };
 
   const getStatusColor = (status: string) => {
@@ -399,12 +452,41 @@ export default function UsersPage() {
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-2xl font-bold text-slate-800">Customer Details</h2>
-                  <Button
-                    variant="outline"
-                    onClick={() => setSelectedCustomer(null)}
-                  >
-                    Close
-                  </Button>
+                  <div className="flex gap-2">
+                    {!isEditing ? (
+                      <Button
+                        variant="outline"
+                        onClick={() => handleEditUser(selectedCustomer)}
+                      >
+                        Edit
+                      </Button>
+                    ) : (
+                      <>
+                        <Button
+                          variant="outline"
+                          onClick={handleSaveEdit}
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={handleCancelEdit}
+                        >
+                          Cancel
+                        </Button>
+                      </>
+                    )}
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedCustomer(null);
+                        setIsEditing(false);
+                        setEditFormData({});
+                      }}
+                    >
+                      Close
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -413,19 +495,52 @@ export default function UsersPage() {
                     <div className="space-y-3">
                       <div>
                         <label className="text-sm text-slate-600">Name</label>
-                        <p className="font-medium">{selectedCustomer.name}</p>
+                        {isEditing ? (
+                          <Input
+                            value={editFormData.name || ''}
+                            onChange={(e) => setEditFormData({...editFormData, name: e.target.value})}
+                            className="mt-1"
+                          />
+                        ) : (
+                          <p className="font-medium">{selectedCustomer.name}</p>
+                        )}
                       </div>
                       <div>
                         <label className="text-sm text-slate-600">Email</label>
-                        <p className="font-medium">{selectedCustomer.email}</p>
+                        {isEditing ? (
+                          <Input
+                            value={editFormData.email || ''}
+                            onChange={(e) => setEditFormData({...editFormData, email: e.target.value})}
+                            className="mt-1"
+                            type="email"
+                          />
+                        ) : (
+                          <p className="font-medium">{selectedCustomer.email}</p>
+                        )}
                       </div>
                       <div>
                         <label className="text-sm text-slate-600">Phone</label>
-                        <p className="font-medium">{selectedCustomer.phone}</p>
+                        {isEditing ? (
+                          <Input
+                            value={editFormData.phone || ''}
+                            onChange={(e) => setEditFormData({...editFormData, phone: e.target.value})}
+                            className="mt-1"
+                          />
+                        ) : (
+                          <p className="font-medium">{selectedCustomer.phone}</p>
+                        )}
                       </div>
                       <div>
                         <label className="text-sm text-slate-600">Address</label>
-                        <p className="font-medium">{selectedCustomer.address}</p>
+                        {isEditing ? (
+                          <Input
+                            value={editFormData.address || ''}
+                            onChange={(e) => setEditFormData({...editFormData, address: e.target.value})}
+                            className="mt-1"
+                          />
+                        ) : (
+                          <p className="font-medium">{selectedCustomer.address}</p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -461,6 +576,12 @@ export default function UsersPage() {
                       <div>
                         <label className="text-sm text-slate-600">Payment History</label>
                         <p className="font-medium">{selectedCustomer.paymentHistory} payments made</p>
+                      </div>
+                      <div>
+                        <label className="text-sm text-slate-600">Created By</label>
+                        <p className="font-medium">
+                          {selectedCustomer.createdBy?.name || 'Admin'} ({selectedCustomer.createdBy?.role || 'admin'})
+                        </p>
                       </div>
                     </div>
                   </div>

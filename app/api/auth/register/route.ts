@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
-import { hashPassword } from '@/lib/auth';
+import { hashPassword, getUserFromRequest } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,6 +21,9 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await hashPassword(password);
     
+    // Get the creator (admin/staff) if request is authenticated
+    const creator = getUserFromRequest(request);
+    
     // Create user
     const user = new User({
       email,
@@ -28,7 +31,8 @@ export async function POST(request: NextRequest) {
       name,
       phone,
       role,
-      address
+      address,
+      createdBy: creator?.userId || null // Set creator if authenticated, null for self-registration
     });
     
     await user.save();
