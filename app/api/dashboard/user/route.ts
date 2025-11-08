@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Enrollment from '@/models/Enrollment';
+import ChitPlan from '@/models/ChitPlan';
 import Payment from '@/models/Payment';
+import User from '@/models/User';
 import { getUserFromRequest } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {

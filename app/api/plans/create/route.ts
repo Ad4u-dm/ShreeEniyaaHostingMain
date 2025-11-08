@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import getMongoURI from '@/lib/mongodb';
-import mongoose from 'mongoose';
+import connectDB from '@/lib/mongodb';
+import { Types } from 'mongoose';
 import Plan from '@/models/Plan';
 import { getUserFromRequest, hasMinimumRole } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
-    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/chitfund';
-    if (mongoose.connection.readyState === 0) {
-      await mongoose.connect(mongoURI);
-    }
+    await connectDB();
     
     const user = getUserFromRequest(request);
     if (!user || !hasMinimumRole(user, 'admin')) {
@@ -61,7 +58,7 @@ export async function POST(request: NextRequest) {
       auctionTime: auctionTime || '10:00',
       description,
       terms,
-      createdBy: new mongoose.Types.ObjectId(user.userId)
+      createdBy: user.userId
     });
 
     await newPlan.save();

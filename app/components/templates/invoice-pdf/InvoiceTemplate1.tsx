@@ -119,7 +119,7 @@ const InvoiceTemplate = (data: InvoiceType) => {
 							</div>
 							
 							{/* Additional Details for Monthly Payments */}
-							{details.selectedPlan.paymentType === 'monthly' && details.selectedPlan.selectedMonth && details.selectedPlan.data && (
+							{details.selectedPlan && details.selectedPlan.paymentType === 'monthly' && details.selectedPlan.selectedMonth && details.selectedPlan.data && (
 								<div className='px-4 py-3 bg-gray-25 border-b border-gray-100 text-xs'>
 									<div className='grid grid-cols-3 gap-4 text-gray-600'>
 										<div>
@@ -129,22 +129,16 @@ const InvoiceTemplate = (data: InvoiceType) => {
 											<span className='font-medium'>Duration:</span> {details.selectedPlan.months} months
 										</div>
 										<div>
-											{details.selectedPlan && (
-												<>
-													<span className='font-medium'>Month {details.selectedPlan.selectedMonth} Details:</span>
-													{(() => {
-														if (!details.selectedPlan) return null;
-														const selectedPlan = details.selectedPlan;
-														const monthData = selectedPlan.data.find(m => m.month_number === selectedPlan.selectedMonth);
-														return monthData ? (
-															<span className='ml-1'>
-																Installment: ₹{formatNumberWithCommas(monthData.installment_amount)}, 
-																Dividend: ₹{formatNumberWithCommas(monthData.dividend)}
-															</span>
-														) : null;
-													})()}
-												</>
-											)}
+											<span className='font-medium'>Month {details.selectedPlan.selectedMonth} Details:</span>
+											{(() => {
+												const monthData = details.selectedPlan!.data.find(m => m.month_number === details.selectedPlan!.selectedMonth);
+												return monthData ? (
+													<span className='ml-1'>
+														Installment: ₹{formatNumberWithCommas(monthData.installment_amount)}, 
+														Dividend: ₹{formatNumberWithCommas(monthData.dividend)}
+													</span>
+												) : null;
+											})()}
 										</div>
 									</div>
 								</div>

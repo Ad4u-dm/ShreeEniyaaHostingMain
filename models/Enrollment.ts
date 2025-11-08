@@ -65,4 +65,4 @@ EnrollmentSchema.pre('save', async function(next) {
   next();
 });
 
-export default (mongoose.models.Enrollment as any) || mongoose.model('Enrollment', EnrollmentSchema);
+export default (mongoose.models.Enrollment || mongoose.model('Enrollment', EnrollmentSchema)) as any;

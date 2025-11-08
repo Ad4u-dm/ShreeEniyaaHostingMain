@@ -4,7 +4,6 @@ import Payment from '@/models/Payment';
 import User from '@/models/User';
 import ChitPlan from '@/models/ChitPlan';
 import Enrollment from '@/models/Enrollment';
-import mongoose from 'mongoose';
 
 export async function POST(request: NextRequest) {
   try {

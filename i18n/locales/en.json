@@ -13,7 +13,7 @@
             "back": "Back"
         },
         "steps": {
-            "fromAndTo": {
+            "fromAndTo": {      
                 "billFrom": "Bill From",
                 "billTo": "Bill To",
                 "name": "Name",

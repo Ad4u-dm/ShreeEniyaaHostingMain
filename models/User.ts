@@ -49,7 +49,7 @@ const UserSchema = new mongoose.Schema({
   
   // Additional profile fields
   isActive: { type: Boolean, default: true },
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Staff who created this customer
+  createdBy: { type: String, ref: 'User' }, // Staff who created this customer
   
   // Timestamps
   createdAt: { type: Date, default: Date.now },
@@ -77,4 +77,4 @@ UserSchema.pre('save', async function(next) {
   next();
 });
 
-export default (mongoose.models.User as any) || mongoose.model('User', UserSchema);
+export default (mongoose.models.User || mongoose.model('User', UserSchema)) as any;

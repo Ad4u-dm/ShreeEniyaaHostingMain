@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
 import Plan from '@/models/Plan';
+import ChitPlan from '@/models/ChitPlan';
 import Enrollment from '@/models/Enrollment';
 import Payment from '@/models/Payment';
 import { getUserFromRequest, hasMinimumRole, hashPassword } from '@/lib/auth';
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
       nomineeName: memberData.nomineeName || '',
       nomineeRelation: memberData.nomineeRelation || undefined,
       emergencyContact: memberData.emergencyContact || '',
-      createdBy: new mongoose.Types.ObjectId(user.userId),
+      createdBy: user.userId,
       isActive: true,
       status: 'active'
     });

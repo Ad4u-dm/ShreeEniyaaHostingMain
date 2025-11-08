@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import connectDB from '@/lib/mongodb';
 import mongoose from 'mongoose';
 
 export async function GET(request: NextRequest) {
   try {
-    const mongoURI = process.env.MONGODB_URI;
-    if (mongoose.connection.readyState === 0) {
-      await mongoose.connect(mongoURI!);
-    }
+    await connectDB();
 
     // Get plans from the plans collection (from plans.json) - these are the detailed plan templates
     const Plan = (mongoose.models.Plan || mongoose.model('Plan', new mongoose.Schema({}, { strict: false }))) as any;

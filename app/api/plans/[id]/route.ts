@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import getMongoURI from '@/lib/mongodb';
-import mongoose from 'mongoose';
+import connectDB from '@/lib/mongodb';
 import Plan from '@/models/Plan';
 import { getUserFromRequest, hasMinimumRole } from '@/lib/auth';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/chitfund';
-    if (mongoose.connection.readyState === 0) {
-      await mongoose.connect(mongoURI);
-    }
+    await connectDB();
 
     const { id } = await params;
     const plan = await Plan.findById(id);
@@ -27,10 +23,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/chitfund';
-    if (mongoose.connection.readyState === 0) {
-      await mongoose.connect(mongoURI);
-    }
+    await connectDB();
     
     const { id } = await params;
     const user = getUserFromRequest(request);
@@ -106,10 +99,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/chitfund';
-    if (mongoose.connection.readyState === 0) {
-      await mongoose.connect(mongoURI);
-    }
+    await connectDB();
     
     const { id } = await params;
     const user = getUserFromRequest(request);

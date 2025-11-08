@@ -3,6 +3,7 @@ import connectDB from '@/lib/mongodb';
 import Enrollment from '@/models/Enrollment';
 import User from '@/models/User';
 import Plan from '@/models/Plan';
+import ChitPlan from '@/models/ChitPlan';
 import Payment from '@/models/Payment';
 import { getUserFromRequest, hasMinimumRole } from '@/lib/auth';
 

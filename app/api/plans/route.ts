@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       auctionTime: auctionTime || '10:00',
       description,
       terms,
-      createdBy: new mongoose.Types.ObjectId(user.userId)
+      createdBy: user.userId
     });
     
     await plan.save();

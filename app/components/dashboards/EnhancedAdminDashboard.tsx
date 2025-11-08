@@ -66,6 +66,7 @@ interface AdminDashboardData {
     todayPayments: number;
     monthlyRevenue: number;
     pendingPayments: number;
+    availablePlans: number;
   };
   recentActivity: {
     enrollments: any[];
@@ -316,7 +317,7 @@ function OverviewTab({ data }: { data: AdminDashboardData }) {
     },
     {
       title: 'Available Plans',
-      value: data.stats.totalPlans || 4,
+      value: data.stats.availablePlans || 4,
       icon: FileText,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50',

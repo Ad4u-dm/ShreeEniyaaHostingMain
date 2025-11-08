@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
 import ChitPlan from '@/models/ChitPlan';
 import Enrollment from '@/models/Enrollment';
@@ -7,15 +8,7 @@ import mongoose from 'mongoose';
 
 export async function GET(request: NextRequest) {
   try {
-    // Connect to MongoDB using the environment variable directly
-    const mongoURI = process.env.MONGODB_URI;
-    if (!mongoURI) {
-      throw new Error('MONGODB_URI is not defined');
-    }
-    
-    if (mongoose.connection.readyState === 0) {
-      await mongoose.connect(mongoURI);
-    }
+    await connectDB();
 
     // Get available plans from plans collection (from plans.json)
     const Plan = (mongoose.models.Plan || mongoose.model('Plan', new mongoose.Schema({}, { strict: false }))) as any;

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Payment from '@/models/Payment';
-import mongoose from 'mongoose';
+import ChitPlan from '@/models/ChitPlan';
+import User from '@/models/User';
+import Enrollment from '@/models/Enrollment';
 
 export async function GET(request: NextRequest) {
   try {

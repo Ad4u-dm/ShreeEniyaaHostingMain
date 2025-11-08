@@ -36,8 +36,22 @@ async function connectDB() {
       bufferCommands: false,
     };
 
-    cached!.promise = mongoose.connect(currentURI, opts).then((mongoose) => {
+    cached!.promise = mongoose.connect(currentURI, opts).then(async (mongoose) => {
       console.log('Connected to MongoDB');
+      
+      // Ensure all models are registered
+      try {
+        await import('@/models/User');
+        await import('@/models/ChitPlan');
+        await import('@/models/Enrollment');
+        await import('@/models/Payment');
+        await import('@/models/Invoice');
+        await import('@/models/Plan');
+        await import('@/models/SMSLog');
+      } catch (error) {
+        console.warn('Some models could not be imported:', error);
+      }
+      
       return mongoose;
     });
   }
@@ -52,4 +66,5 @@ async function connectDB() {
   return cached!.conn;
 }
 
+export { getMongoURI };
 export default connectDB;

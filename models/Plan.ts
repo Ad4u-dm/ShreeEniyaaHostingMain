@@ -43,7 +43,7 @@ const planSchema = new mongoose.Schema({
   terms: { type: String },
   
   // Created by
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+  createdBy: { type: String, ref: 'User' }
 }, { timestamps: true });
 
 // Generate planId automatically

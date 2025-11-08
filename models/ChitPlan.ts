@@ -35,7 +35,7 @@ const ChitPlanSchema = new mongoose.Schema({
   terms: { type: String },
   
   // Created by
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  createdBy: { type: String, ref: 'User', required: true },
   
   // Timestamps
   createdAt: { type: Date, default: Date.now },
