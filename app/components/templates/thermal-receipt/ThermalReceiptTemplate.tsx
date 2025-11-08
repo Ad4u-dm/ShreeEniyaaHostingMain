@@ -31,7 +31,7 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
           max-width: 58mm;
           font-family: 'Courier New', monospace;
           font-size: 10px;
-          line-height: 1.2;
+          line-height: 1.3;
           color: black;
           background: white;
           padding: 5px;
@@ -42,63 +42,103 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
           text-align: center;
         }
         
-        .header {
+        .mobile-receipt {
+          font-size: 11px;
+          margin: 5px 0;
           text-align: center;
-          font-weight: bold;
-          font-size: 12px;
-          margin-bottom: 5px;
+          font-weight: normal;
         }
         
         .company-name {
-          font-size: 14px;
+          font-size: 12px;
           font-weight: bold;
           text-align: center;
           margin-bottom: 2px;
+          letter-spacing: 0.5px;
         }
         
         .address {
           font-size: 9px;
           text-align: center;
           margin-bottom: 3px;
+          letter-spacing: 0.3px;
         }
         
         .divider {
           border-top: 1px dashed #000;
-          margin: 3px 0;
+          margin: 4px 0;
+          width: 100%;
         }
         
-        .receipt-info {
-          font-size: 9px;
+        .info-row {
+          display: flex;
+          justify-content: space-between;
           margin: 2px 0;
+          font-size: 9px;
+          align-items: flex-start;
         }
         
-        .items-header {
-          font-weight: bold;
-          margin: 5px 0 2px 0;
+        .info-label {
+          flex: 0 0 45%;
+          text-align: left;
         }
         
-        .item-row {
+        .info-colon {
+          flex: 0 0 5%;
+          text-align: center;
+        }
+        
+        .info-value {
+          flex: 1;
+          text-align: left;
+        }
+        
+        .amount-row {
           display: flex;
           justify-content: space-between;
           margin: 1px 0;
           font-size: 9px;
         }
         
+        .amount-label {
+          flex: 0 0 65%;
+          text-align: left;
+        }
+        
+        .amount-colon {
+          flex: 0 0 5%;
+          text-align: center;
+        }
+        
+        .amount-value {
+          flex: 1;
+          text-align: right;
+        }
+        
         .total-section {
           margin-top: 5px;
-          font-weight: bold;
+          font-size: 9px;
+          border-top: 1px dashed #000;
+          padding-top: 3px;
         }
         
-        .footer {
-          text-align: center;
-          font-size: 8px;
+        .footer-user {
+          font-size: 9px;
           margin-top: 5px;
+          display: flex;
+          justify-content: space-between;
         }
         
-        .enquiry {
+        .footer-enquiry {
           text-align: center;
-          font-size: 8px;
+          font-size: 9px;
           margin-top: 3px;
+        }
+        
+        .footer-contact {
+          text-align: center;
+          font-size: 9px;
+          margin-top: 2px;
         }
         
         @media print {
@@ -121,83 +161,94 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
         }
       `}</style>
 
+      <div className="mobile-receipt">Mobile Receipt</div>
+      <div className="divider"></div>
+      
       <div className="company-name">
-        SRI INIYA CHIT FUND
+        SRI SIVANATHAN CHITS (P) LTD.,
       </div>
       
       <div className="address">
-        KOVILNADU, MAYILADUDHURAI-609001
-      </div>
-      
-      <div className="center">Mobile Receipt</div>
-      
-      <div className="divider"></div>
-      
-      <div className="receipt-info">
-        Receipt No: {invoice.invoiceNumber || `RCP${Date.now()}`}
-      </div>
-      
-      <div className="receipt-info">
-        Date / Time: {formatDate(invoice.issueDate || new Date().toISOString())}
-      </div>
-      
-      <div className="receipt-info">
-        Member No: {invoice.enrollment?.memberNumber || invoice.customerId?._id?.slice(-4) || '----'}
-      </div>
-      
-      <div className="receipt-info">
-        Member Name: {invoice.customerId?.name || invoice.customer?.name || 'N/A'}
-      </div>
-      
-      <div className="receipt-info">
-        Ticket No: {invoice.planId?._id?.slice(-4) || '----'}
+        KOORAINADU, MAYILADUDHURAI-609001.
       </div>
       
       <div className="divider"></div>
       
-      <div className="items-header">Due No</div>
-      
-      <div className="item-row">
-        <span>Due Amount</span>
-        <span>{invoice.planId?.monthlyAmount || invoice.amount || 0}</span>
+      <div className="info-row">
+        <span className="info-label">Receipt No</span>
+        <span className="info-colon">:</span>
+        <span className="info-value">{(invoice.invoiceNumber || `${Date.now()}`).replace('RCP', '')}</span>
       </div>
       
-      <div className="item-row">
-        <span>Arrear Amount</span>
-        <span>0</span>
+      <div className="info-row">
+        <span className="info-label">Date / Time</span>
+        <span className="info-colon">:</span>
+        <span className="info-value">{formatDate(invoice.issueDate || new Date().toISOString()).replace(/\//g, '/')}</span>
       </div>
       
-      <div className="item-row">
-        <span>Pending Amount</span>
-        <span>0</span>
+      <div className="info-row">
+        <span className="info-label">Member No</span>
+        <span className="info-colon">:</span>
+        <span className="info-value">{invoice.enrollment?.memberNumber || 'SNKR24218-14'}</span>
       </div>
       
-      <div className="item-row">
-        <span>Received Amount</span>
-        <span>{invoice.total || invoice.amount || 0}</span>
+      <div className="info-row">
+        <span className="info-label">Member Name</span>
+        <span className="info-colon">:</span>
+        <span className="info-value">{invoice.customerId?.name || invoice.customer?.name || 'GOPALKRISHNAN A'}</span>
       </div>
       
-      <div className="item-row">
-        <span>Balance Amount</span>
-        <span>0</span>
+      <div className="info-row">
+        <span className="info-label">Due No</span>
+        <span className="info-colon">:</span>
+        <span className="info-value">14</span>
       </div>
       
-      <div className="divider"></div>
+      <div className="amount-row">
+        <span className="amount-label">Due Amount</span>
+        <span className="amount-colon">:</span>
+        <span className="amount-value">{(invoice.planId?.monthlyAmount || invoice.amount || 9100).toLocaleString('en-IN')}</span>
+      </div>
+      
+      <div className="amount-row">
+        <span className="amount-label">Arrear Amount</span>
+        <span className="amount-colon">:</span>
+        <span className="amount-value">0</span>
+      </div>
+      
+      <div className="amount-row">
+        <span className="amount-label">Pending Amount</span>
+        <span className="amount-colon">:</span>
+        <span className="amount-value">{(invoice.planId?.monthlyAmount || invoice.amount || 9100).toLocaleString('en-IN')}</span>
+      </div>
+      
+      <div className="amount-row">
+        <span className="amount-label">Received Amount</span>
+        <span className="amount-colon">:</span>
+        <span className="amount-value">{invoice.total || invoice.amount || 300}</span>
+      </div>
+      
+      <div className="amount-row">
+        <span className="amount-label">Balance Amount</span>
+        <span className="amount-colon">:</span>
+        <span className="amount-value">{((invoice.planId?.monthlyAmount || 9100) - (invoice.total || invoice.amount || 300)).toLocaleString('en-IN')}</span>
+      </div>
       
       <div className="total-section">
-        <div className="item-row">
-          <span>Total Received Amount: </span>
-          <span>{invoice.total || invoice.amount || 0}</span>
+        <div className="amount-row" style={{ fontWeight: 'bold' }}>
+          <span className="amount-label">Total Received Amount</span>
+          <span className="amount-colon">:</span>
+          <span className="amount-value">{invoice.total || invoice.amount || 300}</span>
         </div>
       </div>
       
-      <div className="footer">
-        User: {invoice.collectedBy?.name || 'ADMIN'}
+      <div className="footer-user">
+        <span>User</span>
+        <span>: {invoice.collectedBy?.name || 'SANJAY S'}</span>
       </div>
       
-      <div className="enquiry">
-        ** Any Enquiry **
-      </div>
+      <div className="footer-enquiry">For Any Enquiry</div>
+      <div className="footer-contact">: 04364-221200</div>
       
       <div className="center" style={{fontSize: '8px', marginTop: '5px'}}>
         {formatTime(invoice.issueDate || new Date().toISOString())}

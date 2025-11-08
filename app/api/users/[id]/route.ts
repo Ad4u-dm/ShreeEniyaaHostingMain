@@ -27,7 +27,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     await connectDB();
 
     const { id } = await params;
-    const { name, email, phone, role } = await request.json();
+    const { name, email, phone, role, address } = await request.json();
 
     // Check if email is already taken by another user
     const existingUser = await User.findOne({ 
@@ -42,15 +42,19 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       }, { status: 400 });
     }
 
+    const updateData: any = {
+      name: name?.trim(),
+      email: email?.toLowerCase().trim(),
+      phone: phone?.trim(),
+      updatedAt: new Date()
+    };
+
+    if (role) updateData.role = role;
+    if (address) updateData.address = address;
+
     const updatedUser = await User.findByIdAndUpdate(
       id,
-      { 
-        name: name?.trim(),
-        email: email?.toLowerCase().trim(),
-        phone: phone?.trim(),
-        role,
-        updatedAt: new Date()
-      },
+      updateData,
       { new: true, select: '-password' }
     );
 

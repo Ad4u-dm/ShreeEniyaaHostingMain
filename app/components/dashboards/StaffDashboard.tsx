@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Users, 
+  User,
   IndianRupee, 
   Calendar, 
   TrendingUp,
@@ -89,6 +90,19 @@ export default function StaffDashboard() {
   const [invoiceStats, setInvoiceStats] = useState<any>(null);
   const [isCreatingInvoice, setIsCreatingInvoice] = useState(false);
   const [showMemberModal, setShowMemberModal] = useState(false);
+  const [showInvoiceCreationModal, setShowInvoiceCreationModal] = useState(false);
+  const [selectedCustomerForInvoice, setSelectedCustomerForInvoice] = useState<Customer | null>(null);
+  const [showBulkCollectionModal, setShowBulkCollectionModal] = useState(false);
+  const [showReceiptHistoryModal, setShowReceiptHistoryModal] = useState(false);
+  const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
+  const [showMemberDetailsModal, setShowMemberDetailsModal] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<Customer | null>(null);
+  const [memberEnrollments, setMemberEnrollments] = useState<any[]>([]);
+  const [memberPayments, setMemberPayments] = useState<any[]>([]);
+  const [isEditingMember, setIsEditingMember] = useState(false);
+  const [editMemberData, setEditMemberData] = useState<any>({});
+  const [selectedCustomerForPayment, setSelectedCustomerForPayment] = useState<Customer | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -272,7 +286,15 @@ export default function StaffDashboard() {
 
       if (response.ok) {
         const result = await response.json();
-        alert(result.message);
+        
+        if (action === 'mark_paid' && result.paymentId) {
+          // Auto-generate receipt when payment is marked as paid
+          await handleGenerateReceipt(result.paymentId);
+          alert(`✅ Payment recorded successfully!\n📄 Receipt generated: ${result.receiptNumber || 'N/A'}`);
+        } else {
+          alert(result.message);
+        }
+        
         fetchInvoices();
       } else {
         alert(`Failed to ${action.replace('_', ' ')} invoice`);
@@ -280,6 +302,237 @@ export default function StaffDashboard() {
     } catch (error) {
       console.error('Invoice action error:', error);
       alert('Error performing invoice action');
+    }
+  };
+
+  const handleGenerateReceipt = async (paymentId: string) => {
+    try {
+      const response = await fetch(`/api/payments/${paymentId}/receipt`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        },
+        body: JSON.stringify({ format: 'thermal' })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        return result.receiptUrl;
+      }
+    } catch (error) {
+      console.error('Receipt generation error:', error);
+    }
+    return null;
+  };
+
+  const handleBulkReminders = async () => {
+    try {
+      const response = await fetch('/api/staff/communication', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        },
+        body: JSON.stringify({
+          type: 'bulk_reminder',
+          target: 'overdue_payments'
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(`✅ Reminders sent successfully!\n📱 SMS: ${result.smsCount || 0}\n📧 Email: ${result.emailCount || 0}`);
+      } else {
+        alert('❌ Failed to send reminders');
+      }
+    } catch (error) {
+      console.error('Bulk reminders error:', error);
+      alert('❌ Error sending reminders');
+    }
+  };
+
+  const handleExportPayments = async () => {
+    try {
+      const response = await fetch('/api/staff/reports?type=payments&format=csv', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        }
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `payments-report-${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        alert('📊 Payment report downloaded successfully!');
+      } else {
+        alert('❌ Failed to export payments');
+      }
+    } catch (error) {
+      console.error('Export payments error:', error);
+      alert('❌ Error exporting payments');
+    }
+  };
+
+  const fetchPaymentHistory = async () => {
+    try {
+      const response = await fetch('/api/payments?limit=50', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setPaymentHistory(data.payments || []);
+      }
+    } catch (error) {
+      console.error('Fetch payment history error:', error);
+    }
+  };
+
+  const handleViewMemberDetails = async (customer: Customer) => {
+    setSelectedMember(customer);
+    setEditMemberData({
+      name: customer.userId.name,
+      phone: customer.userId.phone,
+      email: customer.userId.email,
+      address: customer.userId.address || {}
+    });
+    
+    // Fetch member's enrollments
+    try {
+      const enrollmentsResponse = await fetch(`/api/enrollments?userId=${customer.userId._id}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        }
+      });
+      
+      if (enrollmentsResponse.ok) {
+        const enrollmentsData = await enrollmentsResponse.json();
+        setMemberEnrollments(enrollmentsData.enrollments || []);
+      }
+    } catch (error) {
+      console.error('Fetch member enrollments error:', error);
+    }
+    
+    // Fetch member's payment history
+    try {
+      const paymentsResponse = await fetch(`/api/payments?userId=${customer.userId._id}&limit=20`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        }
+      });
+      
+      if (paymentsResponse.ok) {
+        const paymentsData = await paymentsResponse.json();
+        setMemberPayments(paymentsData.payments || []);
+      }
+    } catch (error) {
+      console.error('Fetch member payments error:', error);
+    }
+    
+    setShowMemberDetailsModal(true);
+  };
+
+  const handleUpdateMember = async () => {
+    try {
+      const response = await fetch(`/api/users/${selectedMember?.userId._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        },
+        body: JSON.stringify(editMemberData)
+      });
+
+      if (response.ok) {
+        alert('✅ Member details updated successfully!');
+        setIsEditingMember(false);
+        fetchCustomers(); // Refresh the customer list
+      } else {
+        alert('❌ Failed to update member details');
+      }
+    } catch (error) {
+      console.error('Update member error:', error);
+      alert('❌ Error updating member details');
+    }
+  };
+
+  const handleSendSMS = async (customer: Customer, message?: string) => {
+    const defaultMessage = `Dear ${customer.userId.name}, this is a message from our chit fund regarding your account. Please contact us if you have any questions.`;
+    const smsMessage = message || prompt('Enter SMS message:', defaultMessage);
+    
+    if (!smsMessage) return;
+    
+    try {
+      const response = await fetch('/api/staff/communication', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        },
+        body: JSON.stringify({
+          type: 'sms',
+          recipients: [customer.userId._id],
+          message: smsMessage
+        })
+      });
+
+      if (response.ok) {
+        alert('📱 SMS sent successfully!');
+      } else {
+        alert('❌ Failed to send SMS');
+      }
+    } catch (error) {
+      console.error('Send SMS error:', error);
+      alert('❌ Error sending SMS');
+    }
+  };
+
+  const handleGenerateMemberReceipt = async (customerId: string) => {
+    try {
+      // First, check if there are recent payments to generate receipt for
+      const paymentsResponse = await fetch(`/api/payments?userId=${customerId}&limit=1`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        }
+      });
+      
+      if (paymentsResponse.ok) {
+        const paymentsData = await paymentsResponse.json();
+        if (paymentsData.payments && paymentsData.payments.length > 0) {
+          const latestPayment = paymentsData.payments[0];
+          const receiptUrl = await handleGenerateReceipt(latestPayment.paymentId);
+          if (receiptUrl) {
+            window.open(receiptUrl, '_blank');
+          } else {
+            alert('📄 Receipt generated! Check receipt history for details.');
+          }
+        } else {
+          alert('❌ No recent payments found to generate receipt for this member.');
+        }
+      }
+    } catch (error) {
+      console.error('Generate member receipt error:', error);
+      alert('❌ Error generating receipt');
+    }
+  };
+
+  const handleMemberPaymentCollection = (customer: Customer) => {
+    const amount = customer.planId?.monthlyAmount || 0;
+    if (amount > 0) {
+      // Open payment collection modal with customer info
+      setSelectedCustomerForPayment(customer);
+      setShowPaymentModal(true);
+    } else {
+      alert('❌ Unable to determine payment amount for this member.');
     }
   };
 
@@ -800,13 +1053,30 @@ export default function StaffDashboard() {
                             <p className="text-sm text-slate-600">₹{customer.planId?.monthlyAmount?.toLocaleString('en-IN')}/month</p>
                             <p className="text-xs text-slate-500">Paid: ₹{customer.totalPaid?.toLocaleString('en-IN')}</p>
                             <div className="flex gap-2 mt-2">
-                              <Button size="sm" variant="outline" onClick={() => window.open(`tel:${customer.userId?.phone}`)}>
-                                <Phone className="h-4 w-4" />
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                onClick={() => window.open(`tel:${customer.userId?.phone}`)}
+                                title="Call Member"
+                                className="hover:bg-green-50 hover:border-green-300"
+                              >
+                                <Phone className="h-4 w-4 text-green-600" />
                               </Button>
-                              <Button size="sm" variant="outline">
-                                <FileText className="h-4 w-4" />
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => handleViewMemberDetails(customer)}
+                                title="View Member Details"
+                                className="hover:bg-blue-50 hover:border-blue-300"
+                              >
+                                <FileText className="h-4 w-4 text-blue-600" />
                               </Button>
-                              <Button size="sm" onClick={() => alert('Payment collection feature')}>
+                              <Button 
+                                size="sm" 
+                                onClick={() => handleMemberPaymentCollection(customer)}
+                                title="Collect Payment"
+                                className="hover:bg-purple-600 bg-purple-500 text-white"
+                              >
                                 <CreditCard className="h-4 w-4" />
                               </Button>
                               <Button 
@@ -814,8 +1084,10 @@ export default function StaffDashboard() {
                                 variant="outline"
                                 onClick={() => handleCreateInvoice(customer._id, customer.userId._id)}
                                 disabled={isCreatingInvoice}
+                                title="Create Invoice"
+                                className="hover:bg-orange-50 hover:border-orange-300"
                               >
-                                <FileText className="h-4 w-4" />
+                                <FileText className="h-4 w-4 text-orange-600" />
                               </Button>
                             </div>
                           </div>
@@ -884,44 +1156,118 @@ export default function StaffDashboard() {
                 <CardContent>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div>
-                      <h3 className="font-semibold mb-4">Due Today</h3>
-                      <div className="space-y-3">
-                        {data.duePayments.slice(0, 5).map((payment, index) => (
-                          <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                            <div>
-                              <p className="font-medium">{payment.userId?.name}</p>
-                              <p className="text-sm text-slate-600">₹{payment.amount?.toLocaleString('en-IN')}</p>
+                      <h3 className="font-semibold mb-4">💰 Due Today</h3>
+                      <div className="space-y-3 max-h-80 overflow-y-auto">
+                        {data.duePayments.slice(0, 8).map((payment, index) => (
+                          <div key={index} className="flex items-center justify-between p-3 bg-gradient-to-r from-slate-50 to-slate-100 rounded-lg border border-slate-200 hover:shadow-md transition-all duration-200">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium text-slate-800">👤 {payment.userId?.name}</p>
+                                {payment.daysPastDue > 0 && (
+                                  <Badge variant="destructive" className="text-xs">
+                                    ⚠️ {payment.daysPastDue} days overdue
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-slate-600 flex items-center gap-1">
+                                <IndianRupee className="h-3 w-3" />
+                                {payment.amount?.toLocaleString('en-IN')}
+                              </p>
+                              <p className="text-xs text-slate-500 flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
+                                Due: {new Date(payment.dueDate).toLocaleDateString('en-IN')}
+                              </p>
                             </div>
-                            <Button 
-                              size="sm" 
-                              onClick={() => handleCollectPayment(payment._id, payment.amount)}
-                              disabled={isCollecting}
-                            >
-                              {isCollecting ? 'Processing...' : 'Collect'}
-                            </Button>
+                            <div className="flex flex-col gap-1">
+                              <Button 
+                                size="sm" 
+                                onClick={() => handleCollectPayment(payment._id, payment.amount)}
+                                disabled={isCollecting}
+                                className="bg-green-500 hover:bg-green-600 text-white"
+                              >
+                                {isCollecting ? '⏳ Processing...' : '💰 Collect'}
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => window.open(`tel:${payment.userId?.phone}`, '_blank')}
+                                className="text-xs"
+                              >
+                                📞 Call
+                              </Button>
+                            </div>
                           </div>
                         ))}
+                        {data.duePayments.length === 0 && (
+                          <div className="text-center py-6">
+                            <div className="bg-green-50 rounded-lg p-4">
+                              <p className="text-green-600 font-medium">🎉 All caught up!</p>
+                              <p className="text-green-500 text-sm">No payments due today</p>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div>
-                      <h3 className="font-semibold mb-4">Invoice Actions</h3>
+                      <h3 className="font-semibold mb-4">🔧 Quick Actions</h3>
                       <div className="space-y-3">
-                        <Button className="w-full justify-start" variant="outline">
-                          <FileText className="h-4 w-4 mr-2" />
-                          Create Bulk Invoices
+                        <Button 
+                          className="w-full justify-start bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white"
+                          onClick={() => setShowBulkCollectionModal(true)}
+                        >
+                          <Wallet className="h-4 w-4 mr-2" />
+                          💰 Bulk Collection
                         </Button>
-                        <Button className="w-full justify-start" variant="outline">
+                        <Button 
+                          className="w-full justify-start bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"
+                          onClick={() => setShowReceiptHistoryModal(true)}
+                        >
+                          <Receipt className="h-4 w-4 mr-2" />
+                          📄 Receipt History
+                        </Button>
+                        <Button 
+                          className="w-full justify-start bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white"
+                          onClick={() => {
+                            const overdueCount = data.duePayments.filter(p => p.daysPastDue > 0).length;
+                            if (overdueCount > 0) {
+                              const confirmMessage = `🔔 Send payment reminders to ${overdueCount} overdue customers?\n\n📱 This will send SMS and email notifications.`;
+                              if (confirm(confirmMessage)) {
+                                handleBulkReminders();
+                              }
+                            } else {
+                              alert('🎉 No overdue payments to remind about!');
+                            }
+                          }}
+                        >
                           <Bell className="h-4 w-4 mr-2" />
-                          Send Payment Reminders
+                          🔔 Send Reminders
                         </Button>
-                        <Button className="w-full justify-start" variant="outline">
+                        <Button 
+                          className="w-full justify-start" 
+                          variant="outline"
+                          onClick={() => handleExportPayments()}
+                        >
                           <Download className="h-4 w-4 mr-2" />
-                          Export Invoices
+                          📊 Export Report
                         </Button>
-                        <Button className="w-full justify-start" variant="outline" onClick={() => setActiveTab('invoices')}>
-                          <FileText className="h-4 w-4 mr-2" />
-                          Manage Invoices
-                        </Button>
+                      </div>
+                      
+                      <div className="mt-6">
+                        <h4 className="font-medium mb-3 text-slate-700">📈 Today's Summary</h4>
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center p-2 bg-slate-50 rounded">
+                            <span className="text-sm text-slate-600">Collections:</span>
+                            <span className="font-medium text-green-600">₹{data.stats.myMonthlyCollection?.toLocaleString('en-IN') || '0'}</span>
+                          </div>
+                          <div className="flex justify-between items-center p-2 bg-slate-50 rounded">
+                            <span className="text-sm text-slate-600">Receipts Generated:</span>
+                            <span className="font-medium text-blue-600">{data.stats.myTodayPayments || 0}</span>
+                          </div>
+                          <div className="flex justify-between items-center p-2 bg-slate-50 rounded">
+                            <span className="text-sm text-slate-600">Pending Due:</span>
+                            <span className="font-medium text-orange-600">{data.duePayments.length}</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1003,18 +1349,16 @@ export default function StaffDashboard() {
                       <h3 className="font-semibold mb-4">Quick Actions</h3>
                       <div className="space-y-3">
                         <Button 
-                          className="w-full justify-start" 
-                          variant="outline"
+                          className="w-full justify-start bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-md hover:shadow-lg transition-all duration-200" 
                           onClick={() => {
                             // Show modal to select customer for invoice creation
-                            const customerId = customers[0]?.userId?._id;
-                            const enrollmentId = customers[0]?._id;
-                            if (customerId && enrollmentId) {
-                              handleCreateInvoice(enrollmentId, customerId);
+                            if (customers.length > 0) {
+                              setShowInvoiceCreationModal(true);
                             } else {
                               const registerMember = confirm(
-                                'No customers found! You need to register members first.\n\n' +
-                                'Would you like to register a new member now?'
+                                '🚫 No customers found!\n\n' +
+                                'You need to register members first to create invoices.\n\n' +
+                                '👥 Would you like to register a new member now?'
                               );
                               if (registerMember) {
                                 setActiveTab('customers');
@@ -1025,19 +1369,26 @@ export default function StaffDashboard() {
                           disabled={isCreatingInvoice}
                         >
                           <Plus className="h-4 w-4 mr-2" />
-                          {isCreatingInvoice ? 'Creating Invoice...' : 'Create New Invoice'}
+                          {isCreatingInvoice ? '⏳ Creating Invoice...' : '📄 Create New Invoice'}
                         </Button>
                         <Button 
-                          className="w-full justify-start" 
-                          variant="outline"
+                          className="w-full justify-start bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-md hover:shadow-lg transition-all duration-200" 
                           onClick={() => {
-                            const customerIds = customers.slice(0, 5).map(c => c.userId._id);
-                            if (customerIds.length > 0) {
-                              handleBulkInvoice(customerIds);
+                            const eligibleCustomers = customers.filter(c => c.status === 'active').slice(0, 5);
+                            if (eligibleCustomers.length > 0) {
+                              const count = eligibleCustomers.length;
+                              const confirmMessage = `📊 Generate ${count} invoices for your top active customers?\n\n` +
+                                `This will create invoices for:\n` +
+                                eligibleCustomers.map((c, i) => `${i + 1}. ${c.userId.name}`).join('\n') +
+                                `\n\n💡 This helps you quickly bill your most active customers.`;
+                              
+                              if (confirm(confirmMessage)) {
+                                handleBulkInvoice(eligibleCustomers.map(c => c.userId._id));
+                              }
                             } else {
                               const registerMembers = confirm(
-                                'No customers found for bulk invoice generation!\n\n' +
-                                'Would you like to register new members first?'
+                                '🚫 No active customers found for bulk invoice generation!\n\n' +
+                                '👥 Would you like to register new members first?'
                               );
                               if (registerMembers) {
                                 setActiveTab('customers');
@@ -1047,15 +1398,30 @@ export default function StaffDashboard() {
                           }}
                         >
                           <Download className="h-4 w-4 mr-2" />
-                          Bulk Invoice (Top 5)
+                          📋 Bulk Invoice (Top 5)
                         </Button>
                         <Button 
-                          className="w-full justify-start" 
-                          variant="outline"
-                          onClick={() => handleSendReminder('payment')}
+                          className="w-full justify-start bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white shadow-md hover:shadow-lg transition-all duration-200" 
+                          onClick={() => {
+                            const overdueCustomers = customers.filter(c => 
+                              c.status === 'overdue' || c.overdueAmount > 0
+                            );
+                            
+                            if (overdueCustomers.length > 0) {
+                              const confirmMessage = `🔔 Send payment reminders to ${overdueCustomers.length} overdue customers?\n\n` +
+                                `This will notify customers who have missed their payment deadlines.\n\n` +
+                                `📱 Reminders will be sent via SMS and email.`;
+                              
+                              if (confirm(confirmMessage)) {
+                                handleSendReminder('payment');
+                              }
+                            } else {
+                              alert('🎉 Great news! No overdue payments found.\n\nAll your customers are up to date with their payments.');
+                            }
+                          }}
                         >
                           <Bell className="h-4 w-4 mr-2" />
-                          Send Reminders
+                          🔔 Send Reminders
                         </Button>
                         <Button className="w-full justify-start" variant="outline">
                           <Settings className="h-4 w-4 mr-2" />
@@ -1066,20 +1432,41 @@ export default function StaffDashboard() {
 
                     {/* Recent Invoices */}
                     <Card className="p-4">
-                      <h3 className="font-semibold mb-4">Recent Invoices</h3>
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="font-semibold">📋 Recent Invoices</h3>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => setActiveTab('invoices')}
+                          className="text-xs"
+                        >
+                          View All
+                        </Button>
+                      </div>
                       <div className="space-y-3 max-h-80 overflow-y-auto">
-                        {invoices.slice(0, 8).map((invoice, index) => (
-                          <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                            <div>
-                              <p className="font-medium text-slate-800">{invoice.invoiceId}</p>
-                              <p className="text-sm text-slate-600">{invoice.customerDetails.name}</p>
-                              <p className="text-xs text-slate-500">
+                        {invoices.length > 0 ? invoices.slice(0, 8).map((invoice, index) => (
+                          <div key={index} className="flex items-center justify-between p-3 bg-gradient-to-r from-slate-50 to-slate-100 rounded-lg hover:shadow-md transition-all duration-200 border border-slate-200">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium text-slate-800">📄 {invoice.invoiceId}</p>
+                                <div className="flex items-center gap-1 text-xs text-slate-500">
+                                  <Calendar className="h-3 w-3" />
+                                  {new Date(invoice.createdAt).toLocaleDateString('en-IN')}
+                                </div>
+                              </div>
+                              <p className="text-sm text-slate-600 flex items-center gap-1">
+                                <User className="h-3 w-3" />
+                                {invoice.customerDetails.name}
+                              </p>
+                              <p className="text-xs text-slate-500 flex items-center gap-1">
+                                <Calendar className="h-3 w-3" />
                                 Due: {new Date(invoice.dueDate).toLocaleDateString('en-IN')}
                               </p>
                             </div>
                             <div className="text-right">
-                              <p className="font-medium text-slate-800">
-                                ₹{invoice.totalAmount.toLocaleString('en-IN')}
+                              <p className="font-medium text-slate-800 flex items-center gap-1">
+                                <IndianRupee className="h-3 w-3" />
+                                {invoice.totalAmount.toLocaleString('en-IN')}
                               </p>
                               <Badge 
                                 variant={
@@ -1087,16 +1474,19 @@ export default function StaffDashboard() {
                                   invoice.status === 'sent' ? 'secondary' :
                                   invoice.status === 'overdue' ? 'destructive' : 'outline'
                                 }
-                                className="text-xs"
+                                className="text-xs mt-1"
                               >
-                                {invoice.status}
+                                {invoice.status === 'paid' ? '✅ Paid' :
+                                 invoice.status === 'sent' ? '📤 Sent' :
+                                 invoice.status === 'overdue' ? '⚠️ Overdue' : '📝 Draft'}
                               </Badge>
-                              <div className="flex gap-1 mt-1">
+                              <div className="flex gap-1 mt-2">
                                 <Button 
                                   size="sm" 
                                   variant="outline"
                                   onClick={() => handleDownloadInvoice(invoice.enrollmentId || invoice._id)}
                                   title="Download PDF"
+                                  className="h-6 w-6 p-0 hover:bg-blue-50 hover:border-blue-300"
                                 >
                                   <Download className="h-3 w-3" />
                                 </Button>
@@ -1123,9 +1513,14 @@ export default function StaffDashboard() {
                               </div>
                             </div>
                           </div>
-                        ))}
-                        {invoices.length === 0 && (
-                          <p className="text-slate-500 text-center py-8">No invoices created yet</p>
+                        )) : (
+                          <div className="text-center py-8">
+                            <div className="bg-slate-50 rounded-lg p-6">
+                              <FileText className="h-12 w-12 text-slate-400 mx-auto mb-3" />
+                              <p className="text-slate-500 font-medium">📋 No invoices created yet</p>
+                              <p className="text-slate-400 text-sm mt-1">Click "Create New Invoice" to get started</p>
+                            </div>
+                          </div>
                         )}
                       </div>
                     </Card>
@@ -1433,6 +1828,392 @@ export default function StaffDashboard() {
         onClose={() => setShowMemberModal(false)}
         onMemberCreated={handleMemberCreated}
       />
+
+      {/* Invoice Creation Modal */}
+      {showInvoiceCreationModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="p-6 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-800">📄 Create New Invoice</h2>
+                  <p className="text-slate-600 mt-1">Select a customer to generate their invoice</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowInvoiceCreationModal(false)}
+                  className="hover:bg-slate-100"
+                >
+                  ✕
+                </Button>
+              </div>
+            </div>
+            
+            <div className="p-6">
+              <div className="mb-4">
+                <h3 className="font-semibold mb-3 text-slate-700">🧑‍🤝‍🧑 Select Customer:</h3>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {customers.map((customer) => (
+                    <div
+                      key={customer._id}
+                      className={`p-4 border rounded-lg cursor-pointer transition-all duration-200 hover:shadow-md ${
+                        selectedCustomerForInvoice?._id === customer._id
+                          ? 'border-blue-500 bg-blue-50 shadow-md'
+                          : 'border-slate-200 hover:border-slate-300'
+                      }`}
+                      onClick={() => setSelectedCustomerForInvoice(customer)}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <p className="font-medium text-slate-800">👤 {customer.userId.name}</p>
+                          <p className="text-sm text-slate-600">📞 {customer.userId.phone}</p>
+                          <p className="text-sm text-slate-600">📧 {customer.userId.email}</p>
+                          <p className="text-sm text-blue-600 font-medium">📋 {customer.planId.planName}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-medium text-slate-700">
+                            💰 ₹{customer.planId.monthlyAmount.toLocaleString('en-IN')}
+                          </p>
+                          <Badge 
+                            variant={customer.status === 'active' ? 'default' : 'secondary'}
+                            className="text-xs mt-1"
+                          >
+                            {customer.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="flex gap-3 pt-4 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowInvoiceCreationModal(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (selectedCustomerForInvoice) {
+                      handleCreateInvoice(selectedCustomerForInvoice._id, selectedCustomerForInvoice.userId._id);
+                      setShowInvoiceCreationModal(false);
+                      setSelectedCustomerForInvoice(null);
+                    }
+                  }}
+                  disabled={!selectedCustomerForInvoice || isCreatingInvoice}
+                  className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
+                >
+                  {isCreatingInvoice ? '⏳ Creating...' : '📄 Create Invoice'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Receipt History Modal */}
+      {showReceiptHistoryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="p-6 border-b bg-gradient-to-r from-green-50 to-emerald-50">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-800">📄 Receipt History</h2>
+                  <p className="text-slate-600 mt-1">View and manage all payment receipts</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setShowReceiptHistoryModal(false);
+                    setPaymentHistory([]);
+                  }}
+                  className="hover:bg-slate-100"
+                >
+                  ✕
+                </Button>
+              </div>
+            </div>
+            
+            <div className="p-6">
+              <div className="mb-4">
+                <Button
+                  onClick={fetchPaymentHistory}
+                  className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
+                >
+                  🔄 Refresh History
+                </Button>
+              </div>
+              
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {paymentHistory.map((payment, index) => (
+                  <div
+                    key={payment._id}
+                    className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-50 to-slate-100 rounded-lg border border-slate-200 hover:shadow-md transition-all duration-200"
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-slate-800">📄 {payment.receiptNumber}</p>
+                        <Badge 
+                          variant={payment.status === 'completed' ? 'default' : 'secondary'}
+                          className="text-xs"
+                        >
+                          {payment.status === 'completed' ? '✅ Paid' : '⏳ Pending'}
+                        </Badge>
+                        {payment.receiptGenerated && (
+                          <Badge variant="outline" className="text-xs text-green-600">
+                            📄 Receipt Generated
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-slate-600 flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        {payment.userId?.name}
+                      </p>
+                      <p className="text-sm text-slate-600 flex items-center gap-1">
+                        <IndianRupee className="h-3 w-3" />
+                        ₹{payment.amount.toLocaleString('en-IN')} - {payment.paymentMethod.toUpperCase()}
+                      </p>
+                      <p className="text-xs text-slate-500 flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {new Date(payment.paidDate).toLocaleDateString('en-IN')} {new Date(payment.paidDate).toLocaleTimeString('en-IN')}
+                      </p>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      {payment.receiptGenerated ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => window.open(`/receipt/thermal/${payment.paymentId}`, '_blank')}
+                          className="hover:bg-blue-50 hover:border-blue-300"
+                        >
+                          👁️ View Receipt
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          onClick={() => handleGenerateReceipt(payment.paymentId)}
+                          className="bg-green-500 hover:bg-green-600 text-white"
+                        >
+                          📄 Generate Receipt
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => window.open(`tel:${payment.userId?.phone}`, '_blank')}
+                        className="text-xs"
+                      >
+                        📞 Call Customer
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                {paymentHistory.length === 0 && (
+                  <div className="text-center py-8">
+                    <div className="bg-slate-50 rounded-lg p-6">
+                      <Receipt className="h-12 w-12 text-slate-400 mx-auto mb-3" />
+                      <p className="text-slate-500 font-medium">📄 No payment history found</p>
+                      <p className="text-slate-400 text-sm mt-1">Click "Refresh History" to load recent payments</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Member Details Modal */}
+      {showMemberDetailsModal && selectedMember && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+          <div className="bg-white p-6 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-2xl font-bold">👤 Member Details</h3>
+              <button
+                onClick={() => {
+                  setShowMemberDetailsModal(false);
+                  setIsEditingMember(false);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left Panel - Member Info */}
+              <div className="space-y-4">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className="font-semibold text-lg">Personal Information</h4>
+                    <button
+                      onClick={() => setIsEditingMember(!isEditingMember)}
+                      className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600"
+                    >
+                      {isEditingMember ? '📝 Cancel Edit' : '✏️ Edit Details'}
+                    </button>
+                  </div>
+
+                  {isEditingMember ? (
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Name</label>
+                        <input
+                          type="text"
+                          value={editMemberData.name}
+                          onChange={(e) => setEditMemberData(prev => ({ ...prev, name: e.target.value }))}
+                          className="w-full p-2 border rounded"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Phone</label>
+                        <input
+                          type="text"
+                          value={editMemberData.phone}
+                          onChange={(e) => setEditMemberData(prev => ({ ...prev, phone: e.target.value }))}
+                          className="w-full p-2 border rounded"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Email</label>
+                        <input
+                          type="email"
+                          value={editMemberData.email}
+                          onChange={(e) => setEditMemberData(prev => ({ ...prev, email: e.target.value }))}
+                          className="w-full p-2 border rounded"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Address</label>
+                        <textarea
+                          value={editMemberData.address?.street || ''}
+                          onChange={(e) => setEditMemberData(prev => ({ 
+                            ...prev, 
+                            address: { ...prev.address, street: e.target.value }
+                          }))}
+                          className="w-full p-2 border rounded"
+                          rows={3}
+                        />
+                      </div>
+                      <button
+                        onClick={handleUpdateMember}
+                        className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 w-full"
+                      >
+                        💾 Save Changes
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 text-sm">
+                      <p><strong>Name:</strong> {selectedMember.userId.name}</p>
+                      <p><strong>Phone:</strong> {selectedMember.userId.phone}</p>
+                      <p><strong>Email:</strong> {selectedMember.userId.email}</p>
+                      <p><strong>Address:</strong> {selectedMember.userId.address?.street || 'Not provided'}</p>
+                      <p><strong>Member ID:</strong> {selectedMember.memberNumber || 'N/A'}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Quick Actions */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-lg mb-3">Quick Actions</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => handleSendSMS(selectedMember)}
+                      className="bg-green-500 text-white px-3 py-2 rounded text-sm hover:bg-green-600"
+                    >
+                      📱 Send SMS
+                    </button>
+                    <button
+                      onClick={() => handleGenerateMemberReceipt(selectedMember.userId._id)}
+                      className="bg-blue-500 text-white px-3 py-2 rounded text-sm hover:bg-blue-600"
+                    >
+                      📄 Generate Receipt
+                    </button>
+                    <button
+                      onClick={() => handleMemberPaymentCollection(selectedMember)}
+                      className="bg-purple-500 text-white px-3 py-2 rounded text-sm hover:bg-purple-600"
+                    >
+                      💰 Collect Payment
+                    </button>
+                    <button
+                      onClick={() => window.open(`tel:${selectedMember.userId.phone}`, '_self')}
+                      className="bg-orange-500 text-white px-3 py-2 rounded text-sm hover:bg-orange-600"
+                    >
+                      📞 Call Member
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Panel - Enrollments & Payments */}
+              <div className="space-y-4">
+                {/* Enrolled Plans */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-lg mb-3">📋 Enrolled Plans ({memberEnrollments.length})</h4>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {memberEnrollments.length > 0 ? (
+                      memberEnrollments.map((enrollment: any) => (
+                        <div key={enrollment._id} className="bg-white p-3 rounded border text-sm">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-medium">{enrollment.planId?.planName || 'Unknown Plan'}</p>
+                              <p className="text-gray-600">Amount: ₹{enrollment.planId?.totalAmount}</p>
+                              <p className="text-gray-600">{enrollment.planId?.duration} months</p>
+                            </div>
+                            <span className={`px-2 py-1 rounded text-xs ${
+                              enrollment.status === 'active' ? 'bg-green-100 text-green-800' :
+                              enrollment.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {enrollment.status}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-2">
+                            Enrolled: {new Date(enrollment.enrollmentDate).toLocaleDateString()}
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-gray-500 text-sm">No active enrollments</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Recent Payments */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-lg mb-3">💳 Recent Payments ({memberPayments.length})</h4>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {memberPayments.length > 0 ? (
+                      memberPayments.map((payment: any) => (
+                        <div key={payment._id} className="bg-white p-3 rounded border text-sm">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-medium">₹{payment.amount}</p>
+                              <p className="text-gray-600">{payment.planId?.planName || 'Unknown Plan'}</p>
+                              <p className="text-gray-600">{payment.paymentType}</p>
+                            </div>
+                            <div className="text-right text-xs text-gray-500">
+                              <p>{new Date(payment.paymentDate).toLocaleDateString()}</p>
+                              <p>#{payment.receiptNumber}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-gray-500 text-sm">No payment history</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
