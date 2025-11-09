@@ -28,6 +28,15 @@ export async function POST(request: NextRequest) {
       terms
     } = await request.json();
 
+    // Debug logging
+    console.log('Received plan data:', {
+      planName,
+      totalAmount,
+      duration,
+      monthlyData: monthlyData?.length || 0,
+      monthlyDataSample: monthlyData?.[0]
+    });
+
     // Validate required fields
     if (!planName || !totalAmount || !duration || !monthlyData || monthlyData.length === 0) {
       return NextResponse.json(

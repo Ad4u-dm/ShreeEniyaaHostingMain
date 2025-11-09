@@ -1,7 +1,7 @@
 # ChitFund-Invoify Hybrid Integration Guide
 
 ## Overview
-This integration combines the ChitFund Management System with Invoify's professional invoicing capabilities, creating a seamless hybrid solution that leverages the best of both systems.
+This integration combines the Shree Eniyaa Chitfunds Management System with Invoify's professional invoicing capabilities, creating a seamless hybrid solution that leverages the best of both systems.
 
 ## Architecture
 

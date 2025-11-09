@@ -219,7 +219,7 @@ export default function EnhancedAdminDashboard() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-800">ChitFund Management System</h1>
+            <h1 className="text-3xl font-bold text-slate-800">Shree Eniyaa Chitfunds (P) Ltd.</h1>
             <p className="text-slate-600 mt-1">Complete business management dashboard</p>
           </div>
           <div className="flex items-center gap-3">

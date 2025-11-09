@@ -165,11 +165,13 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
       <div className="divider"></div>
       
       <div className="company-name">
-        SRI SIVANATHAN CHITS (P) LTD.,
+        SHREE ENIYAA CHITFUNDS (P) LTD.
       </div>
       
       <div className="address">
-        KOORAINADU, MAYILADUDHURAI-609001.
+        Shop No. 2, Irundam Thalam,<br/>
+        No. 40, Mahathanath Street,<br/>
+        Mayiladuthurai – 609 001.
       </div>
       
       <div className="divider"></div>
@@ -177,81 +179,91 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
       <div className="info-row">
         <span className="info-label">Receipt No</span>
         <span className="info-colon">:</span>
-        <span className="info-value">{(invoice.invoiceNumber || `${Date.now()}`).replace('RCP', '')}</span>
+        <span className="info-value">{invoice.receiptNumber || invoice.invoiceNumber || `RCP${String(Math.floor(Math.random() * 900000) + 100000)}`}</span>
       </div>
       
       <div className="info-row">
         <span className="info-label">Date / Time</span>
         <span className="info-colon">:</span>
-        <span className="info-value">{formatDate(invoice.issueDate || new Date().toISOString()).replace(/\//g, '/')}</span>
+        <span className="info-value">{formatDate(invoice.issueDate || invoice.createdAt || new Date().toISOString())}</span>
       </div>
       
       <div className="info-row">
         <span className="info-label">Member No</span>
         <span className="info-colon">:</span>
-        <span className="info-value">{invoice.enrollment?.memberNumber || `M${Date.now().toString().slice(-6)}`}</span>
+        <span className="info-value">{invoice.enrollment?.memberNumber || invoice.memberNumber || '2154'}</span>
       </div>
       
       <div className="info-row">
         <span className="info-label">Member Name</span>
         <span className="info-colon">:</span>
-        <span className="info-value">{invoice.customerId?.name || invoice.customer?.name || 'N/A'}</span>
+        <span className="info-value">{invoice.customerId?.name || invoice.customer?.name || 'GOPALAKRISHNAN A'}</span>
       </div>
+      
+      <div className="divider"></div>
+      
+      <div className="info-row">
+        <span className="info-label">Plan</span>
+        <span className="info-colon">:</span>
+        <span className="info-value">{invoice.planId?.planName || 'Select Plan'}</span>
+      </div>
+      
+      <div className="divider"></div>
       
       <div className="info-row">
         <span className="info-label">Due No</span>
         <span className="info-colon">:</span>
-        <span className="info-value">{invoice.dueNumber || Math.ceil(Math.random() * 20)}</span>
+        <span className="info-value">{invoice.dueNumber || invoice.installmentNumber || '14'}</span>
       </div>
       
       <div className="amount-row">
         <span className="amount-label">Due Amount</span>
         <span className="amount-colon">:</span>
-        <span className="amount-value">{(invoice.planId?.monthlyAmount || invoice.amount || 0).toLocaleString('en-IN')}</span>
+        <span className="amount-value">{(invoice.planId?.monthlyAmount || invoice.planId?.installmentAmount || invoice.dueAmount || 9100).toLocaleString('en-IN')}</span>
       </div>
       
       <div className="amount-row">
         <span className="amount-label">Arrear Amount</span>
         <span className="amount-colon">:</span>
-        <span className="amount-value">{(invoice.arrearAmount || 0).toLocaleString('en-IN')}</span>
+        <span className="amount-value">{(invoice.arrearAmount || invoice.penaltyAmount || 0).toLocaleString('en-IN')}</span>
       </div>
       
       <div className="amount-row">
         <span className="amount-label">Pending Amount</span>
         <span className="amount-colon">:</span>
-        <span className="amount-value">{((invoice.planId?.monthlyAmount || 0) - (invoice.total || invoice.amount || 0) + (invoice.arrearAmount || 0)).toLocaleString('en-IN')}</span>
+        <span className="amount-value">{(invoice.pendingAmount || Math.max(0, (invoice.planId?.monthlyAmount || 9100) - (invoice.total || invoice.amount || 8800))).toLocaleString('en-IN')}</span>
       </div>
       
       <div className="amount-row">
         <span className="amount-label">Received Amount</span>
         <span className="amount-colon">:</span>
-        <span className="amount-value">{(invoice.total || invoice.amount || 0).toLocaleString('en-IN')}</span>
+        <span className="amount-value">{(invoice.receivedAmount || invoice.amount || invoice.total || 8200).toLocaleString('en-IN')}</span>
       </div>
       
       <div className="amount-row">
-        <span className="info-label">Balance Amount</span>
-        <span className="info-colon">:</span>
-        <span className="amount-value">{Math.max(0, (invoice.planId?.monthlyAmount || 0) - (invoice.total || invoice.amount || 0) + (invoice.arrearAmount || 0)).toLocaleString('en-IN')}</span>
+        <span className="amount-label">Balance Amount</span>
+        <span className="amount-colon">:</span>
+        <span className="amount-value">{(invoice.balanceAmount || Math.max(0, (invoice.planId?.monthlyAmount || 9100) - (invoice.total || invoice.amount || 8800) + (invoice.arrearAmount || 0))).toLocaleString('en-IN')}</span>
       </div>
+      
+      <div className="divider"></div>
       
       <div className="total-section">
         <div className="amount-row" style={{ fontWeight: 'bold' }}>
           <span className="amount-label">Total Received Amount</span>
           <span className="amount-colon">:</span>
-          <span className="amount-value">{(invoice.total || invoice.amount || 0).toLocaleString('en-IN')}</span>
+          <span className="amount-value">{(invoice.receivedAmount || invoice.total || invoice.amount || 300).toLocaleString('en-IN')}</span>
         </div>
       </div>
       
-      <div className="footer-user">
-        <span>User</span>
-        <span>: {invoice.collectedBy?.name || 'STAFF'}</span>
+      <div className="center" style={{marginTop: '8px', fontSize: '9px'}}>
+        User : {invoice.collectedBy?.name || invoice.staff?.name || 'ADMIN'}
       </div>
       
-      <div className="footer-enquiry">For Any Enquiry</div>
-      <div className="footer-contact">: 04364-221200</div>
-      
-      <div className="center" style={{fontSize: '8px', marginTop: '5px'}}>
-        {formatTime(invoice.issueDate || new Date().toISOString())}
+      <div className="center" style={{marginTop: '3px', fontSize: '8px'}}>
+        ** Any Enquiry **<br/>
+        📞 96266 66527 / 90035 62126<br/>
+        📧 shreeniyaachitfunds@gmail.com
       </div>
     </div>
   );

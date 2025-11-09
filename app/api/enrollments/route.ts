@@ -31,13 +31,85 @@ export async function GET(request: NextRequest) {
     if (planId) query.planId = planId;
     if (status) query.status = status;
     
-    const enrollments = await Enrollment.find(query)
-      .populate('userId', 'name email phone')
-      .populate('planId', 'planName totalAmount installmentAmount duration')
-      .populate('assignedStaff', 'name email')
-      .sort({ createdAt: -1 });
-    
-    return NextResponse.json({ enrollments });
+    // Get pagination parameters
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const search = searchParams.get('search') || '';
+
+    // Add search to query if provided
+    if (search && (user.role === 'admin' || user.role === 'staff')) {
+      // For admin/staff, allow searching across all enrollments
+      const users = await User.find({
+        $or: [
+          { name: { $regex: search, $options: 'i' } },
+          { email: { $regex: search, $options: 'i' } }
+        ]
+      }).select('_id').lean();
+      
+      const userIds = users.map(u => u._id);
+      
+      if (!query.userId) {
+        query.$or = [
+          { userId: { $in: userIds } },
+          { memberNumber: { $regex: search, $options: 'i' } }
+        ];
+      }
+    }
+
+    const [enrollments, total] = await Promise.all([
+      Enrollment.find(query)
+        .populate('userId', 'name email phone')
+        .populate('planId', 'planName totalAmount installmentAmount duration monthlyAmount')
+        .populate('assignedStaff', 'name email')
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .skip((page - 1) * limit),
+      Enrollment.countDocuments(query)
+    ]);
+
+    // Calculate stats (only for admin/staff)
+    let stats: any = null;
+    if (user.role === 'admin' || user.role === 'staff') {
+      const [totalCount, activeCount, completedCount, cancelledCount, avgDuration] = await Promise.all([
+        Enrollment.countDocuments(),
+        Enrollment.countDocuments({ status: 'active' }),
+        Enrollment.countDocuments({ status: 'completed' }),
+        Enrollment.countDocuments({ status: 'cancelled' }),
+        Enrollment.aggregate([
+          { $group: { _id: null, avgDuration: { $avg: '$planId.duration' } } }
+        ])
+      ]);
+
+      // Calculate total value
+      const enrollmentsWithPlans = await Enrollment.find()
+        .populate('planId', 'totalAmount')
+        .lean();
+      
+      const totalValue = enrollmentsWithPlans.reduce((sum, enrollment) => {
+        return sum + (enrollment.planId?.totalAmount || 0);
+      }, 0);
+
+      stats = {
+        totalEnrollments: totalCount,
+        activeEnrollments: activeCount,
+        completedEnrollments: completedCount,
+        cancelledEnrollments: cancelledCount,
+        totalValue,
+        averageDuration: Math.round(avgDuration[0]?.avgDuration || 18)
+      };
+    }
+
+    return NextResponse.json({ 
+      success: true,
+      enrollments,
+      stats,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
     
   } catch (error) {
     console.error('Get enrollments error:', error);

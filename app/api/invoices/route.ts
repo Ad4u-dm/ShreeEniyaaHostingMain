@@ -60,12 +60,12 @@ export async function POST(request: NextRequest) {
         status: payment.status,
         remarks: payment.remarks
       },
-      business: {
-        name: 'ChitFund Management System',
-        address: '123 Business Street, City, State - 12345',
-        phone: '+91 98765 43210',
-        email: 'info@chitfund.com',
-        gst: 'GST123456789'
+      company: {
+        name: 'Shree Eniyaa Chitfunds (P) Ltd.',
+        address: 'Shop No. 2, Irundam Thalam, No. 40, Mahathanath Street, Mayiladuthurai – 609 001.',
+        phone: '96266 66527, 90035 62126',
+        email: 'shreeniyaachitfunds@gmail.com',
+        website: 'www.shreeniyaachitfunds.com'
       }
     };
 

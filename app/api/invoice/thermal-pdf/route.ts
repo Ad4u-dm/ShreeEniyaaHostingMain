@@ -132,8 +132,8 @@ export async function POST(request: NextRequest) {
     </style>
 </head>
 <body>
-    <div class="company-name center">SRI INIYA CHIT FUND</div>
-    <div class="address center">KOVILNADU, MAYILADUDHURAI-609001</div>
+    <div class="company-name center">SHREE ENIYAA CHITFUNDS (P) LTD.</div>
+    <div class="address center">Shop No. 2, Irundam Thalam, No. 40, Mahathanath Street, Mayiladuthurai – 609 001.</div>
     <div class="center">Mobile Receipt</div>
     <div class="divider"></div>
     <div class="receipt-info">Receipt No: ${invoiceData.invoiceNumber}</div>

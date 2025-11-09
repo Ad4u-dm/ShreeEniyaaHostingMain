@@ -68,7 +68,7 @@ export async function GET(
       tax: invoice.tax || 0,
       total: invoice.total || invoice.amount || 0,
       paymentTerms: invoice.paymentTerms || 'Net 30 days',
-      notes: invoice.notes || 'Thank you for investing with Sri Sivanathan Chits',
+      notes: invoice.notes || 'Thank you for investing with Shree Eniyaa Chitfunds',
       template: invoice.template || 1
     };
 

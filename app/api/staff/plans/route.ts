@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
         totalAmount: plan.totalAmount,
         monthlyAmount: plan.monthlyAmount || Math.round(plan.totalAmount / plan.duration),
         duration: plan.duration,
-        description: plan.description || `${plan.planName} - Professional ChitFund Plan`,
+        description: plan.description || `${plan.planName} - Professional Chit Plan`,
         totalMembers: plan.totalMembers,
         commissionRate: plan.commissionRate || 5,
         monthlyData: plan.monthlyData, // Include month-wise data

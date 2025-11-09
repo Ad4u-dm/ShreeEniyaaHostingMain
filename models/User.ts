@@ -38,7 +38,7 @@ const UserSchema = new mongoose.Schema({
   profileImage: { type: String },
   dateOfBirth: { type: Date },
   
-  // ChitFund Customer specific fields
+  // Chit Fund Customer specific fields
   occupation: { type: String },
   nomineeName: { type: String },
   nomineeRelation: { 

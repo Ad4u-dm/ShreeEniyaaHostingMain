@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No data found' }, { status: 404 });
     }
 
-    // Generate thermal receipt HTML - Exact format matching SRI SIVANATHAN CHITS template
+    // Generate thermal receipt HTML - Exact format matching SHREE ENIYAA CHITFUNDS template
     const thermalReceiptHtml = `
 <!DOCTYPE html>
 <html>
@@ -197,8 +197,8 @@ export async function POST(request: NextRequest) {
     <div class="center mobile-receipt">Mobile Receipt</div>
     <div class="divider"></div>
     
-    <div class="company-name center">SRI SIVANATHAN CHITS (P) LTD.,</div>
-    <div class="address center">KOORAINADU, MAYILADUDHURAI-609001.</div>
+    <div class="company-name center">SHREE ENIYAA CHITFUNDS (P) LTD.</div>
+    <div class="address center">Shop No. 2, Irundam Thalam, No. 40, Mahathanath Street, Mayiladuthurai – 609 001.</div>
     
     <div class="divider"></div>
     

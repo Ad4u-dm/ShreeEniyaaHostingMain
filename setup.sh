@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🚀 Setting up ChitFund Management System..."
+echo "🚀 Setting up Shree Eniyaa Chitfunds Management System..."
 
 # Check if MongoDB is running
 if ! pgrep mongod > /dev/null; then
@@ -31,4 +31,4 @@ echo ""
 echo "🌐 Open your browser and go to: http://localhost:3000"
 echo "📱 You'll be redirected to the login page automatically"
 echo ""
-echo "✨ Enjoy your ChitFund Management System!"
+echo "✨ Enjoy your Shree Eniyaa Chitfunds Management System!"

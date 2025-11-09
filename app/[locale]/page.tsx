@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-// Redirect to ChitFund Management System login
+// Redirect to Shree Eniyaa Chitfunds login
 export default function Home() {
     redirect("/login");
 }

@@ -1,4 +1,4 @@
-# ChitFund Management System
+# Shree Eniyaa Chitfunds (P) Ltd. Management System
 
 A comprehensive web-based application for managing chit fund operations, built with Next.js 15, MongoDB, and modern UI components.
 

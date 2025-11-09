@@ -7,7 +7,7 @@ type Props = {
     children: ReactNode;
 };
 
-// Root layout with proper HTML structure for ChitFund Management System
+// Root layout with proper HTML structure for Shree Eniyaa Chitfunds
 export default function RootLayout({ children }: Props) {
     return (
         <html lang="en" suppressHydrationWarning>

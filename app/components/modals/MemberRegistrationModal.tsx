@@ -214,7 +214,7 @@ const MemberRegistrationModal: React.FC<MemberRegistrationModalProps> = ({
             Register New Member
           </DialogTitle>
           <DialogDescription>
-            Add a new member to the ChitFund system (Step {step} of 3)
+            Add a new member to the Chit Fund system (Step {step} of 3)
           </DialogDescription>
         </DialogHeader>
 
@@ -445,7 +445,7 @@ const MemberRegistrationModal: React.FC<MemberRegistrationModalProps> = ({
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <IndianRupee className="h-4 w-4" />
-                  Select ChitFund Plan
+                  Select Chit Plan
                 </CardTitle>
                 <CardDescription>
                   Choose the most suitable plan for the member
@@ -460,7 +460,7 @@ const MemberRegistrationModal: React.FC<MemberRegistrationModalProps> = ({
                       <IndianRupee className="h-16 w-16 text-gray-300 mx-auto mb-4" />
                       <h3 className="text-lg font-semibold text-gray-600 mb-2">No Plans Available</h3>
                       <p className="text-gray-500 mb-4">
-                        No ChitFund plans are currently available. Please contact your administrator to set up plans.
+                        No Chit plans are currently available. Please contact your administrator to set up plans.
                       </p>
                       <Button 
                         variant="outline" 

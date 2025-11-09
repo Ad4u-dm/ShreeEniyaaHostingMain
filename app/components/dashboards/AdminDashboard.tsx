@@ -679,8 +679,37 @@ function CreatePlanModal({ onClose, onSuccess }: any) {
     installment_amount: '',
     initial_dividend: ''
   });
+  const [monthlyData, setMonthlyData] = useState<any[]>([]);
+  const [showMonthlyEditor, setShowMonthlyEditor] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Generate monthly data when basic form changes
+  const generateMonthlyData = () => {
+    const monthsCount = parseInt(formData.months);
+    const installment = parseInt(formData.installment_amount) || 0;
+    const initialDividend = parseInt(formData.initial_dividend) || 0;
+    
+    const newMonthlyData: any[] = [];
+    for (let i = 1; i <= monthsCount; i++) {
+      const dividend = Math.max(100, initialDividend - ((i - 1) * 100));
+      const payableAmount = installment - (dividend * 0.04);
+      
+      newMonthlyData.push({
+        monthNumber: i,
+        installmentAmount: installment,
+        dividend: dividend,
+        payableAmount: Math.round(payableAmount)
+      });
+    }
+    setMonthlyData(newMonthlyData);
+  };
+
+  const updateMonthlyData = (monthIndex: number, field: string, value: number) => {
+    const updated = [...monthlyData];
+    updated[monthIndex] = { ...updated[monthIndex], [field]: value };
+    setMonthlyData(updated);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -688,37 +717,42 @@ function CreatePlanModal({ onClose, onSuccess }: any) {
     setError('');
 
     try {
-      // Generate month-wise data similar to plans.json format
-      const monthsCount = parseInt(formData.months);
-      const installment = parseInt(formData.installment_amount);
-      const initialDividend = parseInt(formData.initial_dividend);
+      // Use manually entered monthly data or generate if not available
+      let finalMonthlyData = monthlyData;
       
-      const monthlyData: any[] = [];
-      for (let i = 1; i <= monthsCount; i++) {
-        const dividend = Math.max(100, initialDividend - ((i - 1) * 100)); // Decreasing dividend
-        const payableAmount = installment - (dividend * 0.04); // 4% reduction for dividend
+      if (monthlyData.length === 0) {
+        // Generate month-wise data similar to plans.json format if no manual data
+        const monthsCount = parseInt(formData.months);
+        const installment = parseInt(formData.installment_amount);
+        const initialDividend = parseInt(formData.initial_dividend);
         
-        monthlyData.push({
-          month_number: i,
-          installment_amount: installment,
-          dividend: dividend,
-          payable_amount: Math.round(payableAmount)
-        });
+        finalMonthlyData = [];
+        for (let i = 1; i <= monthsCount; i++) {
+          const dividend = Math.max(100, initialDividend - ((i - 1) * 100));
+          const payableAmount = installment - (dividend * 0.04);
+          
+          finalMonthlyData.push({
+            monthNumber: i,
+            installmentAmount: installment,
+            dividend: dividend,
+            payableAmount: Math.round(payableAmount)
+          });
+        }
       }
 
       const planData = {
-        plan_name: formData.plan_name,
-        total_value: parseInt(formData.total_value),
-        months: monthsCount,
-        data: monthlyData
+        planName: formData.plan_name,
+        totalAmount: parseInt(formData.total_value),
+        duration: parseInt(formData.months),
+        monthlyData: finalMonthlyData
       };
 
       const response = await fetch('/api/plans/create', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+          'Content-Type': 'application/json'
         },
+        credentials: 'include', // Use cookies instead of Authorization header
         body: JSON.stringify(planData)
       });
 
@@ -729,7 +763,8 @@ function CreatePlanModal({ onClose, onSuccess }: any) {
         onClose();
         alert('Plan created successfully!');
       } else {
-        setError(result.error || 'Failed to create plan');
+        console.error('Plan creation failed:', result);
+        setError(result.error || `Failed to create plan (Status: ${response.status})`);
       }
     } catch (err) {
       setError('Network error. Please try again.');
@@ -749,7 +784,7 @@ function CreatePlanModal({ onClose, onSuccess }: any) {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <CardHeader>
-          <CardTitle>Create New ChitFund Plan</CardTitle>
+          <CardTitle>Create New Chit Plan</CardTitle>
           <CardDescription>Add a new investment plan following plans.json format</CardDescription>
         </CardHeader>
         <CardContent>
@@ -831,6 +866,71 @@ function CreatePlanModal({ onClose, onSuccess }: any) {
               />
               <p className="text-xs text-slate-500 mt-1">
                 Dividend will decrease by ₹100 each month (following plans.json pattern)
+              </p>
+            </div>
+
+            {/* Monthly Data Generation */}
+            <div className="border-t pt-4">
+              <div className="flex justify-between items-center mb-3">
+                <label className="text-sm font-medium">Monthly Data</label>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={generateMonthlyData}
+                  disabled={!formData.months || !formData.installment_amount || !formData.initial_dividend}
+                >
+                  Generate Monthly Data
+                </Button>
+              </div>
+              
+              {monthlyData.length > 0 && (
+                <div className="max-h-60 overflow-y-auto border rounded-lg">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="p-2 text-left">Month</th>
+                        <th className="p-2 text-left">Installment</th>
+                        <th className="p-2 text-left">Dividend</th>
+                        <th className="p-2 text-left">Payable</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {monthlyData.map((month, index) => (
+                        <tr key={index} className="border-t">
+                          <td className="p-2">{month.monthNumber}</td>
+                          <td className="p-2">
+                            <input 
+                              type="number" 
+                              value={month.installmentAmount}
+                              onChange={(e) => updateMonthlyData(index, 'installmentAmount', parseInt(e.target.value))}
+                              className="w-full p-1 border rounded text-xs"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input 
+                              type="number" 
+                              value={month.dividend}
+                              onChange={(e) => updateMonthlyData(index, 'dividend', parseInt(e.target.value))}
+                              className="w-full p-1 border rounded text-xs"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input 
+                              type="number" 
+                              value={month.payableAmount}
+                              onChange={(e) => updateMonthlyData(index, 'payableAmount', parseInt(e.target.value))}
+                              className="w-full p-1 border rounded text-xs"
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <p className="text-xs text-slate-500 mt-2">
+                Click "Generate Monthly Data" to create default values, then edit individual months as needed.
               </p>
             </div>
 

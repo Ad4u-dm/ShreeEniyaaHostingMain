@@ -16,10 +16,36 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch all users with their enrollment and payment data
-    const users = await User.find({})
-      .select('name email phone address role createdAt updatedAt createdBy')
-      .lean();
+    // Get query parameters
+    const { searchParams } = new URL(request.url);
+    const roleFilter = searchParams.get('role');
+    const searchTerm = searchParams.get('search');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+
+    // Build query
+    const query: any = {};
+    if (roleFilter) {
+      query.role = roleFilter;
+    }
+    if (searchTerm) {
+      query.$or = [
+        { name: { $regex: searchTerm, $options: 'i' } },
+        { email: { $regex: searchTerm, $options: 'i' } },
+        { phone: { $regex: searchTerm, $options: 'i' } }
+      ];
+    }
+
+    // Fetch users with filtering and pagination
+    const [users, total] = await Promise.all([
+      User.find(query)
+        .select('name email phone address role createdAt updatedAt createdBy')
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .skip((page - 1) * limit)
+        .lean(),
+      User.countDocuments(query)
+    ]);
 
     // Manually populate createdBy to handle mixed data types (ObjectId vs string)
     const populatedUsers = await Promise.all(users.map(async (user) => {
@@ -127,7 +153,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       customers,
-      stats
+      stats,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
     });
 
   } catch (error) {

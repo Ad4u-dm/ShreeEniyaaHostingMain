@@ -123,7 +123,7 @@ export default function CreateInvoicePage() {
 
   const calculateTotal = () => {
     const subtotal = calculateSubtotal();
-    const tax = 0; // No tax for ChitFund
+    const tax = 0; // No tax for Chit Fund
     return subtotal + tax;
   };
 
@@ -197,7 +197,7 @@ export default function CreateInvoicePage() {
             </Button>
             <div>
               <h1 className="text-3xl font-bold text-slate-800">Create Invoice</h1>
-              <p className="text-slate-600">Generate a new invoice for ChitFund payment</p>
+              <p className="text-slate-600">Generate a new invoice for Chit Fund payment</p>
             </div>
           </div>
 
@@ -428,10 +428,10 @@ export default function CreateInvoicePage() {
               <CardContent>
                 <div className="bg-white border rounded-lg p-4" style={{fontSize: '10px', fontFamily: 'monospace', width: '58mm', minHeight: '200px'}}>
                   <div style={{textAlign: 'center', fontWeight: 'bold', fontSize: '12px', marginBottom: '5px'}}>
-                    SRI INIYA CHIT FUND
+                    SHREE ENIYAA CHITFUNDS (P) LTD.
                   </div>
                   <div style={{textAlign: 'center', fontSize: '9px', marginBottom: '3px'}}>
-                    KOVILNADU, MAYILADUDHURAI-609001
+                    Shop No. 2, Irundam Thalam, No. 40, Mahathanath Street, Mayiladuthurai – 609 001.
                   </div>
                   <div style={{textAlign: 'center', marginBottom: '5px'}}>Mobile Receipt</div>
                   <div style={{borderTop: '1px dashed #000', margin: '3px 0'}}></div>

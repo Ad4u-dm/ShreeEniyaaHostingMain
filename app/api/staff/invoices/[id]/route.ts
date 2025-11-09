@@ -161,7 +161,7 @@ function generateInvoiceHTML(invoice: any): string {
         123 Business Street<br>
         City, State 12345<br>
         Phone: +91-9876543210<br>
-        Email: info@shriin iyachitfunds.com</p>
+        Email: shreeniyaachitfunds@gmail.com</p>
     </div>
 
     <div class="invoice-details">

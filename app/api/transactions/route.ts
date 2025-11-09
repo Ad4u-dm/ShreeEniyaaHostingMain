@@ -74,9 +74,19 @@ export async function GET(request: NextRequest) {
       }
     ]);
 
+    // Calculate stats for the frontend
+    const stats = {
+      totalTransactions: total,
+      totalAmount: summary[0]?.totalAmount || 0,
+      successfulTransactions: statusBreakdown.find(s => s._id === 'completed')?.count || 0,
+      pendingTransactions: statusBreakdown.find(s => s._id === 'pending')?.count || 0,
+      failedTransactions: statusBreakdown.find(s => s._id === 'failed')?.count || 0
+    };
+
     return NextResponse.json({
       success: true,
       transactions,
+      stats,
       pagination: {
         page,
         limit,

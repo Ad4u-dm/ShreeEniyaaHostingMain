@@ -29,13 +29,13 @@ export interface SMSData {
 // SMS Templates
 export const SMS_TEMPLATES = {
   payment_reminder: (name: string, amount: number, dueDate: string, planName: string) => 
-    `Dear ${name}, your payment of ₹${amount.toLocaleString('en-IN')} for ${planName} is due on ${dueDate}. Please pay on time to avoid penalty. - ChitFund Management`,
+    `Dear ${name}, your payment of ₹${amount.toLocaleString('en-IN')} for ${planName} is due on ${dueDate}. Please pay on time to avoid penalty. - Shree Eniyaa Chitfunds`,
   
   payment_confirmation: (name: string, amount: number, receiptNo: string, planName: string) => 
-    `Dear ${name}, we received your payment of ₹${amount.toLocaleString('en-IN')} for ${planName}. Receipt No: ${receiptNo}. Thank you! - ChitFund Management`,
+    `Dear ${name}, we received your payment of ₹${amount.toLocaleString('en-IN')} for ${planName}. Receipt No: ${receiptNo}. Thank you! - Shree Eniyaa Chitfunds`,
   
   auction_notification: (name: string, planName: string, auctionDate: string) => 
-    `Dear ${name}, auction for ${planName} is scheduled on ${auctionDate}. Please attend or submit your bid. - ChitFund Management`,
+    `Dear ${name}, auction for ${planName} is scheduled on ${auctionDate}. Please attend or submit your bid. - Shree Eniyaa Chitfunds`,
   
   welcome: (name: string, planName: string, memberNumber: number) => 
     `Welcome ${name}! You're successfully enrolled in ${planName} as Member #${memberNumber}. Our team will contact you soon. - ChitFund Management`,

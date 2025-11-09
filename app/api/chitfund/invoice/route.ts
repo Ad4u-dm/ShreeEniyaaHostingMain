@@ -203,7 +203,7 @@ async function handleSendEmail(enrollmentId: string, staffId: string, options: a
           <p><strong>Enrollment ID:</strong> ${enrollment.enrollmentId}</p>
           <p><strong>Member Number:</strong> ${enrollment.memberNumber}</p>
           <p>Please make payment before the due date to avoid late charges.</p>
-          <p>For any queries, please contact us at info@shriin iyachitfunds.com or call +91-9876543210.</p>
+          <p>For any queries, please contact us at shreeniyaachitfunds@gmail.com or call 96266 66527, 90035 62126.</p>
           <br>
           <p>Best regards,<br>Shri Iniya Chit Funds Team</p>
         </div>
