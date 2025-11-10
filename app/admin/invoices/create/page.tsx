@@ -921,33 +921,10 @@ export default function CreateInvoicePage() {
       console.log('Invoice creation response:', result);
 
       if (response.ok) {
-        const invoiceId = result.invoice?._id;
-        const successMessage = `Invoice ${status === 'draft' ? 'saved as draft' : 'created and sent'} successfully!`;
-        
-        // Show success with thermal print option
-        if (invoiceId && confirm(`${successMessage}\n\nWould you like to print the thermal receipt now?`)) {
-          // Open thermal receipt in new window for printing
-          const printWindow = window.open(
-            `/receipt/thermal/${invoiceId}`, 
-            '_blank', 
-            'width=400,height=600,scrollbars=yes,resizable=yes'
-          );
-          
-          // Focus the print window
-          if (printWindow) {
-            printWindow.focus();
-          }
-        } else {
-          alert(successMessage);
-        }
-        
+        alert(`Invoice ${status === 'draft' ? 'saved as draft' : 'created and sent'} successfully!`);
         // Generate next receipt number for future invoices
         generateNextReceiptNumber();
-        
-        // Redirect after a short delay to allow print window to open
-        setTimeout(() => {
-          window.location.href = '/admin/invoices';
-        }, 1000);
+        window.location.href = '/admin/invoices';
       } else {
         console.error('Invoice creation failed:', result);
         alert(`Failed to create invoice: ${result.error || 'Unknown error'}`);
