@@ -28,15 +28,23 @@ const formatNumberWithCommas = (number: number) => {
  * @param {number} number - Number to format
  * @returns {string} Number with Indian suffix (e.g., "10.50 Lakhs")
  */
-const formatIndianNumber = (number: number): string => {
-    if (number >= 10000000) { // 1 crore
-        return `${(number / 10000000).toFixed(2)} Crores`;
-    } else if (number >= 100000) { // 1 lakh
-        return `${(number / 100000).toFixed(2)} Lakhs`;
-    } else if (number >= 1000) { // 1 thousand
-        return `${(number / 1000).toFixed(2)} Thousands`;
+const formatIndianNumber = (number: number | undefined | null): string => {
+    // Handle null, undefined, or non-numeric values
+    if (number == null || isNaN(number)) {
+        return '0.00';
+    }
+    
+    // Ensure we have a valid number
+    const validNumber = Number(number);
+    
+    if (validNumber >= 10000000) { // 1 crore
+        return `${(validNumber / 10000000).toFixed(2)} Crores`;
+    } else if (validNumber >= 100000) { // 1 lakh
+        return `${(validNumber / 100000).toFixed(2)} Lakhs`;
+    } else if (validNumber >= 1000) { // 1 thousand
+        return `${(validNumber / 1000).toFixed(2)} Thousands`;
     } else {
-        return number.toFixed(2);
+        return validNumber.toFixed(2);
     }
 };
 

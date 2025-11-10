@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
     // Create payment record
     const payment = new Payment({
       enrollmentId: enrollment._id,
-      userId: enrollment.userId._id,
+      userId: enrollment.userId.userId || enrollment.userId, // Use custom userId for consistency
       planId: enrollment.planId._id,
       amount,
       paymentMethod,

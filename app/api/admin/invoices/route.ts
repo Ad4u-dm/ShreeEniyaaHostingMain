@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Invoice from '@/models/Invoice';
 import User from '@/models/User';
-import ChitPlan from '@/models/ChitPlan';
+import Plan from '@/models/Plan';
+import Enrollment from '@/models/Enrollment';
 import { getUserFromRequest, hasMinimumRole } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
@@ -23,6 +24,13 @@ export async function GET(request: NextRequest) {
 
     // Process invoices to match expected format
     const processedInvoices = invoices.map(invoice => {
+      console.log('Processing invoice:', {
+        _id: invoice._id,
+        invoiceNumber: invoice.invoiceNumber,
+        receiptNo: invoice.receiptNo,
+        invoiceId: invoice.invoiceId
+      });
+      
       // Determine status based on due date and payment status
       let status = invoice.status || 'draft';
       if (invoice.dueDate && new Date(invoice.dueDate) < new Date() && status !== 'paid') {
@@ -32,6 +40,7 @@ export async function GET(request: NextRequest) {
       return {
         _id: invoice._id,
         invoiceNumber: invoice.invoiceNumber,
+        receiptNo: invoice.receiptNo,
         customerId: {
           _id: invoice.customerId?._id,
           name: invoice.customerId?.name || 'Unknown Customer',
@@ -43,7 +52,7 @@ export async function GET(request: NextRequest) {
           name: invoice.planId?.planName || 'No Plan',
           monthlyAmount: invoice.planId?.monthlyAmount || 0
         },
-        amount: invoice.amount || invoice.total || 0,
+        amount: invoice.amount || invoice.total || invoice.totalAmount || 0,
         dueDate: invoice.dueDate,
         issueDate: invoice.issueDate || invoice.createdAt,
         status,
@@ -56,7 +65,7 @@ export async function GET(request: NextRequest) {
         }],
         subtotal: invoice.subtotal || invoice.amount || invoice.total || 0,
         tax: invoice.tax || 0,
-        total: invoice.total || invoice.amount || 0,
+        total: invoice.total || invoice.amount || invoice.totalAmount || 0,
         paymentTerms: invoice.paymentTerms || '30 days',
         notes: invoice.notes || 'Thank you for your business!',
         template: invoice.template || 1,
@@ -100,9 +109,62 @@ export async function GET(request: NextRequest) {
 // Create new invoice
 export async function POST(request: NextRequest) {
   try {
+    const user = getUserFromRequest(request);
+    if (!user || !hasMinimumRole(user, 'admin')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const invoiceData = await request.json();
+    console.log('Received invoice data:', invoiceData);
     
     await connectDB();
+
+    // Validate required fields
+    const requiredFields = ['enrollmentId', 'customerId', 'planId', 'createdBy', 'totalAmount', 'customerDetails', 'planDetails'];
+    for (const field of requiredFields) {
+      if (!invoiceData[field]) {
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: `Missing required field: ${field}` 
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Validate customer details required fields
+    if (!invoiceData.customerDetails.name || !invoiceData.customerDetails.phone) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Customer name and phone are required' 
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate plan details required fields
+    if (!invoiceData.planDetails.planName || !invoiceData.planDetails.monthlyAmount) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Plan name and monthly amount are required' 
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate items have descriptions
+    if (!invoiceData.items || invoiceData.items.some((item: any) => !item.description)) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'All items must have descriptions' 
+        },
+        { status: 400 }
+      );
+    }
     
     // Generate invoice number
     const latestInvoice = await Invoice.findOne({}, {}, { sort: { 'invoiceNumber': -1 } });
@@ -120,13 +182,24 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
       updatedAt: new Date()
     });
+
+    console.log('Creating invoice with data:', {
+      enrollmentId: newInvoice.enrollmentId,
+      customerId: newInvoice.customerId,
+      planId: newInvoice.planId,
+      createdBy: newInvoice.createdBy,
+      totalAmount: newInvoice.totalAmount,
+      items: newInvoice.items
+    });
     
     await newInvoice.save();
+    console.log('Invoice saved successfully with ID:', newInvoice._id);
     
     // Populate references for response
     const populatedInvoice = await Invoice.findById(newInvoice._id)
       .populate('customerId', 'name email phone')
-      .populate('planId', 'planName monthlyAmount');
+      .populate('planId', 'planName monthlyAmount')
+      .populate('enrollmentId', 'userId planId enrollmentDate');
 
     return NextResponse.json({
       success: true,
@@ -134,12 +207,26 @@ export async function POST(request: NextRequest) {
       message: 'Invoice created successfully'
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Create invoice error:', error);
+    
+    // Handle Mongoose validation errors
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map((err: any) => err.message);
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Validation failed',
+          details: validationErrors 
+        },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
       { 
         success: false, 
-        error: 'Failed to create invoice' 
+        error: error.message || 'Failed to create invoice'
       },
       { status: 500 }
     );

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Enrollment from '@/models/Enrollment';
-import ChitPlan from '@/models/ChitPlan';
+import Plan from '@/models/Plan';
 import User from '@/models/User';
 import { getUserFromRequest, hasMinimumRole } from '@/lib/auth';
 
@@ -56,16 +56,40 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const [enrollments, total] = await Promise.all([
+    // Get enrollments with only ObjectId-based populations
+    const [rawEnrollments, total] = await Promise.all([
       Enrollment.find(query)
-        .populate('userId', 'name email phone')
         .populate('planId', 'planName totalAmount installmentAmount duration monthlyAmount')
-        .populate('assignedStaff', 'name email')
         .sort({ createdAt: -1 })
         .limit(limit)
         .skip((page - 1) * limit),
       Enrollment.countDocuments(query)
     ]);
+
+    // Manually populate user data for userId and assignedStaff
+    const userIds = rawEnrollments.map(enrollment => enrollment.userId).filter(Boolean);
+    const staffIds = rawEnrollments.map(enrollment => enrollment.assignedStaff).filter(Boolean);
+    
+    // Get all unique user IDs (both customers and staff)
+    const allUserIds = Array.from(new Set(userIds.concat(staffIds)));
+    const users = await User.find({ userId: { $in: allUserIds } }, 'name email phone userId');
+    const userMap = new Map(users.map(user => [user.userId, user]));
+
+    // Combine enrollment data with user data
+    const enrollments = rawEnrollments.map(enrollment => ({
+      ...enrollment.toObject(),
+      userId: userMap.get(enrollment.userId) || { 
+        userId: enrollment.userId, 
+        name: 'Unknown User', 
+        email: '', 
+        phone: '' 
+      },
+      assignedStaff: enrollment.assignedStaff ? (userMap.get(enrollment.assignedStaff) || {
+        userId: enrollment.assignedStaff,
+        name: 'Unknown Staff',
+        email: ''
+      }) : null
+    }));
 
     // Calculate stats (only for admin/staff)
     let stats: any = null;
@@ -137,29 +161,60 @@ export async function POST(request: NextRequest) {
       assignedStaff
     } = await request.json();
     
-    // Verify plan exists
-    const plan = await ChitPlan.findById(planId);
+    // Debug logging
+    console.log('Enrollment request data:', { userId, planId, startDate, nominee, assignedStaff });
+    console.log('Plan ID type:', typeof planId, 'Plan ID value:', planId);
+    
+    // Verify plan exists (using Plan model for consistency with /api/plans)
+    const plan = await Plan.findById(planId);
+    console.log('Plan lookup result:', plan ? 'Found' : 'Not found');
+    
     if (!plan) {
+      // Try to find all plans to see what's available
+      const allPlans = await Plan.find({}).select('_id planName').limit(5);
+      console.log('Available plans (first 5):', allPlans);
+      
       return NextResponse.json(
-        { error: 'Plan not found' },
+        { error: `Plan not found with ID: ${planId}` },
         { status: 404 }
       );
     }
     
-    // Verify user exists
-    const targetUser = await User.findOne({ userId });
+    // Verify user exists - try both userId and _id
+    console.log('Looking for user with userId:', userId);
+    let targetUser = await User.findOne({ userId });
+    
     if (!targetUser) {
+      // Only try findById if userId looks like an ObjectId (24 hex characters)
+      const isObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
+      if (isObjectId) {
+        console.log('Trying findById as userId appears to be an ObjectId');
+        targetUser = await User.findById(userId);
+      }
+    }
+    
+    if (!targetUser) {
+      console.log('User not found with ID:', userId);
       return NextResponse.json(
-        { error: 'User not found' },
+        { error: `User not found with ID: ${userId}` },
         { status: 404 }
       );
     }
     
-    // Check if user is already enrolled in this plan
-    const existingEnrollment = await Enrollment.findOne({ userId: targetUser._id, planId });
-    if (existingEnrollment) {
+    console.log('Found user:', { _id: targetUser._id, userId: targetUser.userId, name: targetUser.name });
+    
+    // Check if user is already actively enrolled in this plan
+    console.log('Checking for existing active enrollment with userId:', targetUser.userId, 'planId:', planId);
+    const existingActiveEnrollment = await Enrollment.findOne({ 
+      userId: targetUser.userId, 
+      planId,
+      status: 'active'
+    });
+    console.log('Existing active enrollment found:', existingActiveEnrollment ? 'Yes' : 'No');
+    
+    if (existingActiveEnrollment) {
       return NextResponse.json(
-        { error: 'User already enrolled in this plan' },
+        { error: 'User already has an active enrollment in this plan' },
         { status: 400 }
       );
     }
@@ -186,11 +241,12 @@ export async function POST(request: NextRequest) {
     }
     
     const enrollment = new Enrollment({
-      userId: targetUser._id,
+      userId: targetUser.userId, // Use the user's custom userId, not _id
       planId,
+      enrollmentDate: start,
       startDate: start,
       endDate: end,
-      memberNumber: memberCount + 1,
+      status: 'active',
       totalDue: plan.totalAmount,
       nextDueDate: start,
       nominee,
@@ -199,14 +255,26 @@ export async function POST(request: NextRequest) {
     
     await enrollment.save();
     
+    // Manually populate user data since userId and assignedStaff are now strings, not ObjectId references
     const populatedEnrollment = await Enrollment.findById(enrollment._id)
-      .populate('userId', 'name email phone')
-      .populate('planId', 'planName totalAmount installmentAmount duration')
-      .populate('assignedStaff', 'name email');
+      .populate('planId', 'planName totalAmount installmentAmount duration');
+    
+    // Get user data separately using the string userIds
+    const [userData, staffData] = await Promise.all([
+      User.findOne({ userId: enrollment.userId }, 'name email phone userId'),
+      enrollment.assignedStaff ? User.findOne({ userId: enrollment.assignedStaff }, 'name email userId') : null
+    ]);
+    
+    // Add user and staff data to the enrollment object
+    const enrollmentWithUser = {
+      ...populatedEnrollment.toObject(),
+      userId: userData || { userId: enrollment.userId, name: 'Unknown User', email: '', phone: '' },
+      assignedStaff: staffData || (enrollment.assignedStaff ? { userId: enrollment.assignedStaff, name: 'Unknown Staff', email: '' } : null)
+    };
     
     return NextResponse.json({
       message: 'Enrollment created successfully',
-      enrollment: populatedEnrollment
+      enrollment: enrollmentWithUser
     }, { status: 201 });
     
   } catch (error) {

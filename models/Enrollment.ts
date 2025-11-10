@@ -4,8 +4,8 @@ const EnrollmentSchema = new mongoose.Schema({
   enrollmentId: { type: String, unique: true }, // Auto-generated in pre-save hook
   
   // References
-  userId: { type: String, ref: 'User', required: true },
-  planId: { type: mongoose.Schema.Types.ObjectId, ref: 'ChitPlan', required: true },
+  userId: { type: String, required: true }, // Custom string userId, no ref since it's not ObjectId
+  planId: { type: mongoose.Schema.Types.ObjectId, ref: 'Plan', required: true }, // Updated to use Plan model
   
   // Enrollment Details
   enrollmentDate: { type: Date, default: Date.now },
@@ -41,7 +41,7 @@ const EnrollmentSchema = new mongoose.Schema({
   },
   
   // Staff Assignment
-  assignedStaff: { type: String, ref: 'User' },
+  assignedStaff: { type: String }, // Custom string userId, no ref since it's not ObjectId
   
   // Notes
   notes: [{ 

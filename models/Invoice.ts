@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 
 const InvoiceSchema = new mongoose.Schema({
   invoiceId: { type: String, unique: true }, // Auto-generated in pre-save hook
+  receiptNo: { type: String, unique: true }, // Sequential receipt number
   
   // References
   enrollmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Enrollment', required: true },
@@ -68,6 +69,19 @@ const InvoiceSchema = new mongoose.Schema({
     duration: { type: Number },
     totalAmount: { type: Number }
   },
+  
+  // Direct receipt fields (simple storage, no calculations)
+  memberNumber: String,
+  dueNumber: String,
+  memberName: String,
+  paymentMonth: String, // YYYY-MM format for which month this payment is for
+  dueAmount: Number,
+  arrearAmount: { type: Number, default: 0 },
+  pendingAmount: { type: Number, default: 0 },
+  receivedAmount: Number,
+  balanceAmount: { type: Number, default: 0 },
+  totalReceivedAmount: Number,
+  issuedBy: { type: String, default: 'ADMIN' },
   
   // Invoice Settings
   notes: { type: String },

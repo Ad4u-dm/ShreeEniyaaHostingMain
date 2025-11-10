@@ -48,16 +48,48 @@ export default function PrintInvoicePage() {
   useEffect(() => {
     const fetchInvoice = async () => {
       try {
-        const response = await fetch(`/api/invoices/${params.id}`);
+        console.log('=== PRINT PAGE DEBUG ===');
+        console.log('Fetching invoice with ID:', params.id);
+        console.log('Full URL:', window.location.href);
+        
+        const apiUrl = `/api/invoices/${params.id}`;
+        console.log('API URL:', apiUrl);
+        
+        const response = await fetch(apiUrl);
+        console.log('Response status:', response.status);
+        console.log('Response headers:', response.headers);
+        
         if (response.ok) {
           const data = await response.json();
+          console.log('Raw API response:', data);
+          console.log('Invoice data:', data.invoice);
+          console.log('Invoice ID fields:', {
+            '_id': data.invoice?._id,
+            'invoiceNumber': data.invoice?.invoiceNumber,
+            'receiptNo': data.invoice?.receiptNo,
+            'invoiceId': data.invoice?.invoiceId
+          });
+          console.log('Customer data:', data.invoice?.customerId);
+          console.log('Plan data:', data.invoice?.planId);
+          
           setInvoice(data.invoice);
           
-          // Auto-print after data loads
+          // Check if this is a download request or print request
+          const urlParams = new URLSearchParams(window.location.search);
+          const isDownload = urlParams.get('download') === 'true';
+          
+          // Auto-print after data loads (but not if it's a download request)
           setTimeout(() => {
-            window.print();
+            if (!isDownload) {
+              console.log('Auto-printing invoice...');
+              window.print();
+            } else {
+              console.log('Download mode - not auto-printing');
+            }
           }, 1000);
         } else {
+          const errorText = await response.text();
+          console.error('Failed to fetch invoice:', response.status, response.statusText, errorText);
           setError('Invoice not found');
         }
       } catch (err) {
@@ -69,7 +101,12 @@ export default function PrintInvoicePage() {
     };
 
     if (params.id) {
+      console.log('Params ID found:', params.id);
       fetchInvoice();
+    } else {
+      console.error('No params.id found!');
+      setError('No invoice ID provided');
+      setLoading(false);
     }
   }, [params.id]);
 
@@ -198,7 +235,7 @@ export default function PrintInvoicePage() {
 
         {/* Invoice Content - This will be printed */}
         <div className="print-area p-8 max-w-4xl mx-auto">
-          <ThermalReceiptTemplate invoice={invoiceData} />
+          <ThermalReceiptTemplate invoice={invoice} />
         </div>
       </div>
     </>

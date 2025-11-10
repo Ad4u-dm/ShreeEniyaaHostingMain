@@ -7,6 +7,25 @@ interface ThermalReceiptProps {
 }
 
 export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
+  console.log('=== THERMAL RECEIPT DEBUG ===');
+  console.log('Invoice prop received:', invoice);
+  console.log('Invoice receiptData:', invoice?.receiptData);
+  
+  // Use saved receiptData if available, otherwise fallback to field mapping
+  const useReceiptData = invoice?.receiptData;
+  console.log('Using receiptData:', useReceiptData);
+  
+  if (!useReceiptData) {
+    console.log('No receiptData found, using field mapping fallback');
+    console.log('Invoice customer:', invoice?.customerId);
+    console.log('Invoice plan:', invoice?.planId);
+    console.log('Invoice amount:', invoice?.amount);
+    console.log('Invoice total:', invoice?.total);
+    console.log('Invoice receiptNo:', invoice?.receiptNo);
+    console.log('Invoice memberNumber:', invoice?.memberNumber);
+    console.log('Invoice dueNumber:', invoice?.dueNumber);
+  }
+
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('en-IN', {
       day: '2-digit',
@@ -39,7 +58,7 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
         }
         
         .center {
-          text-align: center;
+          text-align: left;
         }
         
         .mobile-receipt {
@@ -50,11 +69,13 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
         }
         
         .company-name {
-          font-size: 12px;
+          font-size: 11px;
           font-weight: bold;
           text-align: center;
           margin-bottom: 2px;
-          letter-spacing: 0.5px;
+          letter-spacing: 0.3px;
+          white-space: nowrap;
+          overflow: hidden;
         }
         
         .address {
@@ -130,13 +151,13 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
         }
         
         .footer-enquiry {
-          text-align: center;
+          text-align: left;
           font-size: 9px;
           margin-top: 3px;
         }
         
         .footer-contact {
-          text-align: center;
+          text-align: left;
           font-size: 9px;
           margin-top: 2px;
         }
@@ -169,8 +190,7 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
       </div>
       
       <div className="address">
-        Shop No. 2, Irundam Thalam,<br/>
-        No. 40, Mahathanath Street,<br/>
+        Shop no. 2 , Mahadhana Street,<br/>
         Mayiladuthurai – 609 001.
       </div>
       
@@ -179,7 +199,7 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
       <div className="info-row">
         <span className="info-label">Receipt No</span>
         <span className="info-colon">:</span>
-        <span className="info-value">{invoice.receiptNumber || invoice.invoiceNumber || `RCP${String(Math.floor(Math.random() * 900000) + 100000)}`}</span>
+        <span className="info-value">{invoice.receiptNo || 'N/A'}</span>
       </div>
       
       <div className="info-row">
@@ -191,59 +211,45 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
       <div className="info-row">
         <span className="info-label">Member No</span>
         <span className="info-colon">:</span>
-        <span className="info-value">{invoice.enrollment?.memberNumber || invoice.memberNumber || '2154'}</span>
+        <span className="info-value">{invoice.memberNumber || 'N/A'}</span>
       </div>
       
       <div className="info-row">
         <span className="info-label">Member Name</span>
         <span className="info-colon">:</span>
-        <span className="info-value">{invoice.customerId?.name || invoice.customer?.name || 'GOPALAKRISHNAN A'}</span>
+        <span className="info-value">{invoice.memberName || invoice.customerId?.name || 'N/A'}</span>
       </div>
-      
-      <div className="divider"></div>
-      
-      <div className="info-row">
-        <span className="info-label">Plan</span>
-        <span className="info-colon">:</span>
-        <span className="info-value">{invoice.planId?.planName || 'Select Plan'}</span>
-      </div>
-      
-      <div className="divider"></div>
       
       <div className="info-row">
         <span className="info-label">Due No</span>
         <span className="info-colon">:</span>
-        <span className="info-value">{invoice.dueNumber || invoice.installmentNumber || '14'}</span>
+        <span className="info-value">{invoice.dueNumber || '1'}</span>
       </div>
       
       <div className="amount-row">
         <span className="amount-label">Due Amount</span>
         <span className="amount-colon">:</span>
-        <span className="amount-value">{(invoice.planId?.monthlyAmount || invoice.planId?.installmentAmount || invoice.dueAmount || 9100).toLocaleString('en-IN')}</span>
+        <span className="amount-value">{(invoice.dueAmount || 0).toLocaleString('en-IN')}</span>
       </div>
       
       <div className="amount-row">
         <span className="amount-label">Arrear Amount</span>
         <span className="amount-colon">:</span>
-        <span className="amount-value">{(invoice.arrearAmount || invoice.penaltyAmount || 0).toLocaleString('en-IN')}</span>
+        <span className="amount-value">{(invoice.arrearAmount || 0).toLocaleString('en-IN')}</span>
       </div>
       
-      <div className="amount-row">
-        <span className="amount-label">Pending Amount</span>
-        <span className="amount-colon">:</span>
-        <span className="amount-value">{(invoice.pendingAmount || Math.max(0, (invoice.planId?.monthlyAmount || 9100) - (invoice.total || invoice.amount || 8800))).toLocaleString('en-IN')}</span>
-      </div>
+      {/* Removed Pending Amount as per client requirement */}
       
       <div className="amount-row">
         <span className="amount-label">Received Amount</span>
         <span className="amount-colon">:</span>
-        <span className="amount-value">{(invoice.receivedAmount || invoice.amount || invoice.total || 8200).toLocaleString('en-IN')}</span>
+        <span className="amount-value">{(invoice.receivedAmount || 0).toLocaleString('en-IN')}</span>
       </div>
       
       <div className="amount-row">
         <span className="amount-label">Balance Amount</span>
         <span className="amount-colon">:</span>
-        <span className="amount-value">{(invoice.balanceAmount || Math.max(0, (invoice.planId?.monthlyAmount || 9100) - (invoice.total || invoice.amount || 8800) + (invoice.arrearAmount || 0))).toLocaleString('en-IN')}</span>
+        <span className="amount-value">{(invoice.balanceAmount || 0).toLocaleString('en-IN')}</span>
       </div>
       
       <div className="divider"></div>
@@ -252,12 +258,12 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
         <div className="amount-row" style={{ fontWeight: 'bold' }}>
           <span className="amount-label">Total Received Amount</span>
           <span className="amount-colon">:</span>
-          <span className="amount-value">{(invoice.receivedAmount || invoice.total || invoice.amount || 300).toLocaleString('en-IN')}</span>
+          <span className="amount-value">{(invoice.totalReceivedAmount || invoice.receivedAmount || 0).toLocaleString('en-IN')}</span>
         </div>
       </div>
       
       <div className="center" style={{marginTop: '8px', fontSize: '9px'}}>
-        User : {invoice.collectedBy?.name || invoice.staff?.name || 'ADMIN'}
+        By: {invoice.issuedBy || invoice.collectedBy?.name || invoice.staff?.name || 'ADMIN'}
       </div>
       
       <div className="center" style={{marginTop: '3px', fontSize: '8px'}}>

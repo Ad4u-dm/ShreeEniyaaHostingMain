@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
 
     // Create enrollment
     const enrollment = new Enrollment({
-      userId: savedUser._id,
+      userId: savedUser.userId, // Use custom userId for consistency with admin system
       planId: plan._id,
       memberNumber: memberPosition, // Numeric position in the plan (1, 2, 3, etc.)
       enrollmentId: `ENR${memberNumber}`, // String identifier like ENR-CF20250001
@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
       
       const payment = new Payment({
         enrollmentId: savedEnrollment._id,
-        userId: savedUser._id,
+        userId: savedUser.userId, // Use custom userId for consistency
         planId: plan._id,
         installmentNumber: i,
         amount: amount,
@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'Member registered successfully',
       member: {
-        userId: savedUser._id,
+        userId: savedUser.userId, // Use custom userId for consistency
         name: savedUser.name,
         email: savedUser.email,
         phone: savedUser.phone,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Payment from '@/models/Payment';
+import Invoice from '@/models/Invoice';
 import User from '@/models/User';
 import ChitPlan from '@/models/ChitPlan';
 import Enrollment from '@/models/Enrollment';
@@ -102,6 +103,42 @@ export async function GET(request: NextRequest) {
     await connectDB();
 
     const { searchParams } = new URL(request.url);
+    const customerId = searchParams.get('customerId');
+    const planId = searchParams.get('planId');
+    const latest = searchParams.get('latest');
+
+    // If requesting latest invoice for balance calculation
+    if (latest && customerId && planId) {
+      const latestInvoice = await Invoice.findOne({
+        customerId: customerId,
+        planId: planId,
+        status: { $in: ['sent', 'paid'] }
+      })
+      .sort({ createdAt: -1 })
+      .select('balanceAmount totalAmount receivedAmount dueAmount')
+      .lean();
+
+      console.log('Latest invoice lookup:', {
+        customerId,
+        planId,
+        latestInvoice
+      });
+
+      if (latestInvoice) {
+        return NextResponse.json({
+          success: true,
+          invoice: {
+            balanceAmount: latestInvoice.balanceAmount || 0
+          }
+        });
+      } else {
+        return NextResponse.json({
+          success: true,
+          invoice: null // No previous invoice found
+        });
+      }
+    }
+
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
 

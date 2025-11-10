@@ -11,6 +11,7 @@ import { formatIndianNumber } from '@/lib/helpers';
 interface Invoice {
   _id: string;
   invoiceNumber: string;
+  receiptNo?: string;
   customerId: {
     _id: string;
     name: string;
@@ -140,32 +141,32 @@ export default function InvoicesPage() {
   };
 
   const handlePrintInvoice = (invoice: Invoice) => {
+    console.log('Printing invoice:', invoice);
+    console.log('Invoice ID:', invoice._id);
+    
+    // Add cache buster to force fresh data
+    const cacheBuster = Date.now();
+    const printUrl = `/invoice/print/${invoice._id}?t=${cacheBuster}`;
+    console.log('Print URL:', printUrl);
+    
     // Open invoice in new window for printing
-    const printWindow = window.open(`/invoice/print/${invoice._id}`, '_blank');
+    const printWindow = window.open(printUrl, '_blank');
     if (printWindow) {
       printWindow.focus();
     }
   };
 
   const handleDownloadInvoice = async (invoice: Invoice) => {
-    try {
-      const response = await fetch(`/api/invoice/export?id=${invoice._id}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
-        }
-      });
-
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${invoice.invoiceNumber}.pdf`;
-        a.click();
-        window.URL.revokeObjectURL(url);
-      }
-    } catch (error) {
-      console.error('Failed to download invoice:', error);
+    // Open print page in new window with download intent
+    const printWindow = window.open(`/invoice/print/${invoice._id}?download=true`, '_blank');
+    if (printWindow) {
+      printWindow.focus();
+      // Give user instruction via alert
+      setTimeout(() => {
+        alert('Use Ctrl+P (or Cmd+P on Mac) and select "Save as PDF" to download the invoice.');
+      }, 1000);
+    } else {
+      alert('Please allow pop-ups to download the invoice PDF');
     }
   };
 
@@ -352,7 +353,8 @@ export default function InvoicesPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-slate-200">
-                    <th className="text-left py-3 px-4 font-medium text-slate-600">Invoice</th>
+                    <th className="text-left py-3 px-4 font-medium text-slate-600">Invoice Number</th>
+                    <th className="text-left py-3 px-4 font-medium text-slate-600">Date</th>
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Customer</th>
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Amount</th>
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Status</th>
@@ -364,11 +366,13 @@ export default function InvoicesPage() {
                   {filteredInvoices.map((invoice) => (
                     <tr key={invoice._id} className="border-b border-slate-100 hover:bg-slate-50">
                       <td className="py-3 px-4">
-                        <div>
-                          <div className="font-medium text-slate-800">{invoice.invoiceNumber}</div>
-                          <div className="text-sm text-slate-600">
-                            {new Date(invoice.issueDate).toLocaleDateString('en-IN')}
-                          </div>
+                        <div className="font-medium text-slate-800">
+                          {invoice.receiptNo ? `INV${invoice.receiptNo}` : invoice.invoiceNumber || 'N/A'}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="text-sm text-slate-600">
+                          {new Date(invoice.issueDate).toLocaleDateString('en-IN')}
                         </div>
                       </td>
                       <td className="py-3 px-4">

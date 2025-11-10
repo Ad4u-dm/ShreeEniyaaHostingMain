@@ -140,9 +140,7 @@ export async function POST(request: NextRequest) {
     <div class="receipt-info">Date / Time: ${new Date(invoiceData.issueDate).toLocaleDateString('en-IN')}</div>
     <div class="receipt-info">Member No: ${invoiceData.enrollment.memberNumber}</div>
     <div class="receipt-info">Member Name: ${invoiceData.customerId.name}</div>
-    <div class="receipt-info">Ticket No: ${invoiceData.planId._id.slice(-4)}</div>
-    <div class="divider"></div>
-    <div class="due-header">Due No</div>
+    <div class="receipt-info">Due No: 14</div>
     <div class="item-row"><span>Due Amount</span><span>${invoiceData.planId.monthlyAmount}</span></div>
     <div class="item-row"><span>Arrear Amount</span><span>0</span></div>
     <div class="item-row"><span>Pending Amount</span><span>0</span></div>

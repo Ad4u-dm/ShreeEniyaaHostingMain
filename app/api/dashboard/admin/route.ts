@@ -64,18 +64,43 @@ export async function GET(request: NextRequest) {
       })
     ]);
     
-    // Recent activities
-    const recentEnrollments = await Enrollment.find()
-      .populate('userId', 'name email')
+    // Recent activities - get raw data first, then manually populate
+    const rawRecentEnrollments = await Enrollment.find()
       .populate('planId', 'planName')
       .sort({ createdAt: -1 })
       .limit(5);
     
-    const recentPayments = await Payment.find()
-      .populate('userId', 'name email')
+    const rawRecentPayments = await Payment.find()
       .populate('planId', 'planName')
       .sort({ createdAt: -1 })
       .limit(5);
+
+    // Manually populate user data for enrollments
+    const enrollmentUserIds = rawRecentEnrollments.map(e => e.userId).filter(Boolean);
+    const paymentUserIds = rawRecentPayments.map(p => p.userId).filter(Boolean);
+    const allUserIds = Array.from(new Set(enrollmentUserIds.concat(paymentUserIds)));
+    
+    const users = await User.find({ userId: { $in: allUserIds } }, 'name email userId');
+    const userMap = new Map(users.map(user => [user.userId, user]));
+
+    // Combine data with user information
+    const recentEnrollments = rawRecentEnrollments.map(enrollment => ({
+      ...enrollment.toObject(),
+      userId: userMap.get(enrollment.userId) || { 
+        userId: enrollment.userId, 
+        name: 'Unknown User', 
+        email: '' 
+      }
+    }));
+    
+    const recentPayments = rawRecentPayments.map(payment => ({
+      ...payment.toObject(),
+      userId: userMap.get(payment.userId) || { 
+        userId: payment.userId, 
+        name: 'Unknown User', 
+        email: '' 
+      }
+    }));
     
     // Top performing staff
     const staffPerformance = await Payment.aggregate([
