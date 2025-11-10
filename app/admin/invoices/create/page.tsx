@@ -238,6 +238,26 @@ export default function CreateInvoicePage() {
         calculatedBalance: balanceAmount
       });
 
+      // Log the amounts being set
+      console.log('=== SETTING RECEIPT AMOUNTS ===', {
+        monthlyDue,
+        arrearAmount,
+        dailyDue,
+        balanceAmount,
+        willSetReceivedAmountTo: dailyDue
+      });
+
+      // Ensure received amount is not 0 - use daily due or fallback to monthly amount
+      const finalReceivedAmount = dailyDue > 0 ? dailyDue : monthlyDue;
+      
+      console.log('=== FINAL AMOUNTS BEING SET ===', {
+        dueAmount: monthlyDue,
+        arrearAmount: arrearAmount,
+        receivedAmount: finalReceivedAmount,
+        balanceAmount: balanceAmount,
+        originalDailyDue: dailyDue
+      });
+
       // Update receipt details with calculated amounts
       setFormData(prev => ({
         ...prev,
@@ -245,9 +265,11 @@ export default function CreateInvoicePage() {
           ...prev.receiptDetails,
           dueAmount: monthlyDue,
           arrearAmount: arrearAmount,
-          receivedAmount: dailyDue,  // Daily due amount
+          receivedAmount: finalReceivedAmount,  // Use fallback if dailyDue is 0
           balanceAmount: balanceAmount,
-        }
+        },
+        // Also update the main receivedAmount field
+        receivedAmount: finalReceivedAmount
       }));
 
     } catch (error) {
@@ -261,15 +283,27 @@ export default function CreateInvoicePage() {
         const dailyDue = Math.round(monthlyAmount / daysInMonth);
         const balanceAmount = calculateDailyBalance(paymentMonth, dailyDue, monthlyAmount, null);
         
+        // Ensure received amount is not 0 - use daily due or fallback to monthly amount
+        const finalReceivedAmount = dailyDue > 0 ? dailyDue : monthlyAmount;
+        
+        console.log('=== FALLBACK AMOUNTS BEING SET ===', {
+          monthlyAmount,
+          dailyDue,
+          finalReceivedAmount,
+          balanceAmount
+        });
+        
         setFormData(prev => ({
           ...prev,
           receiptDetails: {
             ...prev.receiptDetails,
             dueAmount: monthlyAmount,
             arrearAmount: 0,
-            receivedAmount: dailyDue,
+            receivedAmount: finalReceivedAmount,
             balanceAmount: balanceAmount,
-          }
+          },
+          // Also update the main receivedAmount field
+          receivedAmount: finalReceivedAmount
         }));
       }
     }
