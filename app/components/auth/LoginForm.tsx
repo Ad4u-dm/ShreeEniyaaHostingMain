@@ -66,28 +66,28 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-6">
-      <Card className="w-full max-w-md bg-white/80 backdrop-blur-sm shadow-2xl">
-        <CardHeader className="text-center space-y-2">
-          <div className="mx-auto w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mb-4">
-            <LogIn className="h-8 w-8 text-white" />
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4 sm:p-6">
+      <Card className="w-full max-w-sm sm:max-w-md bg-white/80 backdrop-blur-sm shadow-2xl">
+        <CardHeader className="text-center space-y-2 px-4 sm:px-6 py-6 sm:py-8">
+          <div className="mx-auto w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mb-3 sm:mb-4">
+            <LogIn className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
           </div>
-          <CardTitle className="text-2xl font-bold text-slate-800">
+          <CardTitle className="text-xl sm:text-2xl font-bold text-slate-800 leading-tight">
             Shree Eniyaa Chitfunds
           </CardTitle>
-          <CardDescription className="text-slate-600">
+          <CardDescription className="text-slate-600 text-sm sm:text-base">
             Sign in to access your dashboard
           </CardDescription>
         </CardHeader>
 
-        <CardContent>
+        <CardContent className="px-4 sm:px-6 pb-6 sm:pb-8">
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-red-700 text-sm">{error}</p>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
             <div className="space-y-2">
               <Label htmlFor="email" className="text-slate-700">Email</Label>
               <Input

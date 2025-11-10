@@ -223,67 +223,95 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-3 sm:p-4 md:p-6">
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-800">Admin Dashboard</h1>
-            <p className="text-slate-600 mt-1">Overview of your chit fund business</p>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-800 leading-tight">Admin Dashboard</h1>
+            <p className="text-slate-600 mt-1 text-sm sm:text-base">Overview of your chit fund business</p>
           </div>
-          <div className="flex items-center gap-3">
-            <Button onClick={() => setShowCreateUser(true)} className="bg-blue-600 hover:bg-blue-700">
-              <UserPlus className="h-4 w-4 mr-2" />
-              Add User
+          
+          {/* Action Buttons - Mobile responsive grid */}
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-3">
+            <Button 
+              onClick={() => setShowCreateUser(true)} 
+              className="bg-blue-600 hover:bg-blue-700 text-xs sm:text-sm px-2 sm:px-4 py-2"
+              size="sm"
+            >
+              <UserPlus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+              <span className="hidden xs:inline">Add User</span>
+              <span className="xs:hidden">User</span>
             </Button>
-            <Button onClick={() => setShowCreatePlan(true)} className="bg-purple-600 hover:bg-purple-700">
-              <Plus className="h-4 w-4 mr-2" />
-              Create Plan
+            <Button 
+              onClick={() => setShowCreatePlan(true)} 
+              className="bg-purple-600 hover:bg-purple-700 text-xs sm:text-sm px-2 sm:px-4 py-2"
+              size="sm"
+            >
+              <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+              <span className="hidden xs:inline">Create Plan</span>
+              <span className="xs:hidden">Plan</span>
             </Button>
-            <Button onClick={() => setShowInvoiceManager(true)} className="bg-green-600 hover:bg-green-700">
-              <Receipt className="h-4 w-4 mr-2" />
-              Quick Invoices
+            <Button 
+              onClick={() => setShowInvoiceManager(true)} 
+              className="bg-green-600 hover:bg-green-700 text-xs sm:text-sm px-2 sm:px-4 py-2"
+              size="sm"
+            >
+              <Receipt className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Quick Invoices</span>
+              <span className="sm:hidden">Quick</span>
             </Button>
-            <Button onClick={() => window.location.href = '/admin/invoices'} className="bg-emerald-600 hover:bg-emerald-700">
-              <FileText className="h-4 w-4 mr-2" />
-              All Invoices
+            <Button 
+              onClick={() => window.location.href = '/admin/invoices'} 
+              className="bg-emerald-600 hover:bg-emerald-700 text-xs sm:text-sm px-2 sm:px-4 py-2"
+              size="sm"
+            >
+              <FileText className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">All Invoices</span>
+              <span className="sm:hidden">All</span>
             </Button>
-            <Button onClick={fetchDashboardData} variant="outline">
-              Refresh Data
+            <Button 
+              onClick={fetchDashboardData} 
+              variant="outline"
+              size="sm"
+              className="text-xs sm:text-sm px-2 sm:px-4 py-2 col-span-1"
+            >
+              Refresh
             </Button>
             <Button 
               onClick={handleLogout} 
               variant="destructive"
-              className="bg-red-600 hover:bg-red-700"
+              size="sm"
+              className="bg-red-600 hover:bg-red-700 text-xs sm:text-sm px-2 sm:px-4 py-2 col-span-1"
             >
-              <LogOut className="h-4 w-4 mr-2" />
+              <LogOut className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
               Logout
             </Button>
           </div>
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-6">
           {statCards.map((stat, index) => {
             const Icon = stat.icon;
             return (
               <Card 
                 key={index} 
-                className="bg-white/60 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:scale-105"
+                className="bg-white/60 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:scale-105 active:scale-95"
                 onClick={() => stat.clickable && (window.location.href = stat.route)}
               >
-                <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-                  <CardTitle className="text-sm font-medium text-slate-600">
+                <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0 px-3 sm:px-4 pt-3 sm:pt-4">
+                  <CardTitle className="text-xs sm:text-sm font-medium text-slate-600 leading-tight">
                     {stat.title}
                   </CardTitle>
-                  <div className={`p-2 rounded-full ${stat.bgColor}`}>
-                    <Icon className={`h-4 w-4 ${stat.color}`} />
+                  <div className={`p-1.5 sm:p-2 rounded-full ${stat.bgColor}`}>
+                    <Icon className={`h-3 w-3 sm:h-4 sm:w-4 ${stat.color}`} />
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-slate-800">{stat.value}</div>
+                <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
+                  <div className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 leading-tight">{stat.value}</div>
                   {stat.clickable && (
-                    <p className="text-xs text-slate-500 mt-1">Click to view details</p>
+                    <p className="text-xs text-slate-500 mt-1 hidden sm:block">Click to view details</p>
                   )}
                 </CardContent>
               </Card>
@@ -292,18 +320,18 @@ export default function AdminDashboard() {
         </div>
 
         {/* Analytics Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-6">
           {/* Revenue Chart */}
           <Card className="bg-white/60 backdrop-blur-sm border-0 shadow-lg">
-            <CardHeader>
-              <CardTitle className="text-slate-800 flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
+            <CardHeader className="px-3 sm:px-6 py-3 sm:py-4">
+              <CardTitle className="text-slate-800 flex items-center gap-2 text-sm sm:text-base">
+                <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5" />
                 Monthly Revenue
               </CardTitle>
-              <CardDescription>Revenue trends over the year</CardDescription>
+              <CardDescription className="text-xs sm:text-sm">Revenue trends over the year</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="h-64">
+            <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+              <div className="h-48 sm:h-64">
                 <Bar 
                   data={{
                     labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],

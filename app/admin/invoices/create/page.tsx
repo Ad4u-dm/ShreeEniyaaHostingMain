@@ -940,51 +940,53 @@ export default function CreateInvoicePage() {
   const selectedCustomer = customers.find(c => c._id === formData.customerId);
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6 max-w-full overflow-x-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
           <Button variant="outline" size="sm" onClick={() => window.history.back()}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
+            <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
             Back
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Create Invoice</h1>
-            <p className="text-slate-600">Generate a new invoice for Chit Fund payment</p>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900 leading-tight">Create Invoice</h1>
+            <p className="text-slate-600 text-sm sm:text-base mt-1">Generate a new invoice for Chit Fund payment</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2 sm:gap-3 w-full sm:w-auto">
           <Button 
             onClick={() => handleSave('draft')}
             variant="outline"
             disabled={loading}
-            className="flex items-center gap-2"
+            className="flex items-center justify-center gap-2 text-xs sm:text-sm py-2 px-3 sm:px-4"
+            size="sm"
           >
-            <Save className="h-4 w-4" />
+            <Save className="h-3 w-3 sm:h-4 sm:w-4" />
             Save Draft
           </Button>
           <Button 
             onClick={() => handleSave('sent')}
             disabled={loading || !formData.customerId}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+            className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-xs sm:text-sm py-2 px-3 sm:px-4"
+            size="sm"
           >
-            <Send className="h-4 w-4" />
+            <Send className="h-3 w-3 sm:h-4 sm:w-4" />
             Create & Send
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6">
         {/* Invoice Form */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="xl:col-span-2 space-y-4 sm:space-y-6">
           {/* Customer & Plan Selection */}
           <Card>
-            <CardHeader>
-              <CardTitle>Invoice Details</CardTitle>
+            <CardHeader className="px-4 sm:px-6 py-4 sm:py-6">
+              <CardTitle className="text-lg sm:text-xl">Invoice Details</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CardContent className="space-y-4 px-4 sm:px-6 pb-4 sm:pb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     Customer *
@@ -1295,14 +1297,14 @@ export default function CreateInvoicePage() {
         </div>
 
         {/* Live Preview */}
-        <div className="lg:col-span-1">
-          <Card className="sticky top-6">
-            <CardHeader>
-              <CardTitle>Live Receipt Preview</CardTitle>
-              <CardDescription>Real-time thermal receipt preview</CardDescription>
+        <div className="xl:col-span-1 order-first xl:order-last">
+          <Card className="xl:sticky xl:top-6">
+            <CardHeader className="px-4 sm:px-6 py-4 sm:py-6">
+              <CardTitle className="text-lg sm:text-xl">Live Receipt Preview</CardTitle>
+              <CardDescription className="text-sm">Real-time thermal receipt preview</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="bg-white border-2 border-dashed border-slate-200 p-4 font-mono text-xs">
+            <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
+              <div className="bg-white border-2 border-dashed border-slate-200 p-2 sm:p-4 font-mono text-xs overflow-x-auto">
                 <div style={{textAlign: 'center', fontWeight: 'bold', fontSize: '12px', marginBottom: '3px'}}>
                   SHREE ENIYAA CHITFUNDS (P) LTD.
                 </div>

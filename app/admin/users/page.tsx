@@ -211,41 +211,42 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-3 sm:p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 sm:mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
             <Button 
               variant="outline" 
               onClick={() => window.history.back()}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 w-fit"
+              size="sm"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4" />
               Back to Dashboard
             </Button>
             <div>
-              <h1 className="text-3xl font-bold text-slate-800">User Management</h1>
-              <p className="text-slate-600">Manage customers and their investment details</p>
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-800 leading-tight">User Management</h1>
+              <p className="text-slate-600 text-sm sm:text-base mt-1">Manage customers and their investment details</p>
             </div>
           </div>
 
-          <Button onClick={fetchCustomers} variant="outline">
+          <Button onClick={fetchCustomers} variant="outline" size="sm" className="w-fit">
             Refresh
           </Button>
         </div>
 
         {/* Stats Cards */}
         {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 md:gap-6 mb-4 sm:mb-6">
             <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-slate-600">Total Users</CardTitle>
+              <CardHeader className="pb-2 px-3 sm:px-4 pt-3 sm:pt-4">
+                <CardTitle className="text-xs sm:text-sm font-medium text-slate-600">Total Users</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-3 sm:px-4 pb-3 sm:pb-4">
                 <div className="flex items-center gap-2">
-                  <Users className="h-5 w-5 text-blue-500" />
-                  <span className="text-2xl font-bold text-slate-800">{stats.totalUsers}</span>
+                  <Users className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />
+                  <span className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">{stats.totalUsers}</span>
                 </div>
               </CardContent>
             </Card>
@@ -301,12 +302,12 @@ export default function UsersPage() {
         )}
 
         {/* Filters */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Filter Users</CardTitle>
+        <Card className="mb-4 sm:mb-6">
+          <CardHeader className="px-4 sm:px-6 py-4 sm:py-6">
+            <CardTitle className="text-lg sm:text-xl">Filter Users</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="flex flex-col md:flex-row gap-4">
+          <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
+            <div className="flex flex-col gap-4">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
@@ -316,14 +317,14 @@ export default function UsersPage() {
                   className="pl-10"
                 />
               </div>
-              <div className="flex gap-2">
+              <div className="grid grid-cols-2 sm:flex gap-2">
                 {(['all', 'active', 'inactive', 'suspended'] as const).map((status) => (
                   <Button
                     key={status}
                     variant={statusFilter === status ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setStatusFilter(status)}
-                    className="capitalize"
+                    className="capitalize text-xs sm:text-sm"
                   >
                     {status === 'all' ? 'All' : status}
                   </Button>
@@ -335,18 +336,18 @@ export default function UsersPage() {
 
         {/* Users Table */}
         <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Users ({filteredCustomers.length})</CardTitle>
-              <div className="flex items-center gap-2 text-sm text-slate-600">
-                <Filter className="h-4 w-4" />
-                Showing {filteredCustomers.length} of {customers.length} users
+          <CardHeader className="px-4 sm:px-6 py-4 sm:py-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <CardTitle className="text-lg sm:text-xl">Users ({filteredCustomers.length})</CardTitle>
+              <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-600">
+                <Filter className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Showing</span> {filteredCustomers.length} of {customers.length} users
               </div>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
+          <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
+            <div className="overflow-x-auto mobile-scroll">
+              <table className="w-full min-w-[800px]">
                 <thead>
                   <tr className="border-b border-slate-200">
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Customer</th>
