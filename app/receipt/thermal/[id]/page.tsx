@@ -79,33 +79,58 @@ export default function ThermalReceiptPage() {
     <div className="min-h-screen bg-white p-4 flex justify-center">
       <style jsx global>{`
         @media print {
-          body {
-            margin: 0;
-            padding: 0;
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 80mm !important;
+            background: white !important;
           }
           .no-print {
-            display: none;
+            display: none !important;
           }
+          @page {
+            size: 80mm auto;
+            margin: 0 !important;
+          }
+        }
+        
+        /* Thermal printer specific styles */
+        .thermal-printer-ready {
+          width: 80mm;
+          max-width: 80mm;
         }
       `}</style>
       
       <div className="no-print mb-4 text-center">
-        <p className="text-sm text-gray-600 mb-2">Thermal Receipt - Ready for Printing</p>
-        <button 
-          onClick={() => window.print()} 
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 mr-2"
-        >
-          Print Receipt
-        </button>
-        <button 
-          onClick={() => window.close()} 
-          className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-        >
-          Close
-        </button>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+          <h2 className="text-lg font-semibold text-blue-800 mb-2">80mm Thermal Receipt</h2>
+          <p className="text-sm text-blue-600 mb-3">Optimized for 80mm thermal roll printers</p>
+          <div className="text-xs text-blue-500 mb-3">
+            <p>✓ 80mm width compatible</p>
+            <p>✓ Auto-feed supported</p>
+            <p>✓ High contrast for thermal printing</p>
+          </div>
+        </div>
+        
+        <div className="flex gap-2 justify-center">
+          <button 
+            onClick={() => window.print()} 
+            className="px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 font-medium"
+          >
+            🖨️ Print to Thermal Printer
+          </button>
+          <button 
+            onClick={() => window.close()} 
+            className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+          >
+            Close
+          </button>
+        </div>
       </div>
       
-      <ThermalReceiptTemplate invoice={invoice} />
+      <div className="thermal-printer-ready">
+        <ThermalReceiptTemplate invoice={invoice} />
+      </div>
     </div>
   );
 }

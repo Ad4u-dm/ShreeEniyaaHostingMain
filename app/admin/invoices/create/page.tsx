@@ -921,10 +921,33 @@ export default function CreateInvoicePage() {
       console.log('Invoice creation response:', result);
 
       if (response.ok) {
-        alert(`Invoice ${status === 'draft' ? 'saved as draft' : 'created and sent'} successfully!`);
+        const invoiceId = result.invoice?._id;
+        const successMessage = `Invoice ${status === 'draft' ? 'saved as draft' : 'created and sent'} successfully!`;
+        
+        // Show success with thermal print option
+        if (invoiceId && confirm(`${successMessage}\n\nWould you like to print the thermal receipt now?`)) {
+          // Open thermal receipt in new window for printing
+          const printWindow = window.open(
+            `/receipt/thermal/${invoiceId}`, 
+            '_blank', 
+            'width=400,height=600,scrollbars=yes,resizable=yes'
+          );
+          
+          // Focus the print window
+          if (printWindow) {
+            printWindow.focus();
+          }
+        } else {
+          alert(successMessage);
+        }
+        
         // Generate next receipt number for future invoices
         generateNextReceiptNumber();
-        window.location.href = '/admin/invoices';
+        
+        // Redirect after a short delay to allow print window to open
+        setTimeout(() => {
+          window.location.href = '/admin/invoices';
+        }, 1000);
       } else {
         console.error('Invoice creation failed:', result);
         alert(`Failed to create invoice: ${result.error || 'Unknown error'}`);
@@ -1365,10 +1388,67 @@ export default function CreateInvoicePage() {
                 </div>
               </div>
               
-              <div className="mt-4 space-y-2">
+              <div className="mt-4 space-y-3">
                 <div className="text-sm text-slate-600">
                   <p><strong>Payment Type:</strong> Chit Fund Payment</p>
                   <p><strong>Total:</strong> ₹{formatIndianNumber(formData.receivedAmount || formData.receiptDetails?.receivedAmount || 0)}</p>
+                </div>
+                
+                <div className="pt-2 border-t border-slate-200">
+                  <Button 
+                    onClick={() => {
+                      // Create a preview print of the receipt using current form data
+                      const printContent = `
+                        <div style="width: 80mm; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.4; padding: 8px;">
+                          <div style="text-align: center; font-size: 14px; font-weight: bold; margin-bottom: 3px;">SHREE ENIYAA CHITFUNDS (P) LTD.</div>
+                          <div style="text-align: center; font-size: 11px; margin-bottom: 4px;">Shop no. 2, Mahadhana Street,<br/>Mayiladuthurai – 609 001.</div>
+                          <div style="border-top: 1px dashed #000; margin: 4px 0;"></div>
+                          <div style="font-size: 11px; margin: 3px 0; display: flex; justify-content: space-between;"><span>Receipt No:</span><span>${nextReceiptNo || '0001'}</span></div>
+                          <div style="font-size: 11px; margin: 3px 0; display: flex; justify-content: space-between;"><span>Date:</span><span>${new Date().toLocaleDateString('en-IN')}</span></div>
+                          <div style="font-size: 11px; margin: 3px 0; display: flex; justify-content: space-between;"><span>Member No:</span><span>${formData.receiptDetails.memberNo}</span></div>
+                          <div style="font-size: 11px; margin: 3px 0; display: flex; justify-content: space-between;"><span>Member Name:</span><span>${selectedCustomer?.name || 'Select Customer'}</span></div>
+                          <div style="font-size: 11px; margin: 3px 0; display: flex; justify-content: space-between;"><span>Due No:</span><span>${formData.receiptDetails.dueNo}</span></div>
+                          <div style="border-top: 1px dashed #000; margin: 4px 0;"></div>
+                          <div style="font-size: 11px; margin: 2px 0; display: flex; justify-content: space-between;"><span>Due Amount:</span><span>₹${formData.receiptDetails.dueAmount.toLocaleString('en-IN')}</span></div>
+                          <div style="font-size: 11px; margin: 2px 0; display: flex; justify-content: space-between;"><span>Arrear Amount:</span><span>₹${formData.receiptDetails.arrearAmount.toLocaleString('en-IN')}</span></div>
+                          <div style="font-size: 11px; margin: 2px 0; display: flex; justify-content: space-between;"><span>Received Amount:</span><span>₹${formData.receiptDetails.receivedAmount.toLocaleString('en-IN')}</span></div>
+                          <div style="font-size: 11px; margin: 2px 0; display: flex; justify-content: space-between;"><span>Balance Amount:</span><span>₹${formData.receiptDetails.balanceAmount.toLocaleString('en-IN')}</span></div>
+                          <div style="border-top: 1px dashed #000; margin: 4px 0;"></div>
+                          <div style="font-size: 11px; margin: 2px 0; display: flex; justify-content: space-between; font-weight: 600;"><span>Total Received:</span><span>₹${formData.receiptDetails.receivedAmount.toLocaleString('en-IN')}</span></div>
+                          <div style="font-size: 11px; margin: 3px 0;">By: ${formData.receiptDetails.issuedBy}</div>
+                          <div style="font-size: 9px; margin: 3px 0; text-align: center;">For Any Enquiry: **</div>
+                        </div>
+                      `;
+                      
+                      const printWindow = window.open('', '_blank', 'width=400,height=600');
+                      if (printWindow) {
+                        printWindow.document.write(`
+                          <html>
+                            <head>
+                              <title>Thermal Receipt Preview</title>
+                              <style>
+                                @media print {
+                                  @page { size: 80mm auto; margin: 0; }
+                                  body { margin: 0; padding: 0; }
+                                }
+                              </style>
+                            </head>
+                            <body onload="window.print(); window.close();">
+                              ${printContent}
+                            </body>
+                          </html>
+                        `);
+                        printWindow.document.close();
+                      }
+                    }}
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full text-xs"
+                    disabled={!formData.customerId || !selectedCustomer}
+                  >
+                    <Eye className="h-3 w-3 mr-1" />
+                    Preview Print (80mm)
+                  </Button>
                 </div>
               </div>
             </CardContent>

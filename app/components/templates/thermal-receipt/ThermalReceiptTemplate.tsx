@@ -46,15 +46,16 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
     <div className="thermal-receipt">
       <style jsx>{`
         .thermal-receipt {
-          width: 58mm;
-          max-width: 58mm;
+          width: 80mm;
+          max-width: 80mm;
           font-family: 'Courier New', monospace;
-          font-size: 10px;
-          line-height: 1.3;
+          font-size: 12px;
+          line-height: 1.4;
           color: black;
           background: white;
-          padding: 5px;
+          padding: 8px;
           margin: 0 auto;
+          box-sizing: border-box;
         }
         
         .center {
@@ -69,20 +70,20 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
         }
         
         .company-name {
-          font-size: 11px;
+          font-size: 14px;
           font-weight: bold;
           text-align: center;
-          margin-bottom: 2px;
-          letter-spacing: 0.3px;
-          white-space: nowrap;
-          overflow: hidden;
+          margin-bottom: 3px;
+          letter-spacing: 0.5px;
+          line-height: 1.2;
         }
         
         .address {
-          font-size: 9px;
+          font-size: 11px;
           text-align: center;
-          margin-bottom: 3px;
+          margin-bottom: 4px;
           letter-spacing: 0.3px;
+          line-height: 1.3;
         }
         
         .divider {
@@ -94,13 +95,13 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
         .info-row {
           display: flex;
           justify-content: space-between;
-          margin: 2px 0;
-          font-size: 9px;
+          margin: 3px 0;
+          font-size: 11px;
           align-items: flex-start;
         }
         
         .info-label {
-          flex: 0 0 45%;
+          flex: 0 0 50%;
           text-align: left;
         }
         
@@ -112,17 +113,18 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
         .info-value {
           flex: 1;
           text-align: left;
+          font-weight: 500;
         }
         
         .amount-row {
           display: flex;
           justify-content: space-between;
-          margin: 1px 0;
-          font-size: 9px;
+          margin: 2px 0;
+          font-size: 11px;
         }
         
         .amount-label {
-          flex: 0 0 65%;
+          flex: 0 0 60%;
           text-align: left;
         }
         
@@ -134,6 +136,7 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
         .amount-value {
           flex: 1;
           text-align: right;
+          font-weight: 600;
         }
         
         .total-section {
@@ -164,20 +167,28 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
         
         @media print {
           .thermal-receipt {
-            width: 58mm;
-            max-width: 58mm;
-            font-size: 10px;
-            padding: 2px;
+            width: 80mm !important;
+            max-width: 80mm !important;
+            font-size: 12px !important;
+            padding: 4mm !important;
+            margin: 0 !important;
           }
           
           @page {
-            size: 58mm auto;
-            margin: 0;
+            size: 80mm auto;
+            margin: 0 !important;
+            padding: 0 !important;
           }
           
           body {
-            margin: 0;
-            padding: 0;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+          }
+          
+          * {
+            -webkit-print-color-adjust: exact !important;
+            color-adjust: exact !important;
           }
         }
       `}</style>
