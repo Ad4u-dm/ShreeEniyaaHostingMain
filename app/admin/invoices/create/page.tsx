@@ -409,6 +409,15 @@ export default function CreateInvoicePage() {
     }
   }, [formData.customerId, typeof formData.planId === 'string' ? formData.planId : (formData.planId as any)?._id, plans.length]);
 
+  // Debug form state changes for receivedAmount
+  useEffect(() => {
+    console.log('=== FORM DATA RECEIVED AMOUNTS ===', {
+      'formData.receivedAmount': formData.receivedAmount,
+      'formData.receiptDetails.receivedAmount': formData.receiptDetails.receivedAmount,
+      timestamp: new Date().toISOString()
+    });
+  }, [formData.receivedAmount, formData.receiptDetails.receivedAmount]);
+
   const generateNextReceiptNumber = async () => {
     try {
       const response = await fetch('/api/receipts/next-number');
@@ -613,6 +622,20 @@ export default function CreateInvoicePage() {
         
       const selectedPlan = plans.find(p => p._id === enrollmentPlanIdStr);
       if (selectedPlan) {
+        // Calculate daily due first
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        const [year, month] = currentMonth.split('-');
+        const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
+        const dailyDue = Math.round((selectedPlan.monthlyAmount || 0) / daysInMonth);
+        const initialReceivedAmount = dailyDue > 0 ? dailyDue : selectedPlan.monthlyAmount || 0;
+        
+        console.log('=== CUSTOMER SELECTION - SETTING INITIAL AMOUNTS ===', {
+          monthlyAmount: selectedPlan.monthlyAmount,
+          daysInMonth,
+          dailyDue,
+          initialReceivedAmount
+        });
+
         setFormData(prev => ({
           ...prev,
           customerId,
@@ -620,13 +643,14 @@ export default function CreateInvoicePage() {
           receiptDetails: {
             ...prev.receiptDetails,
             dueAmount: selectedPlan.monthlyAmount || 0,
-            receivedAmount: 0  // Should start at 0, user will input actual received amount
-          }
+            receivedAmount: initialReceivedAmount  // Set to calculated daily due, not 0
+          },
+          receivedAmount: initialReceivedAmount
         }));
 
-        // Calculate chit fund amounts with daily balance
+        // Calculate full chit fund amounts with balance and arrears
         setTimeout(() => {
-          calculateChitFundAmounts(new Date().toISOString().slice(0, 7));
+          calculateChitFundAmounts(currentMonth);
         }, 100);
       }
     }
@@ -1152,10 +1176,15 @@ export default function CreateInvoicePage() {
                   <Input
                     type="number"
                     value={formData.receiptDetails.receivedAmount}
-                    onChange={(e) => setFormData({ 
-                      ...formData, 
-                      receiptDetails: { ...formData.receiptDetails, receivedAmount: parseFloat(e.target.value) || 0 }
-                    })}
+                    onChange={(e) => {
+                      const amount = parseFloat(e.target.value) || 0;
+                      console.log('Receipt Details receivedAmount changed to:', amount);
+                      setFormData({ 
+                        ...formData, 
+                        receiptDetails: { ...formData.receiptDetails, receivedAmount: amount },
+                        receivedAmount: amount // Also update the main receivedAmount
+                      });
+                    }}
                     placeholder="Enter received amount"
                   />
                 </div>
