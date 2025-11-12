@@ -46,14 +46,14 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
     <div className="thermal-receipt">
       <style jsx>{`
         .thermal-receipt {
-          width: 80mm;
+          width: 100%;
           max-width: 80mm;
           font-family: 'Courier New', monospace;
-          font-size: 12px;
-          line-height: 1.4;
-          color: black;
+          font-size: 13px;
+          line-height: 1.5;
+          color: #000;
           background: white;
-          padding: 8px;
+          padding: 12px;
           margin: 0 auto;
           box-sizing: border-box;
         }
@@ -63,106 +63,143 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
         }
         
         .mobile-receipt {
-          font-size: 11px;
-          margin: 5px 0;
+          font-size: 12px;
+          margin: 8px 0;
           text-align: center;
-          font-weight: normal;
+          font-weight: 600;
+          color: #1e293b;
+          letter-spacing: 0.5px;
         }
         
         .company-name {
-          font-size: 14px;
+          font-size: 15px;
           font-weight: bold;
           text-align: center;
-          margin-bottom: 3px;
+          margin-bottom: 6px;
           letter-spacing: 0.5px;
-          line-height: 1.2;
+          line-height: 1.3;
+          color: #0f172a;
         }
         
         .address {
-          font-size: 11px;
+          font-size: 12px;
           text-align: center;
-          margin-bottom: 4px;
+          margin-bottom: 8px;
           letter-spacing: 0.3px;
-          line-height: 1.3;
+          line-height: 1.4;
+          color: #334155;
         }
         
         .divider {
-          border-top: 1px dashed #000;
-          margin: 4px 0;
+          border-top: 2px dashed #cbd5e1;
+          margin: 8px 0;
           width: 100%;
         }
         
         .info-row {
           display: flex;
           justify-content: space-between;
-          margin: 3px 0;
-          font-size: 11px;
+          margin: 5px 0;
+          font-size: 12px;
           align-items: flex-start;
+          line-height: 1.4;
         }
         
         .info-label {
-          flex: 0 0 50%;
+          flex: 0 0 48%;
           text-align: left;
+          color: #475569;
         }
         
         .info-colon {
-          flex: 0 0 5%;
+          flex: 0 0 4%;
           text-align: center;
+          color: #64748b;
         }
         
         .info-value {
           flex: 1;
           text-align: left;
-          font-weight: 500;
+          font-weight: 600;
+          color: #0f172a;
+          word-wrap: break-word;
         }
         
         .amount-row {
           display: flex;
           justify-content: space-between;
-          margin: 2px 0;
-          font-size: 11px;
+          margin: 4px 0;
+          font-size: 12px;
+          line-height: 1.4;
         }
         
         .amount-label {
-          flex: 0 0 60%;
+          flex: 0 0 58%;
           text-align: left;
+          color: #475569;
         }
         
         .amount-colon {
-          flex: 0 0 5%;
+          flex: 0 0 4%;
           text-align: center;
+          color: #64748b;
         }
         
         .amount-value {
           flex: 1;
           text-align: right;
-          font-weight: 600;
+          font-weight: 700;
+          color: #0f172a;
         }
         
         .total-section {
-          margin-top: 5px;
-          font-size: 9px;
-          border-top: 1px dashed #000;
-          padding-top: 3px;
+          margin-top: 8px;
+          border-top: 2px dashed #cbd5e1;
+          padding-top: 6px;
         }
         
         .footer-user {
-          font-size: 9px;
-          margin-top: 5px;
+          font-size: 10px;
+          margin-top: 8px;
           display: flex;
           justify-content: space-between;
+          color: #64748b;
         }
         
         .footer-enquiry {
-          text-align: left;
-          font-size: 9px;
-          margin-top: 3px;
+          text-align: center;
+          font-size: 10px;
+          margin-top: 6px;
+          color: #475569;
+          line-height: 1.5;
         }
         
         .footer-contact {
-          text-align: left;
-          font-size: 9px;
-          margin-top: 2px;
+          text-align: center;
+          font-size: 10px;
+          margin-top: 4px;
+          color: #64748b;
+          line-height: 1.5;
+        }
+        
+        @media (max-width: 640px) {
+          .thermal-receipt {
+            font-size: 12px;
+            padding: 10px;
+          }
+          
+          .company-name {
+            font-size: 14px;
+          }
+          
+          .address {
+            font-size: 11px;
+          }
+          
+          .info-row,
+          .amount-row {
+            font-size: 11px;
+          }
         }
         
         @media print {
@@ -266,21 +303,27 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
       <div className="divider"></div>
       
       <div className="total-section">
-        <div className="amount-row" style={{ fontWeight: 'bold' }}>
+        <div className="amount-row" style={{ fontWeight: 'bold', fontSize: '13px' }}>
           <span className="amount-label">Total Received Amount</span>
           <span className="amount-colon">:</span>
-          <span className="amount-value">{(invoice.totalReceivedAmount || invoice.receivedAmount || 0).toLocaleString('en-IN')}</span>
+          <span className="amount-value">₹ {(invoice.totalReceivedAmount || invoice.receivedAmount || 0).toLocaleString('en-IN')}</span>
         </div>
       </div>
       
-      <div className="center" style={{marginTop: '8px', fontSize: '9px'}}>
-        By: {invoice.issuedBy || invoice.collectedBy?.name || invoice.staff?.name || 'ADMIN'}
+      <div className="divider"></div>
+      
+      <div className="center" style={{marginTop: '10px', fontSize: '11px', textAlign: 'center', color: '#475569'}}>
+        <strong>Issued By:</strong> {invoice.issuedBy || invoice.collectedBy?.name || invoice.staff?.name || 'ADMIN'}
       </div>
       
-      <div className="center" style={{marginTop: '3px', fontSize: '8px'}}>
-        ** Any Enquiry **<br/>
-        📞 96266 66527 / 90035 62126<br/>
-        📧 shreeniyaachitfunds@gmail.com
+      <div className="footer-enquiry" style={{marginTop: '10px', textAlign: 'center', borderTop: '1px solid #e2e8f0', paddingTop: '8px'}}>
+        <div style={{fontWeight: 'bold', marginBottom: '4px', color: '#1e293b'}}>For Any Enquiry</div>
+        <div style={{marginBottom: '2px'}}>📞 96266 66527 / 90035 62126</div>
+        <div>📧 shreeniyaachitfunds@gmail.com</div>
+      </div>
+      
+      <div style={{textAlign: 'center', marginTop: '10px', fontSize: '9px', color: '#94a3b8', fontStyle: 'italic'}}>
+        Thank you for your business!
       </div>
     </div>
   );

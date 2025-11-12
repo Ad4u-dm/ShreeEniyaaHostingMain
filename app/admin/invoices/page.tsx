@@ -146,10 +146,10 @@ export default function InvoicesPage() {
     
     // Add cache buster to force fresh data
     const cacheBuster = Date.now();
-    const printUrl = `/invoice/print/${invoice._id}?t=${cacheBuster}`;
+    const printUrl = `/receipt/thermal/${invoice._id}?t=${cacheBuster}`;
     console.log('Print URL:', printUrl);
     
-    // Open invoice in new window for printing
+    // Open thermal receipt in new window for printing
     const printWindow = window.open(printUrl, '_blank');
     if (printWindow) {
       printWindow.focus();
@@ -157,7 +157,7 @@ export default function InvoicesPage() {
   };
 
   const handleDownloadInvoice = async (invoice: Invoice) => {
-    // Open print page in new window with download intent
+    // Open regular print page in new window with download intent (for PDF)
     const printWindow = window.open(`/invoice/print/${invoice._id}?download=true`, '_blank');
     if (printWindow) {
       printWindow.focus();
@@ -274,33 +274,7 @@ export default function InvoicesPage() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-slate-600">Paid Amount</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2">
-                  <IndianRupee className="h-5 w-5 text-emerald-500" />
-                  <span className="text-2xl font-bold text-slate-800">
-                    ₹{formatIndianNumber(stats.paidAmount)}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-slate-600">Overdue Amount</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2">
-                  <IndianRupee className="h-5 w-5 text-red-500" />
-                  <span className="text-2xl font-bold text-slate-800">
-                    ₹{formatIndianNumber(stats.overdueAmount)}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         )}
 

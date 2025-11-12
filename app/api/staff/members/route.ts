@@ -17,6 +17,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Get the full user document to access MongoDB _id
+    const staffUser = await User.findOne({ userId: user.userId });
+    if (!staffUser) {
+      return NextResponse.json({ error: 'Staff user not found' }, { status: 401 });
+    }
+
     const memberData = await request.json();
     
     // Validate required fields
@@ -76,7 +82,7 @@ export async function POST(request: NextRequest) {
       nomineeName: memberData.nomineeName || '',
       nomineeRelation: memberData.nomineeRelation || undefined,
       emergencyContact: memberData.emergencyContact || '',
-      createdBy: user.userId,
+      createdBy: staffUser._id,
       isActive: true,
       status: 'active'
     });

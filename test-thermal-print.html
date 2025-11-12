@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bluetooth Thermal Print Bridge - Test Page</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .status.checking {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+        
+        .status.online {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.offline {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status-icon {
+            font-size: 20px;
+        }
+        
+        .test-section {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .test-section h2 {
+            color: #495057;
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+        
+        textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 12px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            resize: vertical;
+            margin-bottom: 15px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .log {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 3px 0;
+            border-bottom: 1px solid #333;
+        }
+        
+        .log-time {
+            color: #858585;
+        }
+        
+        .log-success {
+            color: #4ec9b0;
+        }
+        
+        .log-error {
+            color: #f48771;
+        }
+        
+        .log-info {
+            color: #569cd6;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .devices-list {
+            margin-top: 15px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        
+        .device-item {
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .device-name {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .device-address {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🖨️ Bluetooth Print Bridge Tester</h1>
+        <p class="subtitle">Test your thermal printer connection before using the main app</p>
+        
+        <!-- Bridge Status -->
+        <div id="status" class="status checking">
+            <span class="status-icon">🔍</span>
+            <span>Checking bridge status...</span>
+        </div>
+        
+        <!-- Test Print Section -->
+        <div class="test-section">
+            <h2>Quick Test Print</h2>
+            <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
+                Send a simple test receipt to verify your printer is working
+            </p>
+            <div class="button-group">
+                <button id="testPrintBtn" class="btn-success" onclick="testPrint()">
+                    <span>🧪</span>
+                    <span>Send Test Receipt</span>
+                </button>
+                <button class="btn-info" onclick="listDevices()">
+                    <span>📱</span>
+                    <span>List Bluetooth Devices</span>
+                </button>
+                <button class="btn-secondary" onclick="checkHealth()">
+                    <span>🔄</span>
+                    <span>Refresh Status</span>
+                </button>
+            </div>
+            <div id="devicesList" class="devices-list" style="display: none;"></div>
+        </div>
+        
+        <!-- Custom ESC/POS Section -->
+        <div class="test-section">
+            <h2>Custom ESC/POS Commands</h2>
+            <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
+                Advanced: Enter raw ESC/POS commands or plain text
+            </p>
+            <textarea id="customData" placeholder="Enter plain text or ESC/POS commands...
+Example:
+Hello World!
+This is a test."></textarea>
+            <div class="button-group">
+                <button class="btn-primary" onclick="printCustom()">
+                    <span>🖨️</span>
+                    <span>Print Custom Data</span>
+                </button>
+                <button class="btn-secondary" onclick="loadSample()">
+                    <span>📄</span>
+                    <span>Load Sample Receipt</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Log -->
+        <div>
+            <h2 style="color: #495057; font-size: 16px; margin-bottom: 10px;">Activity Log</h2>
+            <div id="log" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        const BRIDGE_URL = 'http://127.0.0.1:9000';
+        
+        // Logging
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-${type}">${message}</span>`;
+            logDiv.insertBefore(entry, logDiv.firstChild);
+        }
+        
+        // Check bridge health
+        async function checkHealth() {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = 'status checking';
+            statusDiv.innerHTML = '<span class="status-icon"><div class="spinner"></div></span><span>Checking bridge status...</span>';
+            
+            try {
+                const response = await fetch(`${BRIDGE_URL}/health`, {
+                    signal: AbortSignal.timeout(3000)
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    statusDiv.className = 'status online';
+                    statusDiv.innerHTML = `<span class="status-icon">✅</span><span>Bridge Online - Ready to print (Printer: ${data.printer})</span>`;
+                    log('Bridge is online and ready', 'success');
+                    return true;
+                } else {
+                    throw new Error('Bridge returned error');
+                }
+            } catch (error) {
+                statusDiv.className = 'status offline';
+                statusDiv.innerHTML = '<span class="status-icon">❌</span><span>Bridge Offline - Please start the print bridge (node scripts/bridge.js)</span>';
+                log('Bridge is offline: ' + error.message, 'error');
+                return false;
+            }
+        }
+        
+        // List Bluetooth devices
+        async function listDevices() {
+            const devicesDiv = document.getElementById('devicesList');
+            devicesDiv.style.display = 'block';
+            devicesDiv.innerHTML = '<p style="color: #666; text-align: center;">Scanning for Bluetooth devices...</p>';
+            log('Scanning for Bluetooth devices...', 'info');
+            
+            try {
+                const response = await fetch(`${BRIDGE_URL}/devices`);
+                const data = await response.json();
+                
+                if (data.success && data.devices.length > 0) {
+                    devicesDiv.innerHTML = '';
+                    data.devices.forEach(device => {
+                        const deviceDiv = document.createElement('div');
+                        deviceDiv.className = 'device-item';
+                        deviceDiv.innerHTML = `
+                            <div class="device-name">${device.name || 'Unknown Device'}</div>
+                            <div class="device-address">${device.address}</div>
+                        `;
+                        devicesDiv.appendChild(deviceDiv);
+                    });
+                    log(`Found ${data.devices.length} Bluetooth device(s)`, 'success');
+                } else {
+                    devicesDiv.innerHTML = '<p style="color: #999; text-align: center;">No Bluetooth devices found</p>';
+                    log('No Bluetooth devices found', 'info');
+                }
+            } catch (error) {
+                devicesDiv.innerHTML = '<p style="color: #f00; text-align: center;">Error scanning devices</p>';
+                log('Error scanning devices: ' + error.message, 'error');
+            }
+        }
+        
+        // Test print
+        async function testPrint() {
+            const btn = document.getElementById('testPrintBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner"></div><span>Printing...</span>';
+            log('Sending test print...', 'info');
+            
+            try {
+                const response = await fetch(`${BRIDGE_URL}/test`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    log('✅ Test receipt printed successfully!', 'success');
+                    alert('Test receipt sent to printer!');
+                } else {
+                    throw new Error(data.error || 'Print failed');
+                }
+            } catch (error) {
+                log('❌ Test print failed: ' + error.message, 'error');
+                alert('Print failed: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span>🧪</span><span>Send Test Receipt</span>';
+            }
+        }
+        
+        // Print custom data
+        async function printCustom() {
+            const data = document.getElementById('customData').value;
+            
+            if (!data.trim()) {
+                alert('Please enter some text to print');
+                return;
+            }
+            
+            log('Sending custom data to printer...', 'info');
+            
+            try {
+                const response = await fetch(`${BRIDGE_URL}/print`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    log(`✅ Printed ${result.bytesWritten} bytes successfully`, 'success');
+                    alert('Custom data printed successfully!');
+                } else {
+                    throw new Error(result.error || 'Print failed');
+                }
+            } catch (error) {
+                log('❌ Custom print failed: ' + error.message, 'error');
+                alert('Print failed: ' + error.message);
+            }
+        }
+        
+        // Load sample receipt
+        function loadSample() {
+            const sample = `SAMPLE RECEIPT
+================
+
+Item 1         Rs. 100
+Item 2         Rs. 200
+Item 3         Rs. 300
+----------------
+Total          Rs. 600
+
+Thank you!
+`;
+            document.getElementById('customData').value = sample;
+            log('Sample receipt loaded', 'info');
+        }
+        
+        // Initialize
+        checkHealth();
+        log('Test page loaded', 'info');
+    </script>
+</body>
+</html>

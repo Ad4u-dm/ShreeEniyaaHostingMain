@@ -325,24 +325,6 @@ function OverviewTab({ data }: { data: AdminDashboardData }) {
       route: '/admin/plans'
     },
     {
-      title: 'Today\'s Payments',
-      value: data.stats.todayPayments,
-      icon: IndianRupee,
-      color: 'text-emerald-600',
-      bgColor: 'bg-emerald-50',
-      clickable: true,
-      route: '/admin/payments'
-    },
-    {
-      title: 'Monthly Revenue',
-      value: `₹${formatIndianNumber(data.stats.monthlyRevenue)}`,
-      icon: TrendingUp,
-      color: 'text-teal-600',
-      bgColor: 'bg-teal-50',
-      clickable: true,
-      route: '/admin/revenue'
-    },
-    {
       title: 'Pending Payments',
       value: data.stats.pendingPayments,
       icon: AlertTriangle,
@@ -350,15 +332,6 @@ function OverviewTab({ data }: { data: AdminDashboardData }) {
       bgColor: 'bg-red-50',
       clickable: true,
       route: '/admin/pending'
-    },
-    {
-      title: 'Total Payments',
-      value: data.stats.totalPayments,
-      icon: Clock,
-      color: 'text-indigo-600',
-      bgColor: 'bg-indigo-50',
-      clickable: true,
-      route: '/admin/transactions'
     }
   ];
 

@@ -172,41 +172,53 @@ body {
 }
 
 /* Mobile optimizations */
-@media (max-width: 768px) {
+@media (max-width: 640px) {
     html {
         font-size: 14px;
     }
     
-    body {
-        -webkit-text-size-adjust: 100%;
-        text-size-adjust: 100%;
-    }
-    
-    /* Improve touch targets */
-    button, 
-    .btn, 
-    a {
+    /* Ensure minimum touch targets */
+    button,
+    .btn,
+    a[role="button"],
+    input[type="button"],
+    input[type="submit"],
+    input[type="reset"] {
         min-height: 44px;
         min-width: 44px;
     }
     
-    /* Better scrolling on mobile */
-    .mobile-scroll {
-        -webkit-overflow-scrolling: touch;
-        scroll-behavior: smooth;
+    /* Better text readability on small screens */
+    body {
+        -webkit-text-size-adjust: 100%;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
     }
     
     /* Prevent horizontal scroll */
-    .container {
-        max-width: 100%;
+    body {
         overflow-x: hidden;
+    }
+    
+    /* Better form inputs on mobile */
+    input,
+    textarea,
+    select {
+        font-size: 16px; /* Prevents zoom on iOS */
     }
 }
 
 /* Tablet optimizations */
-@media (min-width: 769px) and (max-width: 1024px) {
+@media (min-width: 641px) and (max-width: 1024px) {
     html {
         font-size: 15px;
+    }
+}
+
+/* Desktop optimizations */
+@media (min-width: 1025px) {
+    html {
+        font-size: 16px;
     }
 }
 
@@ -222,5 +234,5 @@ button {
 
 /* For Customized Calendar */
 .rdp-vhidden {
-    @apply hidden;
+    display: none;
 }

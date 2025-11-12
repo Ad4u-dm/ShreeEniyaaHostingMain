@@ -2,6 +2,8 @@
     "name": "invoify",
     "version": "0.1.0",
     "private": true,
+    "main": "electron/main.js",
+    "homepage": "./",
     "scripts": {
         "dev": "next dev",
         "build": "next build",
@@ -9,7 +11,16 @@
         "lint": "next lint",
         "analyze": "cross-env ANALYZE=true next build",
         "seed": "node scripts/seedFromJson.js",
-        "seed-chitfund": "tsx scripts/seed.ts"
+        "seed-chitfund": "tsx scripts/seed.ts",
+        "electron": "electron .",
+        "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && cross-env NODE_ENV=development electron .\"",
+        "electron:pack": "electron-builder",
+        "electron:dist": "npm run build && electron-builder",
+        "build:app": "npm run build && electron-builder --publish=never",
+        "build:windows": "npm run build && electron-builder --win --x64",
+        "bridge": "node scripts/bridge-simple.js",
+        "bridge:dev": "nodemon scripts/bridge-simple.js",
+        "dev:all": "concurrently \"npm run dev\" \"npm run bridge\""
     },
     "dependencies": {
         "@dnd-kit/core": "^6.1.0",
@@ -42,7 +53,9 @@
         "chart.js": "^4.5.1",
         "class-variance-authority": "^0.7.0",
         "clsx": "^2.0.0",
+        "cors": "^2.8.5",
         "dotenv": "^17.2.3",
+        "express": "^5.1.0",
         "jsonwebtoken": "^9.0.2",
         "lucide-react": "^0.279.0",
         "mongoose": "^8.19.2",
@@ -61,6 +74,7 @@
         "react-hook-form": "^7.46.1",
         "react-signature-canvas": "^1.0.6",
         "react-use-wizard": "^2.2.4",
+        "serialport": "^13.0.0",
         "sharp": "^0.33.0",
         "tailwind-merge": "^1.14.0",
         "tailwindcss": "3.3.5",
@@ -80,12 +94,80 @@
         "@types/react-dom": "^18.2.7",
         "@types/react-signature-canvas": "^1.0.4",
         "@types/xml2js": "^0.4.13",
+        "concurrently": "^9.2.1",
         "cross-env": "^7.0.3",
+        "electron": "^39.1.1",
+        "electron-builder": "^26.0.12",
+        "electron-reload": "^2.0.0-alpha.1",
         "eslint": "9.39.0",
         "eslint-config-next": "16.0.1",
         "firebase": "^12.5.0",
         "ignore-loader": "^0.1.2",
         "puppeteer": "^24.10.0",
-        "tsx": "^4.20.6"
+        "tsx": "^4.20.6",
+        "wait-on": "^9.0.3"
+    },
+    "build": {
+        "appId": "com.invoify.app",
+        "productName": "Invoify",
+        "directories": {
+            "output": "dist"
+        },
+        "files": [
+            "electron/**/*",
+            ".next/static/**/*",
+            "public/**/*",
+            "package.json"
+        ],
+        "extraResources": [
+            {
+                "from": ".next/static",
+                "to": ".next/static"
+            },
+            {
+                "from": "public",
+                "to": "public"
+            }
+        ],
+        "win": {
+            "target": [
+                {
+                    "target": "nsis",
+                    "arch": [
+                        "x64"
+                    ]
+                }
+            ],
+            "icon": "public/assets/icon.ico"
+        },
+        "mac": {
+            "target": [
+                {
+                    "target": "dmg",
+                    "arch": [
+                        "x64",
+                        "arm64"
+                    ]
+                }
+            ],
+            "icon": "public/assets/icon.icns"
+        },
+        "linux": {
+            "target": [
+                {
+                    "target": "AppImage",
+                    "arch": [
+                        "x64"
+                    ]
+                }
+            ],
+            "icon": "public/assets/icon.png"
+        },
+        "nsis": {
+            "oneClick": false,
+            "allowToChangeInstallationDirectory": true,
+            "createDesktopShortcut": true,
+            "createStartMenuShortcut": true
+        }
     }
 }

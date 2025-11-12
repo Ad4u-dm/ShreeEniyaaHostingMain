@@ -174,7 +174,6 @@ export default function AdminDashboard() {
       clickable: true,
       route: '/admin/staff'
     },
-
     {
       title: 'Available Plans',
       value: 4, // From plans.json
@@ -183,42 +182,6 @@ export default function AdminDashboard() {
       bgColor: 'bg-purple-50',
       clickable: true,
       route: '/admin/plans'
-    },
-    {
-      title: 'Today\'s Payments',
-      value: data.stats.todayPayments,
-      icon: IndianRupee,
-      color: 'text-emerald-600',
-      bgColor: 'bg-emerald-50',
-      clickable: true,
-      route: '/admin/payments'
-    },
-    {
-      title: 'Monthly Revenue',
-      value: `₹${formatIndianNumber(data.stats.monthlyRevenue)}`,
-      icon: TrendingUp,
-      color: 'text-teal-600',
-      bgColor: 'bg-teal-50',
-      clickable: true,
-      route: '/admin/revenue'
-    },
-    {
-      title: 'Pending Payments',
-      value: data.stats.pendingPayments,
-      icon: AlertTriangle,
-      color: 'text-red-600',
-      bgColor: 'bg-red-50',
-      clickable: true,
-      route: '/admin/pending'
-    },
-    {
-      title: 'Total Payments',
-      value: data.stats.totalPayments,
-      icon: Clock,
-      color: 'text-indigo-600',
-      bgColor: 'bg-indigo-50',
-      clickable: true,
-      route: '/admin/transactions'
     }
   ];
 
@@ -252,15 +215,7 @@ export default function AdminDashboard() {
               <span className="hidden xs:inline">Create Plan</span>
               <span className="xs:hidden">Plan</span>
             </Button>
-            <Button 
-              onClick={() => setShowInvoiceManager(true)} 
-              className="bg-green-600 hover:bg-green-700 text-xs sm:text-sm px-2 sm:px-4 py-2"
-              size="sm"
-            >
-              <Receipt className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Quick Invoices</span>
-              <span className="sm:hidden">Quick</span>
-            </Button>
+
             <Button 
               onClick={() => window.location.href = '/admin/invoices'} 
               className="bg-emerald-600 hover:bg-emerald-700 text-xs sm:text-sm px-2 sm:px-4 py-2"

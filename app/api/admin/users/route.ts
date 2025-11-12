@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     // Fetch users with filtering and pagination
     const [users, total] = await Promise.all([
       User.find(query)
-        .select('name email phone address role createdAt updatedAt createdBy')
+        .select('name email phone address role createdAt updatedAt createdBy userId')
         .sort({ createdAt: -1 })
         .limit(limit)
         .skip((page - 1) * limit)
@@ -73,7 +73,6 @@ export async function GET(request: NextRequest) {
     // Get enrollments for all users
     const enrollments = await Enrollment.find({})
       .populate('planId', 'planName totalAmount monthlyAmount duration')
-      .populate('userId', 'name email phone')
       .lean();
 
     // Get payment data for statistics
@@ -84,11 +83,11 @@ export async function GET(request: NextRequest) {
     // Process data to create customer objects with statistics
     const customers = await Promise.all(populatedUsers.map(async (userData) => {
       const userEnrollments = enrollments.filter(e => 
-        e.userId && e.userId._id.toString() === userData._id.toString()
+        e.userId === userData.userId
       );
       
       const userPayments = payments.filter(p => 
-        p.userId && p.userId.toString() === userData._id.toString()
+        p.userId === userData.userId
       );
 
       const totalPaid = userPayments.reduce((sum, payment) => sum + (payment.amount || 0), 0);

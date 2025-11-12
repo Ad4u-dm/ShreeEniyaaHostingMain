@@ -140,17 +140,6 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
               )}
             </Button>
           </form>
-
-          <div className="mt-6 pt-6 border-t border-slate-200">
-            <div className="text-center text-sm text-slate-600">
-              <p className="mb-2">Demo Accounts:</p>
-              <div className="space-y-1 text-xs">
-                <p><strong>Admin:</strong> admin@shreeniyaa.com / admin123</p>
-                <p><strong>Staff:</strong> staff@shreeniyaa.com / staff123</p>
-                <p><strong>User:</strong> user@shreeniyaa.com / user123</p>
-              </div>
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>

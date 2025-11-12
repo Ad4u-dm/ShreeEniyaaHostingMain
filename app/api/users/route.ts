@@ -3,6 +3,13 @@ import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+
+interface JwtPayload {
+  userId: string;
+  email: string;
+  role: string;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -88,15 +95,46 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
+    // Determine if created by staff (check for authorization token)
+    let createdByUserId = null;
+    const authHeader = request.headers.get('authorization');
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.substring(7);
+        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
+        
+        // If the creator is staff, set createdBy field
+        if (decoded.role === 'staff') {
+          const staffUser = await User.findOne({ 
+            email: decoded.email, 
+            role: 'staff' 
+          });
+          if (staffUser) {
+            createdByUserId = staffUser._id;
+          }
+        }
+      } catch (jwtError) {
+        // Token is invalid but we can still create user (for admin)
+        console.log('JWT verification failed during user creation:', jwtError);
+      }
+    }
+
     // Create user
-    const user = new User({
+    const userData: any = {
       name,
       email,
       phone,
       role,
       password: hashedPassword
-    });
+    };
 
+    // Add createdBy field if created by staff
+    if (createdByUserId) {
+      userData.createdBy = createdByUserId;
+    }
+
+    const user = new User(userData);
     await user.save();
 
     // Return user without password

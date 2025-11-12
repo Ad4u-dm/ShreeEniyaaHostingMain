@@ -1,0 +1,204 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.shreeiniyaa.invoifybridge"
+4    android:versionCode="1"
+5    android:versionName="1.0" >
+6
+7    <uses-sdk
+8        android:minSdkVersion="23"
+9        android:targetSdkVersion="34" />
+10
+11    <!-- Bluetooth Permissions -->
+12    <uses-permission android:name="android.permission.BLUETOOTH" />
+12-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:6:5-68
+12-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:6:22-65
+13    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+13-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:7:5-74
+13-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:7:22-71
+14
+15    <!-- Android 12+ Bluetooth Permissions -->
+16    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+16-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:10:5-76
+16-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:10:22-73
+17    <uses-permission
+17-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:11:5-12:58
+18        android:name="android.permission.BLUETOOTH_SCAN"
+18-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:11:22-70
+19        android:usesPermissionFlags="neverForLocation" />
+19-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:12:9-55
+20
+21    <!-- Service Permissions -->
+22    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+22-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:15:5-77
+22-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:15:22-74
+23    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+23-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:16:5-81
+23-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:16:22-78
+24
+25    <!-- Internet for localhost server -->
+26    <uses-permission android:name="android.permission.INTERNET" />
+26-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:19:5-67
+26-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:19:22-64
+27
+28    <!-- Wake Lock to keep service running -->
+29    <uses-permission android:name="android.permission.WAKE_LOCK" />
+29-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:22:5-68
+29-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:22:22-65
+30
+31    <permission
+31-->[androidx.core:core:1.12.0] /home/nishant/.gradle/caches/transforms-3/9643920afc401bf92410edb017e2095b/transformed/core-1.12.0/AndroidManifest.xml:22:5-24:47
+32        android:name="com.shreeiniyaa.invoifybridge.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+32-->[androidx.core:core:1.12.0] /home/nishant/.gradle/caches/transforms-3/9643920afc401bf92410edb017e2095b/transformed/core-1.12.0/AndroidManifest.xml:23:9-81
+33        android:protectionLevel="signature" />
+33-->[androidx.core:core:1.12.0] /home/nishant/.gradle/caches/transforms-3/9643920afc401bf92410edb017e2095b/transformed/core-1.12.0/AndroidManifest.xml:24:9-44
+34
+35    <uses-permission android:name="com.shreeiniyaa.invoifybridge.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+35-->[androidx.core:core:1.12.0] /home/nishant/.gradle/caches/transforms-3/9643920afc401bf92410edb017e2095b/transformed/core-1.12.0/AndroidManifest.xml:26:5-97
+35-->[androidx.core:core:1.12.0] /home/nishant/.gradle/caches/transforms-3/9643920afc401bf92410edb017e2095b/transformed/core-1.12.0/AndroidManifest.xml:26:22-94
+36
+37    <application
+37-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:24:5-66:19
+38        android:allowBackup="true"
+38-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:25:9-35
+39        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+39-->[androidx.core:core:1.12.0] /home/nishant/.gradle/caches/transforms-3/9643920afc401bf92410edb017e2095b/transformed/core-1.12.0/AndroidManifest.xml:28:18-86
+40        android:dataExtractionRules="@xml/data_extraction_rules"
+40-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:26:9-65
+41        android:debuggable="true"
+42        android:extractNativeLibs="false"
+43        android:fullBackupContent="@xml/backup_rules"
+43-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:27:9-54
+44        android:icon="@android:drawable/ic_dialog_info"
+44-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:28:9-56
+45        android:label="@string/app_name"
+45-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:29:9-41
+46        android:roundIcon="@android:drawable/ic_dialog_info"
+46-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:30:9-61
+47        android:supportsRtl="true"
+47-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:31:9-35
+48        android:theme="@style/Theme.InvoifyBridge" >
+48-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:32:9-51
+49
+50        <!-- Main Activity -->
+51        <activity
+51-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:36:9-45:20
+52            android:name="com.shreeiniyaa.invoifybridge.MainActivity"
+52-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:37:13-41
+53            android:exported="true"
+53-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:38:13-36
+54            android:label="@string/app_name"
+54-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:39:13-45
+55            android:theme="@style/Theme.InvoifyBridge" >
+55-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:40:13-55
+56            <intent-filter>
+56-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:41:13-44:29
+57                <action android:name="android.intent.action.MAIN" />
+57-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:42:17-69
+57-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:42:25-66
+58
+59                <category android:name="android.intent.category.LAUNCHER" />
+59-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:43:17-77
+59-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:43:27-74
+60            </intent-filter>
+61        </activity>
+62
+63        <!-- Print Bridge Service -->
+64        <service
+64-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:48:9-53:58
+65            android:name="com.shreeiniyaa.invoifybridge.PrinterService"
+65-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:49:13-43
+66            android:enabled="true"
+66-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:50:13-35
+67            android:exported="false"
+67-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:51:13-37
+68            android:foregroundServiceType="connectedDevice" />
+68-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:52:13-60
+69
+70        <!-- Boot Receiver for Auto-start -->
+71        <receiver
+71-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:56:9-64:20
+72            android:name="com.shreeiniyaa.invoifybridge.BootReceiver"
+72-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:57:13-41
+73            android:enabled="true"
+73-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:58:13-35
+74            android:exported="true" >
+74-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:59:13-36
+75            <intent-filter>
+75-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:60:13-63:29
+76                <action android:name="android.intent.action.BOOT_COMPLETED" />
+76-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:61:17-79
+76-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:61:25-76
+77                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+77-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:62:17-82
+77-->/media/newvolume/PP/billing_app/invoify/android-app/app/src/main/AndroidManifest.xml:62:25-79
+78            </intent-filter>
+79        </receiver>
+80
+81        <provider
+81-->[androidx.emoji2:emoji2:1.2.0] /home/nishant/.gradle/caches/transforms-3/a47287aa1a4f72e566c4fd5b707075b7/transformed/emoji2-1.2.0/AndroidManifest.xml:24:9-32:20
+82            android:name="androidx.startup.InitializationProvider"
+82-->[androidx.emoji2:emoji2:1.2.0] /home/nishant/.gradle/caches/transforms-3/a47287aa1a4f72e566c4fd5b707075b7/transformed/emoji2-1.2.0/AndroidManifest.xml:25:13-67
+83            android:authorities="com.shreeiniyaa.invoifybridge.androidx-startup"
+83-->[androidx.emoji2:emoji2:1.2.0] /home/nishant/.gradle/caches/transforms-3/a47287aa1a4f72e566c4fd5b707075b7/transformed/emoji2-1.2.0/AndroidManifest.xml:26:13-68
+84            android:exported="false" >
+84-->[androidx.emoji2:emoji2:1.2.0] /home/nishant/.gradle/caches/transforms-3/a47287aa1a4f72e566c4fd5b707075b7/transformed/emoji2-1.2.0/AndroidManifest.xml:27:13-37
+85            <meta-data
+85-->[androidx.emoji2:emoji2:1.2.0] /home/nishant/.gradle/caches/transforms-3/a47287aa1a4f72e566c4fd5b707075b7/transformed/emoji2-1.2.0/AndroidManifest.xml:29:13-31:52
+86                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+86-->[androidx.emoji2:emoji2:1.2.0] /home/nishant/.gradle/caches/transforms-3/a47287aa1a4f72e566c4fd5b707075b7/transformed/emoji2-1.2.0/AndroidManifest.xml:30:17-75
+87                android:value="androidx.startup" />
+87-->[androidx.emoji2:emoji2:1.2.0] /home/nishant/.gradle/caches/transforms-3/a47287aa1a4f72e566c4fd5b707075b7/transformed/emoji2-1.2.0/AndroidManifest.xml:31:17-49
+88            <meta-data
+88-->[androidx.lifecycle:lifecycle-process:2.6.1] /home/nishant/.gradle/caches/transforms-3/0f1a0f4fef6e145f404b8deb3bebc49f/transformed/lifecycle-process-2.6.1/AndroidManifest.xml:29:13-31:52
+89                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+89-->[androidx.lifecycle:lifecycle-process:2.6.1] /home/nishant/.gradle/caches/transforms-3/0f1a0f4fef6e145f404b8deb3bebc49f/transformed/lifecycle-process-2.6.1/AndroidManifest.xml:30:17-78
+90                android:value="androidx.startup" />
+90-->[androidx.lifecycle:lifecycle-process:2.6.1] /home/nishant/.gradle/caches/transforms-3/0f1a0f4fef6e145f404b8deb3bebc49f/transformed/lifecycle-process-2.6.1/AndroidManifest.xml:31:17-49
+91            <meta-data
+91-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/nishant/.gradle/caches/transforms-3/d0526cdf04d2c3a3fda2a06989b48e7c/transformed/profileinstaller-1.3.0/AndroidManifest.xml:29:13-31:52
+92                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+92-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/nishant/.gradle/caches/transforms-3/d0526cdf04d2c3a3fda2a06989b48e7c/transformed/profileinstaller-1.3.0/AndroidManifest.xml:30:17-85
+93                android:value="androidx.startup" />
+93-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/nishant/.gradle/caches/transforms-3/d0526cdf04d2c3a3fda2a06989b48e7c/transformed/profileinstaller-1.3.0/AndroidManifest.xml:31:17-49
+94        </provider>
+95
+96        <receiver
+96-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/nishant/.gradle/caches/transforms-3/d0526cdf04d2c3a3fda2a06989b48e7c/transformed/profileinstaller-1.3.0/AndroidManifest.xml:34:9-52:20
+97            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+97-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/nishant/.gradle/caches/transforms-3/d0526cdf04d2c3a3fda2a06989b48e7c/transformed/profileinstaller-1.3.0/AndroidManifest.xml:35:13-76
+98            android:directBootAware="false"
+98-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/nishant/.gradle/caches/transforms-3/d0526cdf04d2c3a3fda2a06989b48e7c/transformed/profileinstaller-1.3.0/AndroidManifest.xml:36:13-44
+99            android:enabled="true"
+99-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/nishant/.gradle/caches/transforms-3/d0526cdf04d2c3a3fda2a06989b48e7c/transformed/profileinstaller-1.3.0/AndroidManifest.xml:37:13-35
+100            android:exported="true"
+100-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/nishant/.gradle/caches/transforms-3/d0526cdf04d2c3a3fda2a06989b48e7c/transformed/profileinstaller-1.3.0/AndroidManifest.xml:38:13-36
+101            android:permission="android.permission.DUMP" >
+101-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/nishant/.gradle/caches/transforms-3/d0526cdf04d2c3a3fda2a06989b48e7c/transformed/profileinstaller-1.3.0/AndroidManifest.xml:39:13-57
+102            <intent-filter>
+102-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/nishant/.gradle/caches/transforms-3/d0526cdf04d2c3a3fda2a06989b48e7c/transformed/profileinstaller-1.3.0/AndroidManifest.xml:40:13-42:29
+103                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+103-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/nishant/.gradle/caches/transforms-3/d0526cdf04d2c3a3fda2a06989b48e7c/transformed/profileinstaller-1.3.0/AndroidManifest.xml:41:17-91
+103-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/nishant/.gradle/caches/transforms-3/d0526cdf04d2c3a3fda2a06989b48e7c/transformed/profileinstaller-1.3.0/AndroidManifest.xml:41:25-88
+104            </intent-filter>
+105            <intent-filter>
+105-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/nishant/.gradle/caches/transforms-3/d0526cdf04d2c3a3fda2a06989b48e7c/transformed/profileinstaller-1.3.0/AndroidManifest.xml:43:13-45:29
+106                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+106-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/nishant/.gradle/caches/transforms-3/d0526cdf04d2c3a3fda2a06989b48e7c/transformed/profileinstaller-1.3.0/AndroidManifest.xml:44:17-85
+106-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/nishant/.gradle/caches/transforms-3/d0526cdf04d2c3a3fda2a06989b48e7c/transformed/profileinstaller-1.3.0/AndroidManifest.xml:44:25-82
+107            </intent-filter>
+108            <intent-filter>
+108-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/nishant/.gradle/caches/transforms-3/d0526cdf04d2c3a3fda2a06989b48e7c/transformed/profileinstaller-1.3.0/AndroidManifest.xml:46:13-48:29
+109                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+109-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/nishant/.gradle/caches/transforms-3/d0526cdf04d2c3a3fda2a06989b48e7c/transformed/profileinstaller-1.3.0/AndroidManifest.xml:47:17-88
+109-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/nishant/.gradle/caches/transforms-3/d0526cdf04d2c3a3fda2a06989b48e7c/transformed/profileinstaller-1.3.0/AndroidManifest.xml:47:25-85
+110            </intent-filter>
+111            <intent-filter>
+111-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/nishant/.gradle/caches/transforms-3/d0526cdf04d2c3a3fda2a06989b48e7c/transformed/profileinstaller-1.3.0/AndroidManifest.xml:49:13-51:29
+112                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+112-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/nishant/.gradle/caches/transforms-3/d0526cdf04d2c3a3fda2a06989b48e7c/transformed/profileinstaller-1.3.0/AndroidManifest.xml:50:17-95
+112-->[androidx.profileinstaller:profileinstaller:1.3.0] /home/nishant/.gradle/caches/transforms-3/d0526cdf04d2c3a3fda2a06989b48e7c/transformed/profileinstaller-1.3.0/AndroidManifest.xml:50:25-92
+113            </intent-filter>
+114        </receiver>
+115    </application>
+116
+117</manifest>

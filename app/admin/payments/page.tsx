@@ -201,19 +201,7 @@ export default function PaymentsPage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-slate-600">Total Payments</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                <IndianRupee className="h-5 w-5 text-blue-500" />
-                <span className="text-2xl font-bold text-slate-800">{stats.totalPayments}</span>
-              </div>
-            </CardContent>
-          </Card>
-
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-slate-600">Total Amount</CardTitle>
@@ -224,18 +212,6 @@ export default function PaymentsPage() {
                 <span className="text-xl font-bold text-slate-800">
                   ₹{formatIndianNumber(stats.totalAmount)}
                 </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-slate-600">Today's Payments</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-purple-500" />
-                <span className="text-2xl font-bold text-slate-800">{stats.todayPayments}</span>
               </div>
             </CardContent>
           </Card>
