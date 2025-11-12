@@ -2,11 +2,12 @@
     "name": "invoify",
     "version": "0.1.0",
     "private": true,
-    "main": "electron/main.js",
+    "main": "electron/main-new.js",
     "homepage": "./",
     "scripts": {
         "dev": "next dev",
         "build": "next build",
+        "build:standalone": "next build && echo 'Standalone build complete'",
         "start": "next start",
         "lint": "next lint",
         "analyze": "cross-env ANALYZE=true next build",
@@ -14,10 +15,11 @@
         "seed-chitfund": "tsx scripts/seed.ts",
         "electron": "electron .",
         "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && cross-env NODE_ENV=development electron .\"",
-        "electron:pack": "electron-builder",
-        "electron:dist": "npm run build && electron-builder",
+        "electron:build": "next build && electron-builder --win --x64 --publish=never",
+        "electron:build:all": "next build && electron-builder -mwl --publish=never",
+        "build:windows": "next build && electron-builder --win --x64",
+        "build:windows:portable": "next build && electron-builder --win portable",
         "build:app": "npm run build && electron-builder --publish=never",
-        "build:windows": "npm run build && electron-builder --win --x64",
         "bridge": "node scripts/bridge-simple.js",
         "bridge:dev": "nodemon scripts/bridge-simple.js",
         "dev:all": "concurrently \"npm run dev\" \"npm run bridge\""
@@ -108,66 +110,70 @@
         "wait-on": "^9.0.3"
     },
     "build": {
-        "appId": "com.invoify.app",
+        "appId": "com.shreeniyaa.invoify",
         "productName": "Invoify",
         "directories": {
-            "output": "dist"
+            "output": "dist",
+            "buildResources": "build"
         },
         "files": [
             "electron/**/*",
+            "!electron/main.js",
+            "electron/main-new.js",
+            ".next/standalone/**/*",
             ".next/static/**/*",
             "public/**/*",
-            "package.json"
+            "package.json",
+            "node_modules/**/*"
         ],
-        "extraResources": [
-            {
-                "from": ".next/static",
-                "to": ".next/static"
-            },
-            {
-                "from": "public",
-                "to": "public"
-            }
+        "asarUnpack": [
+            ".next/**/*",
+            "public/**/*"
         ],
         "win": {
             "target": [
                 {
                     "target": "nsis",
-                    "arch": [
-                        "x64"
-                    ]
+                    "arch": ["x64"]
                 }
             ],
-            "icon": "public/assets/icon.ico"
+            "icon": "public/assets/icon.ico",
+            "requestedExecutionLevel": "asInvoker",
+            "publisherName": "Shree Eniyaa Chitfunds"
+        },
+        "nsis": {
+            "oneClick": false,
+            "allowElevation": true,
+            "allowToChangeInstallationDirectory": true,
+            "installerIcon": "public/assets/icon.ico",
+            "uninstallerIcon": "public/assets/icon.ico",
+            "installerHeaderIcon": "public/assets/icon.ico",
+            "createDesktopShortcut": true,
+            "createStartMenuShortcut": true,
+            "shortcutName": "Invoify",
+            "perMachine": false,
+            "runAfterFinish": true,
+            "license": "LICENSE"
         },
         "mac": {
             "target": [
                 {
                     "target": "dmg",
-                    "arch": [
-                        "x64",
-                        "arm64"
-                    ]
+                    "arch": ["x64", "arm64"]
                 }
             ],
-            "icon": "public/assets/icon.icns"
+            "icon": "public/assets/icon.icns",
+            "category": "public.app-category.business"
         },
         "linux": {
             "target": [
                 {
                     "target": "AppImage",
-                    "arch": [
-                        "x64"
-                    ]
+                    "arch": ["x64"]
                 }
             ],
-            "icon": "public/assets/icon.png"
-        },
-        "nsis": {
-            "oneClick": false,
-            "allowToChangeInstallationDirectory": true,
-            "createDesktopShortcut": true,
-            "createStartMenuShortcut": true
+            "icon": "public/assets/icon.png",
+            "category": "Office"
         }
     }
 }
