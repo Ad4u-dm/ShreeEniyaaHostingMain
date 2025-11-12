@@ -1,40 +1,98 @@
+# ======================================================
+# 🚀 Invoify Project GitIgnore (Next.js + Electron + Node)
+# ======================================================
+
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# dependencies
+# ======================================================
+# 🔧 Dependencies
+# ======================================================
 /node_modules
 /.pnp
 .pnp.js
+/lib/generated/prisma
 
-# testing
+# ======================================================
+# 🧪 Testing
+# ======================================================
 /coverage
 
-# next.js
+# ======================================================
+# ⚛️ Next.js
+# ======================================================
 /.next/
 /out/
 
-# production
+# ======================================================
+# 🏗️ Production Build Outputs
+# ======================================================
 /build
+/dist/
+.tmp/
+temp/
+logs/
+*.pid
 
-# misc
-.DS_Store
-*.pem
+# ======================================================
+# 💻 Electron Build Artifacts
+# ======================================================
+*.asar
+*.asar.unpacked/
+*.AppImage
+*.dmg
+*.exe
+*.deb
+*.rpm
+*.snap
+*.msi
 
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# local env files
+# ======================================================
+# ⚙️ Environment & Config
+# ======================================================
+.env
 .env*.local
-
-# vercel
+.env.local
+.env.development.local
+.env.production.local
+.env.test.local
 .vercel
+electron-builder.yml
+electron-builder.json
 
-# typescript
+# ======================================================
+# 🧠 TypeScript
+# ======================================================
 *.tsbuildinfo
 next-env.d.ts
 
-# cache
+# ======================================================
+# 🧹 Miscellaneous
+# ======================================================
+.DS_Store
+Thumbs.db
+*.pem
+
+# ======================================================
+# 🐛 Debug / Logs
+# ======================================================
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+yarn.lock
+.pnpm-store/
+
+# ======================================================
+# 🧰 IDE & Editor Configs
+# ======================================================
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# ======================================================
+# ⚡ Cache
+# ======================================================
 /.cache
-/lib/generated/prisma
-dist/
+/.turbo
