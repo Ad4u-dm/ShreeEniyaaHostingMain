@@ -158,58 +158,29 @@ export async function POST(request: NextRequest) {
   // Use smallest font size for all lines
   const SMALL_FONT = '\x1D!\x01'; // GS!1 (smallest height, normal width)
 
-  // Mobile Receipt header
-  receipt += COMMANDS.ALIGN_CENTER;
+  // All lines left-aligned, compact, uniform font
+  receipt += COMMANDS.ALIGN_LEFT;
   receipt += SMALL_FONT;
   receipt += 'Mobile Receipt\n';
   receipt += dashedLine();
-
-  // Company name (bold, but small)
-  receipt += COMMANDS.BOLD_ON;
-  receipt += SMALL_FONT;
-  receipt += 'SHREE ENIYAA CHITFUNDS\n';
-  receipt += '(P) LTD.\n';
-  receipt += COMMANDS.BOLD_OFF;
-
-  // Address
-  receipt += SMALL_FONT;
-  receipt += 'Mahadhana Street\n';
-  receipt += 'Mayiladuthurai - 609 001.\n';
+  receipt += 'SHREE ENIYAA CHITFUNDS (P) LTD.\n';
+  receipt += 'Mahadhana Street, Mayiladuthurai - 609 001.\n';
   receipt += dashedLine();
-
-  // Receipt details (left aligned)
-  receipt += COMMANDS.ALIGN_LEFT;
-  receipt += SMALL_FONT;
-  receipt += padLine('Receipt No', invoiceData.invoiceNumber.replace('RCP', ''));
-  receipt += padLine('Date/Time', `${formattedDate} ${formattedTime}`);
-  receipt += padLine('Member No', String(invoiceData.enrollment?.memberNumber || 'N/A'));
-  receipt += padLine('Member Name', String(invoiceData.customerId?.name || 'N/A').substring(0, 12));
-  receipt += padLine('Plan', String(invoiceData.planId?.planName || 'N/A').substring(0, 12));
-
-  // Amount details
-  receipt += SMALL_FONT;
-  receipt += padLine('Due Amount', `Rs.${dueAmount.toLocaleString('en-IN')}`);
-  receipt += padLine('Arrear Amount', `Rs.${arrearAmount.toLocaleString('en-IN')}`);
-  receipt += padLine('Pending Amount', `Rs.${pendingAmount.toLocaleString('en-IN')}`);
-  receipt += padLine('Received Amount', `Rs.${receivedAmount.toLocaleString('en-IN')}`);
-  receipt += padLine('Balance Amount', `Rs.${balanceAmount.toLocaleString('en-IN')}`);
+  receipt += `Receipt No : ${invoiceData.invoiceNumber.replace('RCP', '')}\n`;
+  receipt += `Date/Time : ${formattedDate} ${formattedTime}\n`;
+  receipt += `Member No : ${String(invoiceData.enrollment?.memberNumber || 'N/A')}\n`;
+  receipt += `Member Name : ${String(invoiceData.customerId?.name || 'N/A').substring(0, 12)}\n`;
+  receipt += `Plan : ${String(invoiceData.planId?.planName || 'N/A').substring(0, 12)}\n`;
+  receipt += `Due Amount : Rs.${dueAmount.toLocaleString('en-IN')}\n`;
+  receipt += `Arrear Amount : Rs.${arrearAmount.toLocaleString('en-IN')}\n`;
+  receipt += `Pending Amount : Rs.${pendingAmount.toLocaleString('en-IN')}\n`;
+  receipt += `Received Amount : Rs.${receivedAmount.toLocaleString('en-IN')}\n`;
+  receipt += `Balance Amount : Rs.${balanceAmount.toLocaleString('en-IN')}\n`;
   receipt += dashedLine();
-
-  // Total (bold, but small)
-  receipt += COMMANDS.BOLD_ON;
-  receipt += SMALL_FONT;
-  receipt += padLine('Total Received', `Rs.${receivedAmount.toLocaleString('en-IN')}`);
-  receipt += COMMANDS.BOLD_OFF;
+  receipt += `Total Received : Rs.${receivedAmount.toLocaleString('en-IN')}\n`;
   receipt += dashedLine();
-
-  // Footer
-  receipt += SMALL_FONT;
-  receipt += padLine('Issued By', invoiceData.collectedBy?.name || 'ADMIN');
-  receipt += dashedLine();
-  receipt += COMMANDS.ALIGN_CENTER;
-  receipt += SMALL_FONT;
-  receipt += 'For Any Enquiry\n';
-  receipt += '\u260E 96266 66527 / 90035 62126\n';
+  receipt += `Issued By : ${invoiceData.collectedBy?.name || 'ADMIN'}\n`;
+  receipt += `For Any Enquiry : 96266 66527 / 90035 62126\n`;
   receipt += 'Thank you for your business!\n';
 
   // Cut paper
