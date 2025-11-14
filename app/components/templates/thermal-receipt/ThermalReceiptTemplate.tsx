@@ -44,16 +44,16 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
 
   return (
     <div style={{
-      width: '80mm',
-      fontFamily: 'Courier New, monospace',
-      fontSize: '11px',
-      lineHeight: '1.1',
-      color: '#000',
-      background: 'white',
-      padding: '0',
-      margin: '0 auto',
-      boxSizing: 'border-box',
-      fontWeight: 'normal'
+  width: '80mm',
+  fontFamily: 'Courier New, monospace',
+  fontSize: '9px',
+  lineHeight: '1',
+  color: '#000',
+  background: 'white',
+  padding: '0',
+  margin: '0 auto',
+  boxSizing: 'border-box',
+  fontWeight: 'normal'
     }}>
       <div style={{textAlign: 'left', margin: '0', fontWeight: 'normal'}}>Mobile Receipt</div>
       <div style={{borderTop: '1px dashed #000', margin: '2px 0', width: '100%'}}></div>

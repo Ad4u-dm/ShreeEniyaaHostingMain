@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
   receipt += COMMANDS.INIT;
 
   // Use smallest font size for all lines
-  const SMALL_FONT = '\x1D!\x01'; // GS!1 (smallest height, normal width)
+  const SMALL_FONT = '\x1D!\x02'; // GS!2 (even smaller font if supported)
 
   // All lines left-aligned, compact, uniform font
   receipt += COMMANDS.ALIGN_LEFT;
