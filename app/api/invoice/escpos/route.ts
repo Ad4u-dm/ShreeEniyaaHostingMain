@@ -153,15 +153,12 @@ export async function POST(request: NextRequest) {
     // Initialize
     receipt += COMMANDS.INIT;
     
-  // Initialize
-  receipt += COMMANDS.INIT;
-
-  // Use smallest font size for all lines
-  const SMALL_FONT = '\x1D!\x02'; // GS!2 (even smaller font if supported)
-
-  // All lines left-aligned, compact, uniform font
-  receipt += COMMANDS.ALIGN_LEFT;
-  receipt += SMALL_FONT;
+    // Initialize
+    receipt += COMMANDS.INIT;
+    // Select Font B (ESC M 1)
+    receipt += '\x1B\x4D\x01';
+    // All lines left-aligned, compact, uniform font
+    receipt += COMMANDS.ALIGN_LEFT;
   receipt += 'Mobile Receipt\n';
   receipt += dashedLine();
   receipt += 'SHREE ENIYAA CHITFUNDS (P) LTD.\n';
