@@ -152,61 +152,68 @@ export async function POST(request: NextRequest) {
     // Initialize
     receipt += COMMANDS.INIT;
     
-    // Mobile Receipt header
-    receipt += COMMANDS.ALIGN_CENTER;
-    receipt += COMMANDS.SIZE_NORMAL;
-    receipt += 'Mobile Receipt\n';
-    receipt += dashedLine();
-    
-    // Company name (bold, larger)
-    receipt += COMMANDS.BOLD_ON;
-    receipt += COMMANDS.SIZE_NORMAL;
-    receipt += 'SHREE ENIYAA CHITFUNDS\n';
-    receipt += '(P) LTD.\n';
-    receipt += COMMANDS.BOLD_OFF;
-    
-    // Address
-    receipt += COMMANDS.SIZE_NORMAL;
-    // Print company address as per live preview template
-  receipt += 'Shop No. 2, Mahadhana Street\n';
+  // Initialize
+  receipt += COMMANDS.INIT;
+
+  // Use smallest font size for all lines
+  const SMALL_FONT = '\x1D!\x01'; // GS!1 (smallest height, normal width)
+
+  // Mobile Receipt header
+  receipt += COMMANDS.ALIGN_CENTER;
+  receipt += SMALL_FONT;
+  receipt += 'Mobile Receipt\n';
+  receipt += dashedLine();
+
+  // Company name (bold, but small)
+  receipt += COMMANDS.BOLD_ON;
+  receipt += SMALL_FONT;
+  receipt += 'SHREE ENIYAA CHITFUNDS\n';
+  receipt += '(P) LTD.\n';
+  receipt += COMMANDS.BOLD_OFF;
+
+  // Address
+  receipt += SMALL_FONT;
+  receipt += 'Mahadhana Street\n';
   receipt += 'Mayiladuthurai - 609 001.\n';
-    receipt += dashedLine();
-    
-    // Receipt details (left aligned)
-    receipt += COMMANDS.ALIGN_LEFT;
-    receipt += padLine('Receipt No', invoiceData.invoiceNumber.replace('RCP', ''));
-    receipt += padLine('Date/Time', `${formattedDate} ${formattedTime}`);
-    receipt += padLine('Member No', String(invoiceData.enrollment?.memberNumber || 'N/A'));
-    receipt += padLine('Member Name', String(invoiceData.customerId?.name || 'N/A').substring(0, 12));
-    receipt += padLine('Plan', String(invoiceData.planId?.planName || 'N/A').substring(0, 12));
-    
-    // Amount details
-    receipt += padLine('Due Amount', `Rs.${dueAmount.toLocaleString('en-IN')}`);
-    receipt += padLine('Arrear Amount', `Rs.${arrearAmount.toLocaleString('en-IN')}`);
-    receipt += padLine('Pending Amount', `Rs.${pendingAmount.toLocaleString('en-IN')}`);
-    receipt += padLine('Received Amount', `Rs.${receivedAmount.toLocaleString('en-IN')}`);
-    receipt += padLine('Balance Amount', `Rs.${balanceAmount.toLocaleString('en-IN')}`);
-    receipt += dashedLine();
-    
-    // Total (bold)
-    receipt += COMMANDS.BOLD_ON;
-    receipt += padLine('Total Received', `Rs.${receivedAmount.toLocaleString('en-IN')}`);
-    receipt += COMMANDS.BOLD_OFF;
-    receipt += dashedLine();
-    
-    // Footer
+  receipt += dashedLine();
+
+  // Receipt details (left aligned)
+  receipt += COMMANDS.ALIGN_LEFT;
+  receipt += SMALL_FONT;
+  receipt += padLine('Receipt No', invoiceData.invoiceNumber.replace('RCP', ''));
+  receipt += padLine('Date/Time', `${formattedDate} ${formattedTime}`);
+  receipt += padLine('Member No', String(invoiceData.enrollment?.memberNumber || 'N/A'));
+  receipt += padLine('Member Name', String(invoiceData.customerId?.name || 'N/A').substring(0, 12));
+  receipt += padLine('Plan', String(invoiceData.planId?.planName || 'N/A').substring(0, 12));
+
+  // Amount details
+  receipt += SMALL_FONT;
+  receipt += padLine('Due Amount', `Rs.${dueAmount.toLocaleString('en-IN')}`);
+  receipt += padLine('Arrear Amount', `Rs.${arrearAmount.toLocaleString('en-IN')}`);
+  receipt += padLine('Pending Amount', `Rs.${pendingAmount.toLocaleString('en-IN')}`);
+  receipt += padLine('Received Amount', `Rs.${receivedAmount.toLocaleString('en-IN')}`);
+  receipt += padLine('Balance Amount', `Rs.${balanceAmount.toLocaleString('en-IN')}`);
+  receipt += dashedLine();
+
+  // Total (bold, but small)
+  receipt += COMMANDS.BOLD_ON;
+  receipt += SMALL_FONT;
+  receipt += padLine('Total Received', `Rs.${receivedAmount.toLocaleString('en-IN')}`);
+  receipt += COMMANDS.BOLD_OFF;
+  receipt += dashedLine();
+
+  // Footer
+  receipt += SMALL_FONT;
   receipt += padLine('Issued By', invoiceData.collectedBy?.name || 'ADMIN');
   receipt += dashedLine();
   receipt += COMMANDS.ALIGN_CENTER;
+  receipt += SMALL_FONT;
   receipt += 'For Any Enquiry\n';
   receipt += '\u260E 96266 66527 / 90035 62126\n';
-  receipt += 'shreeniyaachitfunds@gmail.com\n';
   receipt += 'Thank you for your business!\n';
-    
-    // Cut paper
-    receipt += COMMANDS.CUT_PAPER;
-    
-    // Convert to base64 for transmission
+
+  // Cut paper
+  receipt += COMMANDS.CUT_PAPER;
     const receiptBuffer = Buffer.from(receipt, 'binary');
     const base64Data = receiptBuffer.toString('base64');
     
