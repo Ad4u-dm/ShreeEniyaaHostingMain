@@ -5,6 +5,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -20,6 +21,12 @@ import java.lang.String;
 public final class ActivityMainBinding implements ViewBinding {
   @NonNull
   private final ScrollView rootView;
+
+  @NonNull
+  public final LinearLayout bridgeUrlContainer;
+
+  @NonNull
+  public final TextView bridgeUrlText;
 
   @NonNull
   public final Spinner printerSpinner;
@@ -42,11 +49,14 @@ public final class ActivityMainBinding implements ViewBinding {
   @NonNull
   public final Button testPrintButton;
 
-  private ActivityMainBinding(@NonNull ScrollView rootView, @NonNull Spinner printerSpinner,
-      @NonNull TextView printerStatus, @NonNull Button scanButton,
+  private ActivityMainBinding(@NonNull ScrollView rootView,
+      @NonNull LinearLayout bridgeUrlContainer, @NonNull TextView bridgeUrlText,
+      @NonNull Spinner printerSpinner, @NonNull TextView printerStatus, @NonNull Button scanButton,
       @NonNull Button startServiceButton, @NonNull TextView statusText,
       @NonNull Button stopServiceButton, @NonNull Button testPrintButton) {
     this.rootView = rootView;
+    this.bridgeUrlContainer = bridgeUrlContainer;
+    this.bridgeUrlText = bridgeUrlText;
     this.printerSpinner = printerSpinner;
     this.printerStatus = printerStatus;
     this.scanButton = scanButton;
@@ -83,6 +93,18 @@ public final class ActivityMainBinding implements ViewBinding {
     // This is done to optimize the compiled bytecode for size and performance.
     int id;
     missingId: {
+      id = R.id.bridgeUrlContainer;
+      LinearLayout bridgeUrlContainer = ViewBindings.findChildViewById(rootView, id);
+      if (bridgeUrlContainer == null) {
+        break missingId;
+      }
+
+      id = R.id.bridgeUrlText;
+      TextView bridgeUrlText = ViewBindings.findChildViewById(rootView, id);
+      if (bridgeUrlText == null) {
+        break missingId;
+      }
+
       id = R.id.printerSpinner;
       Spinner printerSpinner = ViewBindings.findChildViewById(rootView, id);
       if (printerSpinner == null) {
@@ -125,8 +147,9 @@ public final class ActivityMainBinding implements ViewBinding {
         break missingId;
       }
 
-      return new ActivityMainBinding((ScrollView) rootView, printerSpinner, printerStatus,
-          scanButton, startServiceButton, statusText, stopServiceButton, testPrintButton);
+      return new ActivityMainBinding((ScrollView) rootView, bridgeUrlContainer, bridgeUrlText,
+          printerSpinner, printerStatus, scanButton, startServiceButton, statusText,
+          stopServiceButton, testPrintButton);
     }
     String missingId = rootView.getResources().getResourceName(id);
     throw new NullPointerException("Missing required view with ID: ".concat(missingId));

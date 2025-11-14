@@ -3189,6 +3189,8 @@ id bounce
 id bounceBoth
 id bounceEnd
 id bounceStart
+id bridgeUrlContainer
+id bridgeUrlText
 id buttonPanel
 id cache_measures
 id callMeasure

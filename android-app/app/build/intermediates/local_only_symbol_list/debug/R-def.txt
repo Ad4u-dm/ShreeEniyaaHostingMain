@@ -17,6 +17,8 @@ color teal_700
 color text_primary
 color text_secondary
 color white
+id bridgeUrlContainer
+id bridgeUrlText
 id printerSpinner
 id printerStatus
 id scanButton

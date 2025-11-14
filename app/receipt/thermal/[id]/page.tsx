@@ -46,36 +46,42 @@ export default function ThermalReceiptPage() {
   // Check if Bluetooth bridge is available
   useEffect(() => {
     const checkBridge = async () => {
-      // Try localhost first (for PC or Android app with local bridge)
-      try {
-        const response = await fetch('http://127.0.0.1:9000/health', {
-          method: 'GET',
-          signal: AbortSignal.timeout(2000), // 2 second timeout
-        });
-        if (response.ok) {
-          setBridgeAvailable(true);
-          return;
-        }
-      } catch (error) {
-        // Localhost failed, try network bridge detection
+      const attempts = [
+        // Try localhost first (if bridge is on same machine)
+        'http://127.0.0.1:9000/health',
+        'http://localhost:9000/health',
+      ];
+      
+      // If not localhost, also try the server's IP (for Android bridge on phone)
+      const serverHost = window.location.hostname;
+      if (serverHost !== 'localhost' && serverHost !== '127.0.0.1') {
+        // Try the web server's host
+        attempts.push(`http://${serverHost}:9000/health`);
       }
-
-      // If localhost failed and we're on a phone accessing via network,
-      // try the server's host (bridge might be on same machine as Next.js)
-      try {
-        const serverHost = window.location.hostname;
-        if (serverHost !== 'localhost' && serverHost !== '127.0.0.1') {
-          const response = await fetch(`http://${serverHost}:9000/health`, {
+      
+      // Try each URL with a short timeout
+      for (const url of attempts) {
+        try {
+          const response = await fetch(url, {
             method: 'GET',
-            signal: AbortSignal.timeout(2000),
+            signal: AbortSignal.timeout(1500),
           });
-          setBridgeAvailable(response.ok);
-          return;
+          
+          if (response.ok) {
+            const data = await response.json();
+            console.log('✅ Bridge found at:', url, data);
+            setBridgeAvailable(true);
+            // Store the working bridge URL for later use
+            sessionStorage.setItem('bridgeUrl', url.replace('/health', ''));
+            return;
+          }
+        } catch (error) {
+          console.log(`❌ Bridge not available at ${url}`);
+          // Continue to next attempt
         }
-      } catch (error) {
-        // Network bridge not available
       }
-
+      
+      console.log('⚠️ No bridge available');
       setBridgeAvailable(false);
     };
 
@@ -100,24 +106,31 @@ export default function ThermalReceiptPage() {
 
       const { data: escposData } = await escposResponse.json();
 
-      // Determine bridge URL (localhost or network)
-      let bridgeUrl = 'http://127.0.0.1:9000/print';
-      const serverHost = window.location.hostname;
-      if (serverHost !== 'localhost' && serverHost !== '127.0.0.1') {
-        // Accessing from network, try bridge on same host as server
-        bridgeUrl = `http://${serverHost}:9000/print`;
+      // Get the bridge URL (previously detected and stored)
+      let bridgeUrl = sessionStorage.getItem('bridgeUrl');
+      
+      // Fallback if not stored
+      if (!bridgeUrl) {
+        bridgeUrl = 'http://127.0.0.1:9000';
+        const serverHost = window.location.hostname;
+        if (serverHost !== 'localhost' && serverHost !== '127.0.0.1') {
+          bridgeUrl = `http://${serverHost}:9000`;
+        }
       }
 
       // Send to Bluetooth bridge
       setPrintStatus('Sending to printer...');
-      const printResponse = await fetch(bridgeUrl, {
+      console.log('Printing to bridge:', `${bridgeUrl}/print`);
+      
+      const printResponse = await fetch(`${bridgeUrl}/print`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data: escposData }),
       });
 
       if (!printResponse.ok) {
-        throw new Error('Failed to print');
+        const errorData = await printResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to print');
       }
 
       const result = await printResponse.json();
@@ -248,19 +261,32 @@ export default function ThermalReceiptPage() {
             {bridgeAvailable === false && isAndroid && (
               <div className="bg-orange-50 border border-orange-200 rounded-md p-3 mb-3">
                 <div className="flex items-center gap-2 text-orange-800 text-sm font-semibold mb-2">
-                  <span>📱</span>
-                  <span>Android Device Detected</span>
+                  <span>⚠️</span>
+                  <span>Bluetooth Bridge Not Connected</span>
                 </div>
-                <p className="text-orange-700 text-xs mb-2">
-                  Install the Bluetooth Bridge app for direct thermal printing.
-                </p>
-                <a 
-                  href="/download/InvoifyBridge.apk" 
-                  className="inline-block px-3 py-1.5 bg-orange-600 text-white text-xs font-medium rounded hover:bg-orange-700 transition-colors"
-                  download
-                >
-                  Download Bridge App
-                </a>
+                <div className="text-orange-700 text-xs space-y-2">
+                  <p className="font-medium">Quick Fixes:</p>
+                  <ol className="list-decimal list-inside space-y-1 ml-2">
+                    <li>Open the <strong>Invoify Bridge</strong> app</li>
+                    <li>Tap <strong>"START SERVICE"</strong></li>
+                    <li>Ensure both devices are on <strong>same WiFi</strong></li>
+                    <li>Check printer is turned ON</li>
+                    <li>Refresh this page</li>
+                  </ol>
+                  <details className="mt-2">
+                    <summary className="cursor-pointer font-medium hover:text-orange-900">
+                      Need help? Click here
+                    </summary>
+                    <div className="mt-2 p-2 bg-white rounded text-xs space-y-1">
+                      <p>✅ Same WiFi network on both devices</p>
+                      <p>✅ Bridge app service running (green)</p>
+                      <p>✅ Bluetooth printer paired and ON</p>
+                      <p className="mt-2 text-orange-600 font-medium">
+                        Still having issues? Check PHONE_BLUETOOTH_PRINTING_GUIDE.md
+                      </p>
+                    </div>
+                  </details>
+                </div>
               </div>
             )}
             

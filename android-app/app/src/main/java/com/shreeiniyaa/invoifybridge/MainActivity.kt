@@ -6,8 +6,10 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Bundle
+import android.text.format.Formatter
 import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
@@ -240,6 +242,31 @@ class MainActivity : AppCompatActivity() {
         
         binding.startServiceButton.isEnabled = !isRunning
         binding.stopServiceButton.isEnabled = isRunning
+        
+        // Show/hide bridge URL based on service status
+        if (isRunning) {
+            val ipAddress = getLocalIpAddress()
+            if (ipAddress != null) {
+                binding.bridgeUrlText.text = "http://$ipAddress:9000"
+                binding.bridgeUrlContainer.visibility = View.VISIBLE
+            } else {
+                binding.bridgeUrlContainer.visibility = View.GONE
+            }
+        } else {
+            binding.bridgeUrlContainer.visibility = View.GONE
+        }
+    }
+    
+    @Suppress("DEPRECATION")
+    private fun getLocalIpAddress(): String? {
+        return try {
+            val wifiManager = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
+            val ipAddress = wifiManager.connectionInfo.ipAddress
+            if (ipAddress == 0) return null
+            Formatter.formatIpAddress(ipAddress)
+        } catch (e: Exception) {
+            null
+        }
     }
     
     private fun updatePrinterStatus() {

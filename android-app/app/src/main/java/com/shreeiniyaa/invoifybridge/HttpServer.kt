@@ -15,7 +15,17 @@ class HttpServer(
         val uri = session.uri
         val method = session.method
         
-        // Add CORS headers
+        // Handle OPTIONS preflight requests for CORS
+        if (method == Method.OPTIONS) {
+            val response = newFixedLengthResponse(Response.Status.OK, "text/plain", "OK")
+            response.addHeader("Access-Control-Allow-Origin", "*")
+            response.addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            response.addHeader("Access-Control-Allow-Headers", "Content-Type, Accept")
+            response.addHeader("Access-Control-Max-Age", "3600")
+            return response
+        }
+        
+        // Route requests
         val response = when {
             uri == "/health" && method == Method.GET -> handleHealth()
             uri == "/print" && method == Method.POST -> handlePrint(session)
@@ -24,14 +34,15 @@ class HttpServer(
             else -> newFixedLengthResponse(
                 Response.Status.NOT_FOUND,
                 "application/json",
-                """{"error": "Not found"}"""
+                """{"success": false, "error": "Not found"}"""
             )
         }
         
-        // Add CORS headers to response
+        // Add CORS headers to all responses
         response.addHeader("Access-Control-Allow-Origin", "*")
         response.addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        response.addHeader("Access-Control-Allow-Headers", "Content-Type")
+        response.addHeader("Access-Control-Allow-Headers", "Content-Type, Accept")
+        response.addHeader("Content-Type", "application/json")
         
         return response
     }

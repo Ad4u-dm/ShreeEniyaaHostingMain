@@ -25,6 +25,10 @@
     <!-- Internet for localhost server -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Network state for IP address detection -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <!-- Wake Lock to keep service running -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 

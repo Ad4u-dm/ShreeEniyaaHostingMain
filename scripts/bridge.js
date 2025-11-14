@@ -56,8 +56,10 @@ const COMMANDS = {
 
 // Middleware
 app.use(cors({
-  origin: true, // Allow all origins on local network
-  credentials: true
+  origin: true, // Allow all origins (since phone accesses from different IPs)
+  credentials: true,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.raw({ type: 'application/octet-stream', limit: '10mb' }));
@@ -179,6 +181,28 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Debug endpoint to inspect incoming data
+app.post('/debug', (req, res) => {
+  log('🔍 Debug request received');
+  
+  const debugInfo = {
+    contentType: req.get('content-type'),
+    bodyType: typeof req.body,
+    bodyKeys: Object.keys(req.body || {}),
+    bodyPreview: JSON.stringify(req.body).substring(0, 200),
+    isJson: req.is('application/json'),
+    isOctetStream: req.is('application/octet-stream')
+  };
+  
+  log('Debug info:', debugInfo);
+  
+  res.json({
+    success: true,
+    debug: debugInfo,
+    message: 'Check server console for detailed logs'
+  });
+});
+
 // List available Bluetooth devices
 app.get('/devices', async (req, res) => {
   try {
@@ -223,6 +247,25 @@ app.post('/print', async (req, res) => {
         success: false,
         error: 'No print data provided'
       });
+    }
+
+    // Check if data is base64 encoded (from ESC/POS API)
+    // Base64 strings are typically longer and contain only A-Z, a-z, 0-9, +, /, =
+    const isBase64 = typeof printData === 'string' && 
+                     /^[A-Za-z0-9+/]+=*$/.test(printData) && 
+                     printData.length > 100; // ESC/POS receipts are usually large
+
+    if (isBase64) {
+      log('🔍 Detected base64-encoded data, decoding...');
+      log(`📊 Original data length: ${printData.length} characters`);
+      try {
+        printData = Buffer.from(printData, 'base64').toString('binary');
+        log('✅ Successfully decoded base64 data');
+        log(`📊 Decoded data length: ${printData.length} bytes`);
+      } catch (decodeError) {
+        log('⚠️ Failed to decode as base64, treating as plain text');
+        log(`⚠️ Decode error: ${decodeError.message}`);
+      }
     }
 
     log(`📄 Print data size: ${Buffer.byteLength(printData)} bytes`);
@@ -331,8 +374,8 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log('🖨️  Bluetooth Thermal Print Bridge');
   console.log('='.repeat(60));
   console.log(`✅ Server running on http://0.0.0.0:${PORT}`);
-  console.log(`📱 Access from network: http://<YOUR_IP>:${PORT}`);
-  console.log(`🔍 Looking for printer: "${CONFIG.printerName}"`);
+  console.log(`� Network access: http://<your-ip>:${PORT}`);
+  console.log(`�🔍 Looking for printer: "${CONFIG.printerName}"`);
   if (CONFIG.printerMAC) {
     console.log(`📍 Configured MAC: ${CONFIG.printerMAC}`);
   }
@@ -341,6 +384,8 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`  GET  /devices     - List Bluetooth devices`);
   console.log(`  POST /print       - Print ESC/POS data`);
   console.log(`  POST /test        - Print test receipt`);
+  console.log('\n💡 TIP: Get your IP with: ip addr show or ifconfig');
+  console.log('    Then access from phone: http://<your-ip>:9000');
   console.log('\nPress Ctrl+C to stop');
   console.log('='.repeat(60) + '\n');
 });
