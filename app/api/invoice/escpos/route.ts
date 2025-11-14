@@ -171,7 +171,6 @@ export async function POST(request: NextRequest) {
   receipt += padColonLine('Plan', String(invoiceData.planId?.planName || 'N/A').substring(0, 12));
   receipt += padColonLine('Due Amount', `${dueAmount.toLocaleString('en-IN')}`);
   receipt += padColonLine('Arrear Amount', `${arrearAmount.toLocaleString('en-IN')}`);
-  receipt += padColonLine('Pending Amount', `${pendingAmount.toLocaleString('en-IN')}`);
   receipt += padColonLine('Received Amount', `${receivedAmount.toLocaleString('en-IN')}`);
   receipt += padColonLine('Balance Amount', `${balanceAmount.toLocaleString('en-IN')}`);
   receipt += dashedLine();
