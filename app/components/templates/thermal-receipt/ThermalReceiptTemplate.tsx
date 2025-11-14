@@ -238,8 +238,8 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
       </div>
       
       <div className="address">
-        Shop no. 2 , Mahadhana Street,<br/>
-        Mayiladuthurai – 609 001.
+  Mahadhana Street,<br/>
+  Mayiladuthurai – 609 001.
       </div>
       
       <div className="divider"></div>
@@ -317,9 +317,8 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
       </div>
       
       <div className="footer-enquiry" style={{marginTop: '10px', textAlign: 'center', borderTop: '1px solid #e2e8f0', paddingTop: '8px'}}>
-        <div style={{fontWeight: 'bold', marginBottom: '4px', color: '#1e293b'}}>For Any Enquiry</div>
-        <div style={{marginBottom: '2px'}}>📞 96266 66527 / 90035 62126</div>
-        <div>📧 shreeniyaachitfunds@gmail.com</div>
+  <div style={{fontWeight: 'bold', marginBottom: '4px', color: '#1e293b'}}>For Any Enquiry</div>
+  <div style={{marginBottom: '2px'}}>📞 96266 66527 / 90035 62126</div>
       </div>
       
       <div style={{textAlign: 'center', marginTop: '10px', fontSize: '9px', color: '#94a3b8', fontStyle: 'italic'}}>
