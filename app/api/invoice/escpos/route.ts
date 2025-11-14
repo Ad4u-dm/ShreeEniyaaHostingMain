@@ -30,15 +30,17 @@ const COMMANDS = {
 };
 
 // Helper function to create a dashed line
-function dashedLine(width = 24): string {
+function dashedLine(width = 48): string {
   return '-'.repeat(width) + '\n';
 }
 
 // Helper function to pad text for alignment
-function padColonLine(label: string, value: string, colonPos = 14, width = 42): string {
-  // Pad label to colonPos, then add colon, then pad to value
+function padColonLine(label: string, value: string, colonPos = 18, width = 48): string {
+  // Pad label to colonPos, then add colon, then pad to value right-aligned
   const paddedLabel = label.padEnd(colonPos, ' ');
-  return paddedLabel + ': ' + value + '\n';
+  const valueStr = String(value);
+  const spaces = width - paddedLabel.length - 2 - valueStr.length; // 2 for ': '
+  return paddedLabel + ': ' + ' '.repeat(Math.max(0, spaces)) + valueStr + '\n';
 }
 
 // Helper function to center text
@@ -168,6 +170,7 @@ export async function POST(request: NextRequest) {
   receipt += padColonLine('Date/Time', `${formattedDate} ${formattedTime}`);
   receipt += padColonLine('Member No', String(invoiceData.enrollment?.memberNumber || 'N/A'));
   receipt += padColonLine('Member Name', String(invoiceData.customerId?.name || 'N/A').substring(0, 12));
+  receipt += padColonLine('Due No', String(invoiceData.dueNumber || 'N/A'));
   receipt += padColonLine('Plan', String(invoiceData.planId?.planName || 'N/A').substring(0, 12));
   receipt += padColonLine('Due Amount', `${dueAmount.toLocaleString('en-IN')}`);
   receipt += padColonLine('Arrear Amount', `${arrearAmount.toLocaleString('en-IN')}`);
@@ -179,7 +182,9 @@ export async function POST(request: NextRequest) {
   receipt += dashedLine();
   receipt += padColonLine('Issued By', invoiceData.collectedBy?.name || 'ADMIN');
   receipt += padColonLine('For Any Enquiry', '96266 66527 / 90035 62126');
+  receipt += COMMANDS.ALIGN_CENTER;
   receipt += 'Thank you for your business!\n';
+  receipt += '\n\n\n\n'; // Add extra blank lines for easy cutting
 
   // Cut paper
   receipt += COMMANDS.CUT_PAPER;
