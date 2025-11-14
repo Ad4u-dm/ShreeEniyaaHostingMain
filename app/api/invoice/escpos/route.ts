@@ -35,7 +35,7 @@ function dashedLine(width = 24): string {
 }
 
 // Helper function to pad text for alignment
-function padColonLine(label: string, value: string, colonPos = 16, width = 32): string {
+function padColonLine(label: string, value: string, colonPos = 14, width = 42): string {
   // Pad label to colonPos, then add colon, then pad to value
   const paddedLabel = label.padEnd(colonPos, ' ');
   return paddedLabel + ': ' + value + '\n';
@@ -169,13 +169,13 @@ export async function POST(request: NextRequest) {
   receipt += padColonLine('Member No', String(invoiceData.enrollment?.memberNumber || 'N/A'));
   receipt += padColonLine('Member Name', String(invoiceData.customerId?.name || 'N/A').substring(0, 12));
   receipt += padColonLine('Plan', String(invoiceData.planId?.planName || 'N/A').substring(0, 12));
-  receipt += padColonLine('Due Amount', `Rs.${dueAmount.toLocaleString('en-IN')}`);
-  receipt += padColonLine('Arrear Amount', `Rs.${arrearAmount.toLocaleString('en-IN')}`);
-  receipt += padColonLine('Pending Amount', `Rs.${pendingAmount.toLocaleString('en-IN')}`);
-  receipt += padColonLine('Received Amount', `Rs.${receivedAmount.toLocaleString('en-IN')}`);
-  receipt += padColonLine('Balance Amount', `Rs.${balanceAmount.toLocaleString('en-IN')}`);
+  receipt += padColonLine('Due Amount', `${dueAmount.toLocaleString('en-IN')}`);
+  receipt += padColonLine('Arrear Amount', `${arrearAmount.toLocaleString('en-IN')}`);
+  receipt += padColonLine('Pending Amount', `${pendingAmount.toLocaleString('en-IN')}`);
+  receipt += padColonLine('Received Amount', `${receivedAmount.toLocaleString('en-IN')}`);
+  receipt += padColonLine('Balance Amount', `${balanceAmount.toLocaleString('en-IN')}`);
   receipt += dashedLine();
-  receipt += padColonLine('Total Received', `Rs.${receivedAmount.toLocaleString('en-IN')}`);
+  receipt += padColonLine('Total Received', `${receivedAmount.toLocaleString('en-IN')}`);
   receipt += dashedLine();
   receipt += padColonLine('Issued By', invoiceData.collectedBy?.name || 'ADMIN');
   receipt += padColonLine('For Any Enquiry', '96266 66527 / 90035 62126');
