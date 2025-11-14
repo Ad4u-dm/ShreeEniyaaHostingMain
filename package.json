@@ -138,8 +138,7 @@
                 }
             ],
             "icon": "public/assets/icon.ico",
-            "requestedExecutionLevel": "asInvoker",
-            "publisherName": "Shree Eniyaa Chitfunds"
+            "requestedExecutionLevel": "asInvoker"
         },
         "nsis": {
             "oneClick": false,
@@ -153,7 +152,8 @@
             "shortcutName": "Invoify",
             "perMachine": false,
             "runAfterFinish": true,
-            "license": "LICENSE"
+            "license": "LICENSE",
+            "publisherName": "Shree Eniyaa Chitfunds"
         },
         "mac": {
             "target": [

@@ -56,7 +56,7 @@ const COMMANDS = {
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  origin: true, // Allow all origins on local network
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
@@ -326,11 +326,12 @@ app.post('/test', async (req, res) => {
 });
 
 // Start server
-app.listen(PORT, '127.0.0.1', () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log('\n' + '='.repeat(60));
   console.log('🖨️  Bluetooth Thermal Print Bridge');
   console.log('='.repeat(60));
-  console.log(`✅ Server running on http://127.0.0.1:${PORT}`);
+  console.log(`✅ Server running on http://0.0.0.0:${PORT}`);
+  console.log(`📱 Access from network: http://<YOUR_IP>:${PORT}`);
   console.log(`🔍 Looking for printer: "${CONFIG.printerName}"`);
   if (CONFIG.printerMAC) {
     console.log(`📍 Configured MAC: ${CONFIG.printerMAC}`);
