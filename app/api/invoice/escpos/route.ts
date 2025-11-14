@@ -157,11 +157,10 @@ export async function POST(request: NextRequest) {
     
     // Initialize
     receipt += COMMANDS.INIT;
-    // Select Font B (ESC M 1)
-    receipt += '\x1B\x4D\x01';
+  // Select Font A (ESC M 0) for larger text
+  receipt += '\x1B\x4D\x00';
     // All lines left-aligned, compact, uniform font
     receipt += COMMANDS.ALIGN_LEFT;
-  receipt += 'Mobile Receipt\n';
   receipt += dashedLine();
   receipt += 'SHREE ENIYAA CHITFUNDS (P) LTD.\n';
   receipt += 'Mahadhana Street, Mayiladuthurai - 609 001.\n';
