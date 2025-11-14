@@ -35,12 +35,10 @@ function dashedLine(width = 48): string {
 }
 
 // Helper function to pad text for alignment
-function padColonLine(label: string, value: string, colonPos = 18, width = 48): string {
-  // Pad label to colonPos, then add colon, then pad to value right-aligned
-  const paddedLabel = label.padEnd(colonPos, ' ');
-  const valueStr = String(value);
-  const spaces = width - paddedLabel.length - 2 - valueStr.length; // 2 for ': '
-  return paddedLabel + ': ' + ' '.repeat(Math.max(0, spaces)) + valueStr + '\n';
+function padColonLine(label: string, value: string, colonPos = 16, width = 48): string {
+  // Pad label with spaces to colonPos, then colon, then value left-aligned
+  const spaces = ' '.repeat(Math.max(0, colonPos - label.length));
+  return label + spaces + ': ' + value + '\n';
 }
 
 // Helper function to center text
