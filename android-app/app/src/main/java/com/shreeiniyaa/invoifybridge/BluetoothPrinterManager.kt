@@ -81,9 +81,12 @@ class BluetoothPrinterManager(
         }
         
         return try {
-            outputStream?.write(data.toByteArray(Charsets.ISO_8859_1))
+            // Convert string to bytes using ISO-8859-1 (preserves binary data)
+            val bytes = data.toByteArray(Charsets.ISO_8859_1)
+            outputStream?.write(bytes)
             outputStream?.flush()
-            Log.d(TAG, "Print successful")
+            
+            Log.d(TAG, "Print successful - sent ${bytes.size} bytes")
             true
         } catch (e: IOException) {
             Log.e(TAG, "Print failed: ${e.message}")

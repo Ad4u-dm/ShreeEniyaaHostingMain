@@ -197,22 +197,66 @@ ipcMain.on('window:close', () => {
 // Start local Next.js server for production
 function startLocalServer() {
   return new Promise((resolve, reject) => {
-    const nextServer = require('../.next/standalone/server.js');
-    
-    const server = http.createServer((req, res) => {
-      nextServer.getRequestHandler()(req, res);
-    });
-
-    server.listen(3000, 'localhost', (err) => {
-      if (err) {
-        console.error('Failed to start local server:', err);
-        reject(err);
-      } else {
-        console.log('Local Next.js server started on http://localhost:3000');
-        localServer = server;
+    try {
+      let serverPath;
+      
+      if (isDev) {
+        // Development mode - just resolve immediately, Next.js dev server should be running
+        console.log('Development mode - skipping embedded server startup');
         resolve();
+        return;
       }
-    });
+      
+      // Production mode - find the Next.js standalone server
+      const possiblePaths = [
+        path.join(__dirname, '..', '.next', 'standalone', 'server.js'),
+        path.join(process.resourcesPath, '.next', 'standalone', 'server.js'),
+        path.join(process.resourcesPath, 'app', '.next', 'standalone', 'server.js'),
+        path.join(__dirname, '..', 'resources', '.next', 'standalone', 'server.js')
+      ];
+      
+      for (const testPath of possiblePaths) {
+        if (fs.existsSync(testPath)) {
+          serverPath = testPath;
+          console.log('Found Next.js server at:', serverPath);
+          break;
+        }
+      }
+      
+      if (!serverPath) {
+        console.error('Could not find Next.js standalone server. Searched paths:', possiblePaths);
+        // Fallback: try to start without embedded server
+        resolve();
+        return;
+      }
+      
+      // Set environment for Next.js
+      process.env.NODE_ENV = 'production';
+      process.env.PORT = '3000';
+      process.env.HOSTNAME = 'localhost';
+      
+      const nextServer = require(serverPath);
+      
+      const server = http.createServer((req, res) => {
+        nextServer.getRequestHandler()(req, res);
+      });
+
+      server.listen(3000, 'localhost', (err) => {
+        if (err) {
+          console.error('Failed to start local server:', err);
+          reject(err);
+        } else {
+          console.log('Local Next.js server started on http://localhost:3000');
+          localServer = server;
+          resolve();
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error starting local server:', error);
+      // Don't reject - fallback to external server or show error
+      resolve();
+    }
   });
 }
 
@@ -320,16 +364,55 @@ async function createWindow() {
       return;
     }
   } else {
-    // Production mode - use embedded Next.js app
+    // Production mode - try embedded Next.js app first
     appUrl = 'http://localhost:3000';
     
     try {
       await startLocalServer();
+      
+      // Wait a bit to ensure server is ready
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Test if server is responding
+      try {
+        const testReq = http.request({
+          hostname: 'localhost',
+          port: 3000,
+          path: '/',
+          method: 'GET',
+          timeout: 5000
+        }, (res) => {
+          console.log('Server health check passed');
+        });
+        
+        testReq.on('error', (error) => {
+          console.warn('Local server not responding, will try to load anyway');
+        });
+        
+        testReq.end();
+      } catch (testError) {
+        console.warn('Server test failed, continuing anyway');
+      }
+      
     } catch (error) {
       console.error('Failed to start local server:', error);
-      dialog.showErrorBox('Error', 'Failed to start the application server.');
-      app.quit();
-      return;
+      
+      // Show more helpful error message
+      const result = dialog.showMessageBoxSync(mainWindow, {
+        type: 'error',
+        title: 'Server Startup Failed',
+        message: 'Failed to start the application server.',
+        detail: 'This might be due to:\n• Port 3000 is already in use\n• Missing application files\n• Permission issues\n\nWould you like to try anyway?',
+        buttons: ['Try Anyway', 'Quit'],
+        defaultId: 0,
+        cancelId: 1
+      });
+      
+      if (result === 1) {
+        app.quit();
+        return;
+      }
+      // Continue with result === 0 (Try Anyway)
     }
   }
 

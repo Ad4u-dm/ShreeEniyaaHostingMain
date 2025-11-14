@@ -2,7 +2,7 @@
     "name": "invoify",
     "version": "0.1.0",
     "private": true,
-    "main": "electron/main-new.js",
+    "main": "electron/main-simple.js",
     "homepage": "./",
     "scripts": {
         "dev": "next dev",
@@ -112,6 +112,7 @@
     "build": {
         "appId": "com.shreeniyaa.invoify",
         "productName": "Invoify",
+        "npmRebuild": false,
         "directories": {
             "output": "dist",
             "buildResources": "build"
@@ -137,23 +138,17 @@
                     "arch": ["x64"]
                 }
             ],
-            "icon": "public/assets/icon.ico",
             "requestedExecutionLevel": "asInvoker"
         },
         "nsis": {
             "oneClick": false,
             "allowElevation": true,
             "allowToChangeInstallationDirectory": true,
-            "installerIcon": "public/assets/icon.ico",
-            "uninstallerIcon": "public/assets/icon.ico",
-            "installerHeaderIcon": "public/assets/icon.ico",
             "createDesktopShortcut": true,
             "createStartMenuShortcut": true,
             "shortcutName": "Invoify",
             "perMachine": false,
-            "runAfterFinish": true,
-            "license": "LICENSE",
-            "publisherName": "Shree Eniyaa Chitfunds"
+            "runAfterFinish": true
         },
         "mac": {
             "target": [

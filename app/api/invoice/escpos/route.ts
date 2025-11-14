@@ -30,18 +30,18 @@ const COMMANDS = {
 };
 
 // Helper function to create a dashed line
-function dashedLine(width = 32): string {
+function dashedLine(width = 24): string {
   return '-'.repeat(width) + '\n';
 }
 
 // Helper function to pad text for alignment
-function padLine(left: string, right: string, width = 32): string {
+function padLine(left: string, right: string, width = 24): string {
   const spaces = width - left.length - right.length;
   return left + ' '.repeat(Math.max(0, spaces)) + right + '\n';
 }
 
 // Helper function to center text
-function centerText(text: string, width = 32): string {
+function centerText(text: string, width = 24): string {
   const padding = Math.floor((width - text.length) / 2);
   return ' '.repeat(Math.max(0, padding)) + text + '\n';
 }
@@ -87,24 +87,29 @@ export async function POST(request: NextRequest) {
         notes: payment.notes
       };
     } else if (invoiceId) {
-      // Fetch invoice data - use snapshot fields stored on invoice
-      const invoice = await Invoice.findById(invoiceId).lean();
+      // Fetch invoice data and populate customer/plan fields
+      const invoice = await Invoice.findById(invoiceId)
+        .populate('customerId', 'name phone address')
+        .populate('planId', 'planName monthlyAmount')
+        .lean();
 
       if (!invoice) {
         return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
       }
 
-      // Use snapshot fields from invoice document
+      // Use populated fields from invoice document
       invoiceData = {
         _id: invoice._id,
         invoiceNumber: invoice.receiptNo || invoice.invoiceId || `INV${Date.now()}`,
         issueDate: invoice.invoiceDate || new Date().toISOString(),
         customerId: {
-          name: invoice.memberName || invoice.customerDetails?.name || 'N/A'
+          name: invoice.customerId?.name || invoice.memberName || invoice.customerDetails?.name || 'N/A',
+          phone: invoice.customerId?.phone || invoice.customerDetails?.phone || '',
+          address: invoice.customerId?.address || invoice.customerDetails?.address || '',
         },
         planId: {
-          planName: invoice.planDetails?.planName || 'N/A',
-          monthlyAmount: invoice.dueAmount || invoice.planDetails?.monthlyAmount || 0
+          planName: invoice.planId?.planName || invoice.planDetails?.planName || 'N/A',
+          monthlyAmount: invoice.dueAmount || invoice.planId?.monthlyAmount || invoice.planDetails?.monthlyAmount || 0
         },
         amount: invoice.totalAmount || 0,
         total: invoice.paidAmount || invoice.totalAmount || 0,
@@ -112,7 +117,7 @@ export async function POST(request: NextRequest) {
           memberNumber: invoice.memberNumber || invoice.dueNumber || 'N/A'
         },
         collectedBy: {
-          name: user.name || 'ADMIN'
+          name: user.name || invoice.issuedBy || 'ADMIN'
         },
         // Additional receipt fields
         dueAmount: invoice.dueAmount || 0,
@@ -155,52 +160,51 @@ export async function POST(request: NextRequest) {
     
     // Company name (bold, larger)
     receipt += COMMANDS.BOLD_ON;
-    receipt += COMMANDS.SIZE_WIDE;
-    receipt += 'SHREE ENIYAA CHITFUNDS\n';
     receipt += COMMANDS.SIZE_NORMAL;
+    receipt += 'SHREE ENIYAA CHITFUNDS\n';
     receipt += '(P) LTD.\n';
     receipt += COMMANDS.BOLD_OFF;
     
     // Address
     receipt += COMMANDS.SIZE_NORMAL;
-    receipt += 'Shop No. 2, Irundam Thalam\n';
-    receipt += 'No. 40, Mahathanath Street\n';
-    receipt += 'Mayiladuthurai - 609 001\n';
+    // Print company address as per live preview template
+  receipt += 'Shop No. 2, Mahadhana Street\n';
+  receipt += 'Mayiladuthurai - 609 001.\n';
     receipt += dashedLine();
     
     // Receipt details (left aligned)
     receipt += COMMANDS.ALIGN_LEFT;
     receipt += padLine('Receipt No', invoiceData.invoiceNumber.replace('RCP', ''));
-    receipt += padLine('Date / Time', `${formattedDate} ${formattedTime}`);
+    receipt += padLine('Date/Time', `${formattedDate} ${formattedTime}`);
     receipt += padLine('Member No', String(invoiceData.enrollment?.memberNumber || 'N/A'));
-    receipt += padLine('Member Name', String(invoiceData.customerId?.name || 'N/A').substring(0, 20));
-    receipt += padLine('Plan', String(invoiceData.planId?.planName || 'N/A').substring(0, 20));
-    receipt += '\n';
+    receipt += padLine('Member Name', String(invoiceData.customerId?.name || 'N/A').substring(0, 12));
+    receipt += padLine('Plan', String(invoiceData.planId?.planName || 'N/A').substring(0, 12));
     
     // Amount details
-    receipt += padLine('Due Amount', `Rs. ${dueAmount.toLocaleString('en-IN')}`);
-    receipt += padLine('Arrear Amount', `Rs. ${arrearAmount.toLocaleString('en-IN')}`);
-    receipt += padLine('Pending Amount', `Rs. ${pendingAmount.toLocaleString('en-IN')}`);
-    receipt += padLine('Received Amount', `Rs. ${receivedAmount.toLocaleString('en-IN')}`);
-    receipt += padLine('Balance Amount', `Rs. ${balanceAmount.toLocaleString('en-IN')}`);
-    receipt += '\n';
+    receipt += padLine('Due Amount', `Rs.${dueAmount.toLocaleString('en-IN')}`);
+    receipt += padLine('Arrear Amount', `Rs.${arrearAmount.toLocaleString('en-IN')}`);
+    receipt += padLine('Pending Amount', `Rs.${pendingAmount.toLocaleString('en-IN')}`);
+    receipt += padLine('Received Amount', `Rs.${receivedAmount.toLocaleString('en-IN')}`);
+    receipt += padLine('Balance Amount', `Rs.${balanceAmount.toLocaleString('en-IN')}`);
     receipt += dashedLine();
     
     // Total (bold)
     receipt += COMMANDS.BOLD_ON;
-    receipt += padLine('Total Received', `Rs. ${receivedAmount.toLocaleString('en-IN')}`);
+    receipt += padLine('Total Received', `Rs.${receivedAmount.toLocaleString('en-IN')}`);
     receipt += COMMANDS.BOLD_OFF;
     receipt += dashedLine();
     
     // Footer
-    receipt += padLine('User', invoiceData.collectedBy?.name || 'STAFF');
-    receipt += '\n';
-    receipt += COMMANDS.ALIGN_CENTER;
-    receipt += 'For Any Enquiry\n';
-    receipt += ': 04364-221200\n';
-    receipt += '\n';
-    receipt += 'Thank You!\n';
-    receipt += '\n\n';
+  receipt += padLine('Issued By', invoiceData.collectedBy?.name || 'ADMIN');
+  receipt += dashedLine();
+  receipt += COMMANDS.ALIGN_CENTER;
+  receipt += 'For Any Enquiry\n';
+  receipt += '\u260E 96266 66527 / 90035 62126\n';
+  receipt += 'shreeniyaachitfunds@gmail.com\n';
+  receipt += 'Thank you for your business!\n';
+    
+    // Cut paper
+    receipt += COMMANDS.CUT_PAPER;
     
     // Convert to base64 for transmission
     const receiptBuffer = Buffer.from(receipt, 'binary');
