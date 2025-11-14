@@ -35,9 +35,10 @@ function dashedLine(width = 24): string {
 }
 
 // Helper function to pad text for alignment
-function padLine(left: string, right: string, width = 24): string {
-  const spaces = width - left.length - right.length;
-  return left + ' '.repeat(Math.max(0, spaces)) + right + '\n';
+function padColonLine(label: string, value: string, colonPos = 16, width = 32): string {
+  // Pad label to colonPos, then add colon, then pad to value
+  const paddedLabel = label.padEnd(colonPos, ' ');
+  return paddedLabel + ': ' + value + '\n';
 }
 
 // Helper function to center text
@@ -166,21 +167,21 @@ export async function POST(request: NextRequest) {
   receipt += 'SHREE ENIYAA CHITFUNDS (P) LTD.\n';
   receipt += 'Mahadhana Street, Mayiladuthurai - 609 001.\n';
   receipt += dashedLine();
-  receipt += `Receipt No : ${invoiceData.invoiceNumber.replace('RCP', '')}\n`;
-  receipt += `Date/Time : ${formattedDate} ${formattedTime}\n`;
-  receipt += `Member No : ${String(invoiceData.enrollment?.memberNumber || 'N/A')}\n`;
-  receipt += `Member Name : ${String(invoiceData.customerId?.name || 'N/A').substring(0, 12)}\n`;
-  receipt += `Plan : ${String(invoiceData.planId?.planName || 'N/A').substring(0, 12)}\n`;
-  receipt += `Due Amount : Rs.${dueAmount.toLocaleString('en-IN')}\n`;
-  receipt += `Arrear Amount : Rs.${arrearAmount.toLocaleString('en-IN')}\n`;
-  receipt += `Pending Amount : Rs.${pendingAmount.toLocaleString('en-IN')}\n`;
-  receipt += `Received Amount : Rs.${receivedAmount.toLocaleString('en-IN')}\n`;
-  receipt += `Balance Amount : Rs.${balanceAmount.toLocaleString('en-IN')}\n`;
+  receipt += padColonLine('Receipt No', invoiceData.invoiceNumber.replace('RCP', ''));
+  receipt += padColonLine('Date/Time', `${formattedDate} ${formattedTime}`);
+  receipt += padColonLine('Member No', String(invoiceData.enrollment?.memberNumber || 'N/A'));
+  receipt += padColonLine('Member Name', String(invoiceData.customerId?.name || 'N/A').substring(0, 12));
+  receipt += padColonLine('Plan', String(invoiceData.planId?.planName || 'N/A').substring(0, 12));
+  receipt += padColonLine('Due Amount', `Rs.${dueAmount.toLocaleString('en-IN')}`);
+  receipt += padColonLine('Arrear Amount', `Rs.${arrearAmount.toLocaleString('en-IN')}`);
+  receipt += padColonLine('Pending Amount', `Rs.${pendingAmount.toLocaleString('en-IN')}`);
+  receipt += padColonLine('Received Amount', `Rs.${receivedAmount.toLocaleString('en-IN')}`);
+  receipt += padColonLine('Balance Amount', `Rs.${balanceAmount.toLocaleString('en-IN')}`);
   receipt += dashedLine();
-  receipt += `Total Received : Rs.${receivedAmount.toLocaleString('en-IN')}\n`;
+  receipt += padColonLine('Total Received', `Rs.${receivedAmount.toLocaleString('en-IN')}`);
   receipt += dashedLine();
-  receipt += `Issued By : ${invoiceData.collectedBy?.name || 'ADMIN'}\n`;
-  receipt += `For Any Enquiry : 96266 66527 / 90035 62126\n`;
+  receipt += padColonLine('Issued By', invoiceData.collectedBy?.name || 'ADMIN');
+  receipt += padColonLine('For Any Enquiry', '96266 66527 / 90035 62126');
   receipt += 'Thank you for your business!\n';
 
   // Cut paper
