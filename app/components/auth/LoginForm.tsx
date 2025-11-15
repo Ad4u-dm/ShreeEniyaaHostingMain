@@ -47,8 +47,12 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
       if (onLoginSuccess) {
         onLoginSuccess(result.user);
       } else {
-        // Redirect to dashboard
-        window.location.href = '/dashboard';
+        // Redirect based on user role
+        if (result.user?.role === 'staff') {
+          window.location.href = '/staff/invoices';
+        } else {
+          window.location.href = '/dashboard';
+        }
       }
 
     } catch (err) {

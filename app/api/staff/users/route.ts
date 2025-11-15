@@ -66,9 +66,8 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
 
-    // Build user query - only users created by this staff member
+    // Build user query - show all users (removed createdBy limitation)
     const userQuery: any = {
-      createdBy: staffUserDoc._id,
       role: 'user' // Only get customers, not other staff
     };
 
@@ -94,17 +93,16 @@ export async function GET(request: NextRequest) {
       User.countDocuments(userQuery)
     ]);
 
-    // Calculate stats for all staff's users
-    const allStaffUsers = await User.find({
-      createdBy: staffUserDoc._id,
+    // Calculate stats for all users (not just staff's users)
+    const allUsers = await User.find({
       role: 'user'
     });
 
     const stats = {
-      totalUsers: allStaffUsers.length,
-      activeUsers: allStaffUsers.filter(user => user.status === 'active').length,
-      inactiveUsers: allStaffUsers.filter(user => user.status === 'inactive').length,
-      suspendedUsers: allStaffUsers.filter(user => user.status === 'suspended').length
+      totalUsers: allUsers.length,
+      activeUsers: allUsers.filter(user => user.status === 'active').length,
+      inactiveUsers: allUsers.filter(user => user.status === 'inactive').length,
+      suspendedUsers: allUsers.filter(user => user.status === 'suspended').length
     };
 
     // Get financial data for each user

@@ -82,14 +82,13 @@ export async function GET(request: NextRequest) {
     
     console.log('Staff user found:', staffUserDoc.name);
 
-    // Get all users created by this staff member
-    console.log('Looking for users created by staff ID:', staffUserDoc._id);
+    // Get all users (removed staff limitation)
+    console.log('Looking for all users...');
     const users = await User.find({ 
-      createdBy: staffUserDoc._id,
       role: 'user' // Only get customers, not other staff
     }).sort({ createdAt: -1 });
     
-    console.log('Found users created by staff:', users.length);
+    console.log('Found total users:', users.length);
 
     // Calculate stats from staff's users
     const totalUsers = users.length;

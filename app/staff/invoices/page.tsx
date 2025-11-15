@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Search, Filter, Eye, Download, Send, Edit, Plus, FileText, Calendar, IndianRupee, User, Printer } from 'lucide-react';
+import { ArrowLeft, Search, Filter, Eye, Download, Send, Edit, Plus, FileText, Calendar, IndianRupee, User, Printer, LogOut } from 'lucide-react';
 import { formatIndianNumber } from '@/lib/helpers';
 import Link from 'next/link';
 
@@ -171,6 +171,13 @@ export default function StaffInvoicesPage() {
     window.location.href = `/receipt/thermal/${invoiceId}`;
   };
 
+  const handleLogout = () => {
+    // Clear authentication token
+    localStorage.removeItem('auth-token');
+    // Redirect to login page
+    window.location.href = '/login';
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'paid':
@@ -255,6 +262,16 @@ export default function StaffInvoicesPage() {
                 <span className="xs:hidden">Create</span>
               </Button>
             </Link>
+            <Button 
+              onClick={handleLogout} 
+              variant="outline" 
+              className="border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 text-xs sm:text-sm px-2 sm:px-4 py-2" 
+              size="sm"
+            >
+              <LogOut className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+              <span className="hidden xs:inline">Logout</span>
+              <span className="xs:hidden">Exit</span>
+            </Button>
           </div>
         </div>
 

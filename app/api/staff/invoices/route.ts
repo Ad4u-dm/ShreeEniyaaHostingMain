@@ -21,11 +21,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Staff user not found' }, { status: 404 });
     }
 
-    // Fetch invoices for customers created by this staff member
-    const staffCustomers = await User.find({ createdBy: staffUser._id }).select('_id').lean();
-    const customerIds = staffCustomers.map(c => c._id);
-
-    const invoices = await Invoice.find({ customerId: { $in: customerIds } })
+    // Fetch all invoices (removed staff customer limitation)
+    const invoices = await Invoice.find()
       .populate('customerId', 'name email phone')
       .populate('planId', 'planName totalAmount monthlyAmount duration')
       .sort({ createdAt: -1 })
@@ -117,12 +114,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Staff user not found' }, { status: 404 });
     }
 
-    // Validate that the customer belongs to this staff member
+    // Validate that the customer exists (removed staff ownership check)
     const customer = await User.findById(invoiceData.customerId).lean();
-    if (!customer || customer.createdBy?.toString() !== staffUser._id.toString()) {
+    if (!customer) {
       return NextResponse.json(
-        { error: 'You can only create invoices for your own customers' },
-        { status: 403 }
+        { error: 'Customer not found' },
+        { status: 404 }
       );
     }
 

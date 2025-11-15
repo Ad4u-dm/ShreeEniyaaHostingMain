@@ -24,9 +24,9 @@ export default function MainDashboard() {
   }, []);
 
   useEffect(() => {
-    // Redirect staff users to the new simplified staff dashboard
+    // Redirect staff users directly to invoice management
     if (user && user.role === 'staff') {
-      window.location.href = '/staff';
+      window.location.href = '/staff/invoices';
     }
   }, [user]);
 
