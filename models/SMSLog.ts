@@ -1,62 +1,45 @@
+// SMS MODEL TEMPORARILY COMMENTED OUT - WAITING FOR DLT APPROVAL
+/*
 import mongoose from 'mongoose';
 
 const SMSLogSchema = new mongoose.Schema({
-  smsId: { type: String, unique: true }, // Auto-generated in pre-save hook
-  
   // Recipient Details
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  phoneNumber: { type: String, required: true },
+  phone: { type: String, required: true }, // Changed from phoneNumber to phone
   
   // Message Details
-  messageType: { 
-    type: String, 
-    enum: ['payment_reminder', 'payment_confirmation', 'auction_notification', 'welcome', 'general'], 
-    required: true 
-  },
-  messageText: { type: String, required: true },
+  message: { type: String, required: true }, // Changed from messageText to message
   
   // Status
   status: { 
     type: String, 
-    enum: ['pending', 'sent', 'delivered', 'failed'], 
+    enum: ['pending', 'sent', 'failed'], // Simplified enum
     default: 'pending' 
   },
   
-  // Firebase Response
-  firebaseMessageId: { type: String },
-  firebaseResponse: { type: mongoose.Schema.Types.Mixed },
-  
-  // Delivery Details
-  sentAt: { type: Date },
-  deliveredAt: { type: Date },
-  failureReason: { type: String },
-  
-  // Related Records
-  enrollmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Enrollment' },
-  paymentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Payment' },
+  // MSG91 Response
+  requestId: { type: String },
+  errorMessage: { type: String },
   
   // Staff Details
-  triggeredBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  isAutomatic: { type: Boolean, default: true },
-  
-  // Retry Logic
-  retryCount: { type: Number, default: 0 },
-  maxRetries: { type: Number, default: 3 },
-  nextRetryAt: { type: Date },
+  sentBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   
   // Timestamps
+  sentAt: { type: Date, default: Date.now },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
 
-// Generate smsId automatically
-SMSLogSchema.pre('save', async function(next) {
-  if (!this.smsId) {
-    const count = await mongoose.model('SMSLog').countDocuments();
-    this.smsId = `SMS${String(count + 1).padStart(6, '0')}`;
-  }
+// Update updatedAt on save
+SMSLogSchema.pre('save', function(next) {
   this.updatedAt = new Date();
   next();
 });
 
-export default (mongoose.models.SMSLog || mongoose.model('SMSLog', SMSLogSchema)) as any;
+export const SMSLog = mongoose.models.SMSLog || mongoose.model('SMSLog', SMSLogSchema);
+export default SMSLog;
+*/
+
+// Temporary placeholder to prevent import errors
+export const SMSLog = null;
+export default null;

@@ -1,3 +1,5 @@
+// SMS SERVICE TEMPORARILY COMMENTED OUT - WAITING FOR DLT APPROVAL
+/*
 import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import connectDB from '@/lib/mongodb';
@@ -208,4 +210,40 @@ export async function getSMSLogs(
     console.error('Get SMS logs error:', error);
     return [];
   }
+}
+*/
+
+// Temporary placeholder exports to prevent import errors
+export interface SMSData {
+  userId: string;
+  phoneNumber: string;
+  messageType: 'payment_reminder' | 'payment_confirmation' | 'auction_notification' | 'welcome' | 'general';
+  messageText: string;
+  triggeredBy?: string;
+  enrollmentId?: string;
+  paymentId?: string;
+  isAutomatic?: boolean;
+}
+
+export const SMS_TEMPLATES = {
+  payment_reminder: () => 'SMS service disabled',
+  payment_confirmation: () => 'SMS service disabled',
+  auction_notification: () => 'SMS service disabled',
+  welcome: () => 'SMS service disabled',
+  general: () => 'SMS service disabled'
+};
+
+export async function sendSMS(smsData: SMSData): Promise<boolean> {
+  console.log('SMS service is temporarily disabled');
+  return false;
+}
+
+export async function sendBulkSMS(smsDataList: SMSData[]): Promise<boolean[]> {
+  console.log('SMS service is temporarily disabled');
+  return smsDataList.map(() => false);
+}
+
+export async function getSMSLogs(filters: any = {}, limit: number = 50): Promise<any[]> {
+  console.log('SMS service is temporarily disabled');
+  return [];
 }

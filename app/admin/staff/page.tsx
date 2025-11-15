@@ -15,6 +15,8 @@ export default function StaffPage() {
   const [selectedStaff, setSelectedStaff] = useState<any>(null);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ password: '', confirmPassword: '' });
   const [editForm, setEditForm] = useState({ name: '', email: '', phone: '' });
 
   useEffect(() => {
@@ -113,6 +115,46 @@ export default function StaffPage() {
     }
   };
 
+  const handleOpenPasswordModal = (staffMember: any) => {
+    setSelectedStaff(staffMember);
+    setPasswordForm({ password: '', confirmPassword: '' });
+    setShowPasswordModal(true);
+  };
+
+  const handleChangePassword = async () => {
+    if (!selectedStaff) return;
+    if (!passwordForm.password || passwordForm.password.length < 6) {
+      alert('Password must be at least 6 characters long');
+      return;
+    }
+    if (passwordForm.password !== passwordForm.confirmPassword) {
+      alert('Passwords do not match');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/admin/users/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        },
+        body: JSON.stringify({ userId: selectedStaff._id, newPassword: passwordForm.password })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        alert('Password changed successfully');
+        setShowPasswordModal(false);
+      } else {
+        alert('Failed to change password: ' + (result.error || result.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Change password error:', error);
+      alert('Failed to change password');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
       <div className="max-w-7xl mx-auto">
@@ -204,6 +246,10 @@ export default function StaffPage() {
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => handleEditStaff(staffMember)}>
                           <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => handleOpenPasswordModal(staffMember)}>
+                          {/* simple text to indicate password action */}
+                          Change
                         </Button>
                         <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => handleDeleteStaff(staffMember)}>
                           <Trash2 className="h-4 w-4" />
@@ -336,6 +382,47 @@ export default function StaffPage() {
                     Update Staff
                   </Button>
                   <Button variant="outline" onClick={() => setShowEditModal(false)} className="flex-1">
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* Change Password Modal */}
+        {showPasswordModal && selectedStaff && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg max-w-md w-full p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">Change Password for {selectedStaff.name}</h2>
+                <Button variant="ghost" size="sm" onClick={() => setShowPasswordModal(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                  <Input
+                    type="password"
+                    value={passwordForm.password}
+                    onChange={(e) => setPasswordForm({...passwordForm, password: e.target.value})}
+                    placeholder="Enter new password"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+                  <Input
+                    type="password"
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
+                    placeholder="Confirm new password"
+                  />
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <Button onClick={handleChangePassword} className="flex-1">
+                    Change Password
+                  </Button>
+                  <Button variant="outline" onClick={() => setShowPasswordModal(false)} className="flex-1">
                     Cancel
                   </Button>
                 </div>

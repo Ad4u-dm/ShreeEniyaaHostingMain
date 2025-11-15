@@ -262,6 +262,15 @@ export default function StaffInvoicesPage() {
                 <span className="xs:hidden">Create</span>
               </Button>
             </Link>
+            {/* SMS Button - Temporarily commented until DLT approval
+            <Link href="/staff/sms">
+              <Button variant="outline" className="bg-green-50 border-green-300 text-green-600 hover:bg-green-100 hover:border-green-400 text-xs sm:text-sm px-2 sm:px-4 py-2" size="sm">
+                <Send className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                <span className="hidden xs:inline">SMS</span>
+                <span className="xs:hidden">SMS</span>
+              </Button>
+            </Link>
+            */}
             <Button 
               onClick={handleLogout} 
               variant="outline" 
