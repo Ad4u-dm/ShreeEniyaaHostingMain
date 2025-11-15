@@ -27,6 +27,9 @@ export async function GET(request: NextRequest) {
     const query: any = {};
     if (roleFilter) {
       query.role = roleFilter;
+    } else {
+      // Default to filtering by 'user' role to match dashboard count
+      query.role = 'user';
     }
     if (searchTerm) {
       query.$or = [

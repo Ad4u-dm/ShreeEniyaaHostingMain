@@ -512,19 +512,33 @@ function CreateUserModal({ onClose, onSuccess }: any) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Debug log to check role
+  console.log('Current role in form:', formData.role);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
+      // Prepare form data - only include email/password for staff and admin
+      const submitData = {
+        name: formData.name,
+        phone: formData.phone,
+        role: formData.role,
+        ...(formData.role === 'staff' || formData.role === 'admin' ? {
+          email: formData.email,
+          password: formData.password
+        } : {})
+      };
+
       const response = await fetch('/api/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(submitData)
       });
 
       const result = await response.json();
@@ -544,10 +558,22 @@ function CreateUserModal({ onClose, onSuccess }: any) {
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    const { name, value } = e.target;
+    
+    // If changing to user role, clear email and password
+    if (name === 'role' && value === 'user') {
+      setFormData({
+        ...formData,
+        [name]: value,
+        email: '',
+        password: ''
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value
+      });
+    }
   };
 
   return (
@@ -569,20 +595,6 @@ function CreateUserModal({ onClose, onSuccess }: any) {
                 onChange={handleInputChange}
                 required
                 placeholder="Enter full name"
-                className="w-full p-2 border rounded-md mt-1"
-              />
-            </div>
-            
-            <div>
-              <label htmlFor="email" className="text-sm font-medium">Email</label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                required
-                placeholder="Enter email address"
                 className="w-full p-2 border rounded-md mt-1"
               />
             </div>
@@ -617,20 +629,44 @@ function CreateUserModal({ onClose, onSuccess }: any) {
               </select>
             </div>
             
-            <div>
-              <label htmlFor="password" className="text-sm font-medium">Password</label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleInputChange}
-                required
-                placeholder="Enter password"
-                minLength={6}
-                className="w-full p-2 border rounded-md mt-1"
-              />
+            {/* Debug info */}
+            <div className="text-xs text-gray-500">
+              Current role: {formData.role} | Should show fields: {(formData.role === 'staff' || formData.role === 'admin').toString()}
             </div>
+            
+            {/* Only show email and password for staff and admin */}
+            {(formData.role === 'staff' || formData.role === 'admin') && (
+              <>
+                <div>
+                  <label htmlFor="email" className="text-sm font-medium">Email</label>
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="Enter email address"
+                    className="w-full p-2 border rounded-md mt-1"
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="password" className="text-sm font-medium">Password</label>
+                  <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="Enter password"
+                    minLength={6}
+                    className="w-full p-2 border rounded-md mt-1"
+                  />
+                </div>
+              </>
+            )}
 
             {error && (
               <div className="text-red-600 text-sm bg-red-50 p-2 rounded">
@@ -676,13 +712,12 @@ function CreatePlanModal({ onClose, onSuccess }: any) {
     const newMonthlyData: any[] = [];
     for (let i = 1; i <= monthsCount; i++) {
       const dividend = Math.max(100, initialDividend - ((i - 1) * 100));
-      const payableAmount = installment - (dividend * 0.04);
       
       newMonthlyData.push({
         monthNumber: i,
-        installmentAmount: installment,
+        dueAmount: installment,
         dividend: dividend,
-        payableAmount: Math.round(payableAmount)
+        auctionAmount: 0 // Default to 0, completely independent
       });
     }
     setMonthlyData(newMonthlyData);
@@ -712,13 +747,12 @@ function CreatePlanModal({ onClose, onSuccess }: any) {
         finalMonthlyData = [];
         for (let i = 1; i <= monthsCount; i++) {
           const dividend = Math.max(100, initialDividend - ((i - 1) * 100));
-          const payableAmount = installment - (dividend * 0.04);
           
           finalMonthlyData.push({
             monthNumber: i,
-            installmentAmount: installment,
+            dueAmount: installment,
             dividend: dividend,
-            payableAmount: Math.round(payableAmount)
+            auctionAmount: 0 // Default to 0, completely independent
           });
         }
       }
@@ -774,7 +808,7 @@ function CreatePlanModal({ onClose, onSuccess }: any) {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="plan_name" className="text-sm font-medium">Plan Name</label>
+                <label htmlFor="plan_name" className="text-sm font-medium">Group Name</label>
                 <input
                   id="plan_name"
                   name="plan_name"
@@ -782,7 +816,7 @@ function CreatePlanModal({ onClose, onSuccess }: any) {
                   value={formData.plan_name}
                   onChange={handleInputChange}
                   required
-                  placeholder="e.g., ₹3L Plan"
+                  placeholder="e.g., Premium Group"
                   className="w-full p-2 border rounded-md mt-1"
                 />
               </div>
@@ -813,10 +847,30 @@ function CreatePlanModal({ onClose, onSuccess }: any) {
                   className="w-full p-2 border rounded-md mt-1"
                   required
                 >
+                  <option value="1">1 Month</option>
+                  <option value="2">2 Months</option>
+                  <option value="3">3 Months</option>
+                  <option value="4">4 Months</option>
+                  <option value="5">5 Months</option>
+                  <option value="6">6 Months</option>
+                  <option value="7">7 Months</option>
+                  <option value="8">8 Months</option>
+                  <option value="9">9 Months</option>
                   <option value="10">10 Months</option>
+                  <option value="11">11 Months</option>
+                  <option value="12">12 Months</option>
+                  <option value="13">13 Months</option>
+                  <option value="14">14 Months</option>
+                  <option value="15">15 Months</option>
+                  <option value="16">16 Months</option>
+                  <option value="17">17 Months</option>
+                  <option value="18">18 Months</option>
+                  <option value="19">19 Months</option>
                   <option value="20">20 Months</option>
+                  <option value="21">21 Months</option>
+                  <option value="22">22 Months</option>
+                  <option value="23">23 Months</option>
                   <option value="24">24 Months</option>
-                  <option value="36">36 Months</option>
                 </select>
               </div>
               
@@ -873,9 +927,9 @@ function CreatePlanModal({ onClose, onSuccess }: any) {
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="p-2 text-left">Month</th>
-                        <th className="p-2 text-left">Installment</th>
+                        <th className="p-2 text-left">Due</th>
                         <th className="p-2 text-left">Dividend</th>
-                        <th className="p-2 text-left">Payable</th>
+                        <th className="p-2 text-left">Auction Amount</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -885,8 +939,8 @@ function CreatePlanModal({ onClose, onSuccess }: any) {
                           <td className="p-2">
                             <input 
                               type="number" 
-                              value={month.installmentAmount}
-                              onChange={(e) => updateMonthlyData(index, 'installmentAmount', parseInt(e.target.value))}
+                              value={month.dueAmount}
+                              onChange={(e) => updateMonthlyData(index, 'dueAmount', parseInt(e.target.value))}
                               className="w-full p-1 border rounded text-xs"
                             />
                           </td>
@@ -901,8 +955,8 @@ function CreatePlanModal({ onClose, onSuccess }: any) {
                           <td className="p-2">
                             <input 
                               type="number" 
-                              value={month.payableAmount}
-                              onChange={(e) => updateMonthlyData(index, 'payableAmount', parseInt(e.target.value))}
+                              value={month.auctionAmount}
+                              onChange={(e) => updateMonthlyData(index, 'auctionAmount', parseInt(e.target.value))}
                               className="w-full p-1 border rounded text-xs"
                             />
                           </td>

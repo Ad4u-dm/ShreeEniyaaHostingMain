@@ -69,18 +69,11 @@ class HttpServer(
             val printData = try {
                 // Try to decode as base64 first
                 val decodedBytes = Base64.decode(data, Base64.DEFAULT)
-                val decodedString = String(decodedBytes, Charsets.ISO_8859_1)
-                android.util.Log.d("HttpServer", "Successfully decoded base64 data, length: ${decodedString.length}")
-                decodedString
+                String(decodedBytes, Charsets.ISO_8859_1)
             } catch (e: Exception) {
                 // If base64 decode fails, use as plain text
-                android.util.Log.d("HttpServer", "Using plain text data, length: ${data.length}")
                 data
             }
-            
-            // Log first 100 characters of print data for debugging
-            val preview = printData.take(100).replace('\u001B', '␛').replace('\u001D', '␝')
-            android.util.Log.d("HttpServer", "Print data preview: $preview")
             
             // Print via Bluetooth
             val success = bluetoothManager.print(printData)

@@ -10,9 +10,11 @@ import { formatIndianNumber } from '@/lib/helpers';
 
 interface MonthlyData {
   monthNumber: number;
-  installmentAmount: number;
+  installmentAmount?: number; // Old property for backward compatibility
+  dueAmount?: number; // New property
   dividend: number;
-  payableAmount: number;
+  payableAmount?: number; // Old property for backward compatibility
+  auctionAmount?: number; // New property
 }
 
 interface Plan {
@@ -215,12 +217,6 @@ export default function PlansPage() {
       [field]: value
     };
     
-    // Recalculate payableAmount if installmentAmount or dividend changes
-    if (field === 'installmentAmount' || field === 'dividend') {
-      updatedMonthlyData[monthIndex].payableAmount = 
-        updatedMonthlyData[monthIndex].installmentAmount - updatedMonthlyData[monthIndex].dividend;
-    }
-    
     setEditingPlan({
       ...editingPlan,
       monthlyData: updatedMonthlyData
@@ -233,12 +229,6 @@ export default function PlansPage() {
       ...updatedMonthlyData[monthIndex],
       [field]: value
     };
-    
-    // Recalculate payableAmount if installmentAmount or dividend changes
-    if (field === 'installmentAmount' || field === 'dividend') {
-      updatedMonthlyData[monthIndex].payableAmount = 
-        updatedMonthlyData[monthIndex].installmentAmount - updatedMonthlyData[monthIndex].dividend;
-    }
     
     setManualMonthlyData(updatedMonthlyData);
   };
@@ -475,10 +465,10 @@ export default function PlansPage() {
                     <div className="bg-orange-50 p-4 rounded-lg">
                       <div className="flex items-center gap-2 text-orange-600 mb-2">
                         <FileText className="h-5 w-5" />
-                        <span className="font-semibold">Monthly EMI</span>
+                        <span className="font-semibold">Monthly Due</span>
                       </div>
                       <p className="text-2xl font-bold text-orange-800">
-                        ₹{formatIndianNumber(selectedPlan.monthlyData[0]?.installmentAmount || 0)}
+                        ₹{formatIndianNumber(selectedPlan.monthlyData[0]?.dueAmount || selectedPlan.monthlyData[0]?.installmentAmount || 0)}
                       </p>
                     </div>
                   </div>
@@ -489,21 +479,21 @@ export default function PlansPage() {
                       <thead>
                         <tr className="bg-slate-100">
                           <th className="border p-3 text-left font-semibold">Month</th>
-                          <th className="border p-3 text-right font-semibold">Installment</th>
+                          <th className="border p-3 text-right font-semibold">Due</th>
                           <th className="border p-3 text-right font-semibold">Dividend</th>
-                          <th className="border p-3 text-right font-semibold">Payable Amount</th>
+                          <th className="border p-3 text-right font-semibold">Auction Amount</th>
                         </tr>
                       </thead>
                       <tbody>
                         {selectedPlan.monthlyData.map((monthData: any, index: number) => (
                           <tr key={index} className="hover:bg-slate-50">
                             <td className="border p-3 font-medium">Month {monthData.monthNumber}</td>
-                            <td className="border p-3 text-right">₹{formatIndianNumber(monthData.installmentAmount)}</td>
+                            <td className="border p-3 text-right">₹{formatIndianNumber(monthData.dueAmount || monthData.installmentAmount)}</td>
                             <td className="border p-3 text-right text-green-600 font-semibold">
                               ₹{formatIndianNumber(monthData.dividend)}
                             </td>
                             <td className="border p-3 text-right text-blue-600 font-semibold">
-                              ₹{formatIndianNumber(monthData.payableAmount)}
+                              ₹{formatIndianNumber(monthData.auctionAmount || monthData.payableAmount)}
                             </td>
                           </tr>
                         ))}
@@ -657,9 +647,9 @@ export default function PlansPage() {
                         <thead>
                           <tr className="border-b">
                             <th className="text-left py-2 px-3 font-semibold text-slate-700">Month</th>
-                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Installment (₹)</th>
+                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Due (₹)</th>
                             <th className="text-left py-2 px-3 font-semibold text-slate-700">Dividend (₹)</th>
-                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Payable (₹)</th>
+                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Auction Amount (₹)</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -671,8 +661,8 @@ export default function PlansPage() {
                               <td className="py-2 px-3">
                                 <Input
                                   type="number"
-                                  value={month.installmentAmount}
-                                  onChange={(e) => updateManualMonthlyData(index, 'installmentAmount', Number(e.target.value))}
+                                  value={month.dueAmount || month.installmentAmount}
+                                  onChange={(e) => updateManualMonthlyData(index, 'dueAmount', Number(e.target.value))}
                                   className="w-28 text-sm"
                                 />
                               </td>
@@ -685,9 +675,12 @@ export default function PlansPage() {
                                 />
                               </td>
                               <td className="py-2 px-3">
-                                <div className="w-28 text-sm py-2 px-3 bg-gray-100 rounded border">
-                                  ₹{month.payableAmount.toLocaleString('en-IN')}
-                                </div>
+                                <Input
+                                  type="number"
+                                  value={month.auctionAmount || month.payableAmount || 0}
+                                  onChange={(e) => updateManualMonthlyData(index, 'auctionAmount', Number(e.target.value))}
+                                  className="w-28 text-sm"
+                                />
                               </td>
                             </tr>
                           ))}
@@ -843,9 +836,9 @@ export default function PlansPage() {
                       <thead>
                         <tr className="border-b">
                           <th className="text-left py-2 px-3 font-semibold text-slate-700">Month</th>
-                          <th className="text-left py-2 px-3 font-semibold text-slate-700">Installment (₹)</th>
+                          <th className="text-left py-2 px-3 font-semibold text-slate-700">Due (₹)</th>
                           <th className="text-left py-2 px-3 font-semibold text-slate-700">Dividend (₹)</th>
-                          <th className="text-left py-2 px-3 font-semibold text-slate-700">Payable (₹)</th>
+                          <th className="text-left py-2 px-3 font-semibold text-slate-700">Auction Amount (₹)</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -857,8 +850,8 @@ export default function PlansPage() {
                             <td className="py-2 px-3">
                               <Input
                                 type="number"
-                                value={month.installmentAmount}
-                                onChange={(e) => updateMonthlyData(index, 'installmentAmount', Number(e.target.value))}
+                                value={month.dueAmount || month.installmentAmount}
+                                onChange={(e) => updateMonthlyData(index, 'dueAmount', Number(e.target.value))}
                                 className="w-28 text-sm"
                               />
                             </td>
@@ -871,9 +864,12 @@ export default function PlansPage() {
                               />
                             </td>
                             <td className="py-2 px-3">
-                              <div className="w-28 text-sm py-2 px-3 bg-gray-100 rounded border">
-                                ₹{month.payableAmount.toLocaleString('en-IN')}
-                              </div>
+                              <Input
+                                type="number"
+                                value={month.auctionAmount || month.payableAmount || 0}
+                                onChange={(e) => updateMonthlyData(index, 'auctionAmount', Number(e.target.value))}
+                                className="w-28 text-sm"
+                              />
                             </td>
                           </tr>
                         ))}
@@ -881,8 +877,8 @@ export default function PlansPage() {
                     </table>
                   </div>
                   <div className="mt-4 text-sm text-gray-600 bg-blue-50 p-3 rounded">
-                    <strong>Note:</strong> Payable Amount is automatically calculated as Installment Amount - Dividend. 
-                    Edit installment or dividend amounts to adjust payables.
+                    <strong>Note:</strong> All fields (Due, Dividend, Auction Amount) are independent and editable. 
+                    No automatic calculations are performed between fields.
                   </div>
                 </div>
 

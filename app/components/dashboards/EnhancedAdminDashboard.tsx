@@ -596,13 +596,24 @@ function CreateUserModal({ onClose, onSuccess }: any) {
     setError('');
 
     try {
+      // Prepare form data - only include email/password for staff and admin
+      const submitData = {
+        name: formData.name,
+        phone: formData.phone,
+        role: formData.role,
+        ...(formData.role === 'staff' || formData.role === 'admin' ? {
+          email: formData.email,
+          password: formData.password
+        } : {})
+      };
+
       const response = await fetch('/api/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(submitData)
       });
 
       const result = await response.json();
@@ -622,17 +633,29 @@ function CreateUserModal({ onClose, onSuccess }: any) {
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    const { name, value } = e.target;
+    
+    // If changing to user role, clear email and password
+    if (name === 'role' && value === 'user') {
+      setFormData({
+        ...formData,
+        [name]: value,
+        email: '',
+        password: ''
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value
+      });
+    }
   };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Create New User</CardTitle>
+          <CardTitle>🚀 TEST - Create New User 🚀</CardTitle>
           <CardDescription>Add a new user or staff member</CardDescription>
         </CardHeader>
         <CardContent>
@@ -647,19 +670,6 @@ function CreateUserModal({ onClose, onSuccess }: any) {
                 onChange={handleInputChange}
                 required
                 placeholder="Enter full name"
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                required
-                placeholder="Enter email address"
               />
             </div>
             
@@ -692,19 +702,42 @@ function CreateUserModal({ onClose, onSuccess }: any) {
               </select>
             </div>
             
-            <div>
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleInputChange}
-                required
-                placeholder="Enter password"
-                minLength={6}
-              />
+            {/* Debug info */}
+            <div className="text-xs text-gray-500">
+              Current role: {formData.role} | Should show fields: {(formData.role === 'staff' || formData.role === 'admin').toString()}
             </div>
+            
+            {/* Only show email and password for staff and admin */}
+            {(formData.role === 'staff' || formData.role === 'admin') && (
+              <>
+                <div>
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="Enter email address"
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    name="password"
+                    type="password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    required
+                    placeholder="Enter password"
+                    minLength={6}
+                  />
+                </div>
+              </>
+            )}
 
             {error && (
               <div className="text-red-600 text-sm bg-red-50 p-2 rounded">

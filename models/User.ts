@@ -3,7 +3,14 @@ import mongoose from 'mongoose';
 const UserSchema = new mongoose.Schema({
   // Basic Info
   userId: { type: String, unique: true }, // Auto-generated in pre-save hook
-  email: { type: String, required: true, unique: true },
+  email: { 
+    type: String, 
+    unique: true, 
+    sparse: true, // Allows multiple documents with null/undefined email
+    required: function(this: any) {
+      return this.role === 'staff' || this.role === 'admin';
+    }
+  },
   phone: { type: String, required: true },
   name: { type: String, required: true },
   address: {
@@ -26,7 +33,12 @@ const UserSchema = new mongoose.Schema({
   },
   
   // Authentication
-  password: { type: String, required: true },
+  password: { 
+    type: String, 
+    required: function(this: any) {
+      return this.role === 'staff' || this.role === 'admin';
+    }
+  },
   lastLogin: { type: Date },
   
   // Staff/Admin specific

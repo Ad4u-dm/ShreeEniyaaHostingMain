@@ -30,16 +30,16 @@ export default function StaffPage() {
         ...(searchTerm && { search: searchTerm })
       });
 
-      const response = await fetch(`/api/users?${params}`, {
+      const response = await fetch(`/api/admin/users?${params}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
         }
       });
 
-      const result = await response.json();
-      if (result.success) {
-        setStaff(result.users);
-        setPagination(result.pagination);
+      if (response.ok) {
+        const result = await response.json();
+        setStaff(result.customers || []);
+        setPagination(result.pagination || { page: 1, limit: 10, total: 0, pages: 0 });
       }
     } catch (error) {
       console.error('Failed to fetch staff:', error);
@@ -132,10 +132,6 @@ export default function StaffPage() {
               <p className="text-slate-600">Manage all staff members</p>
             </div>
           </div>
-          <Button className="bg-blue-600 hover:bg-blue-700">
-            <UserPlus className="h-4 w-4 mr-2" />
-            Add New Staff
-          </Button>
         </div>
 
         {/* Filters */}

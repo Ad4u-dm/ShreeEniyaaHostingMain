@@ -233,16 +233,8 @@ export default function StaffInvoicesPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-2 sm:p-4 md:p-6 mobile-spacing">
       <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
 
-        {/* Navigation */}
+        {/* Navigation - Only Invoices */}
         <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-2 sm:mb-4 text-sm sm:text-base mobile-nav">
-          <Link href="/staff" className="text-slate-600 hover:text-slate-800">
-            Dashboard
-          </Link>
-          <span className="text-slate-400 hidden sm:inline">|</span>
-          <Link href="/staff/users" className="text-slate-600 hover:text-slate-800">
-            Customers
-          </Link>
-          <span className="text-slate-400 hidden sm:inline">|</span>
           <Link href="/staff/invoices" className="text-blue-600 hover:text-blue-800 font-medium">
             Invoices
           </Link>

@@ -139,32 +139,89 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // For counting payments for due number calculation
+    if (customerId && planId && !latest) {
+      try {
+        console.log('=== API: Getting next due number ===', { customerId, planId });
+        
+        // First try to get the latest invoice for this customer and plan to get the highest due number
+        const latestInvoice = await Invoice.findOne({
+          customerId: customerId,
+          planId: planId
+        })
+        .sort({ dueNumber: -1, createdAt: -1 }) // Sort by dueNumber first, then createdAt
+        .select('dueNumber')
+        .lean();
+        
+        console.log('=== API: Latest invoice found ===', latestInvoice);
+        
+        let nextDueNumber = 1; // Default
+        
+        if (latestInvoice && latestInvoice.dueNumber) {
+          // If we found an invoice with a due number, increment it
+          nextDueNumber = parseInt(latestInvoice.dueNumber) + 1;
+          console.log('=== API: Incrementing due number ===', {
+            lastDueNumber: latestInvoice.dueNumber,
+            nextDueNumber
+          });
+        } else {
+          // Fallback: Count existing invoices for this customer/plan
+          const invoiceCount = await Invoice.countDocuments({
+            customerId: customerId,
+            planId: planId
+          });
+          nextDueNumber = invoiceCount + 1;
+          console.log('=== API: Fallback count method ===', {
+            invoiceCount,
+            nextDueNumber
+          });
+        }
+
+        // Return the next due number
+        return NextResponse.json({
+          success: true,
+          nextDueNumber: nextDueNumber,
+          // Keep these for compatibility
+          invoices: [],
+          paymentCount: nextDueNumber - 1
+        });
+        
+      } catch (error) {
+        console.error('Error getting next due number:', error);
+        return NextResponse.json({
+          success: true,
+          nextDueNumber: 1,
+          invoices: [],
+          paymentCount: 0
+        });
+      }
+    }
+
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
 
-    // For now, we'll return recent payments that can be converted to invoices
-    const [payments, total] = await Promise.all([
-      Payment.find()
-        .populate('userId', 'name email phone')
-        .populate('planId', 'planName')
-        .populate('enrollmentId', 'memberNumber')
-        .sort({ createdAt: -1 })
-        .limit(limit)
-        .skip((page - 1) * limit),
-      Payment.countDocuments()
-    ]);
+    // For general invoice listing - use a safer query without populate
+    try {
+      const [payments, total] = await Promise.all([
+        Payment.find()
+          .sort({ createdAt: -1 })
+          .limit(limit)
+          .skip((page - 1) * limit)
+          .lean(), // Use lean for better performance
+        Payment.countDocuments()
+      ]);
 
-    // Transform payments to invoice-ready format
-    const invoiceablePayments = payments.map(payment => ({
-      id: payment._id,
-      paymentId: payment._id,
-      customerName: payment.userId.name,
-      planName: payment.planId.planName,
-      amount: payment.amount,
-      date: payment.createdAt,
-      status: payment.status,
-      canGenerateInvoice: true
-    }));
+      // Transform payments to invoice-ready format without populate
+      const invoiceablePayments = payments.map(payment => ({
+        id: payment._id,
+        paymentId: payment._id,
+        customerName: payment.userId || 'Unknown', // Use userId directly
+        planName: payment.planId || 'Unknown',     // Use planId directly  
+        amount: payment.amount,
+        date: payment.createdAt,
+        status: payment.status,
+        canGenerateInvoice: true
+      }));
 
     return NextResponse.json({
       success: true,
@@ -177,6 +234,13 @@ export async function GET(request: NextRequest) {
       }
     });
 
+    } catch (error) {
+      console.error('Get invoices error:', error);
+      return NextResponse.json(
+        { success: false, error: 'Failed to fetch invoices' },
+        { status: 500 }
+      );
+    }
   } catch (error) {
     console.error('Get invoices error:', error);
     return NextResponse.json(

@@ -72,18 +72,29 @@ export async function POST(request: NextRequest) {
 
     const { name, email, phone, role, password } = await request.json();
 
-    // Validate required fields
-    if (!name || !email || !phone || !role || !password) {
+    // Validate required fields based on role
+    if (!name || !phone || !role) {
       return NextResponse.json(
-        { success: false, error: 'All fields are required' },
+        { success: false, error: 'Name, phone, and role are required' },
         { status: 400 }
       );
     }
 
-    // Check if user already exists
-    const existingUser = await User.findOne({
-      $or: [{ email }, { phone }]
-    });
+    // For staff and admin roles, email and password are required
+    if ((role === 'staff' || role === 'admin') && (!email || !password)) {
+      return NextResponse.json(
+        { success: false, error: 'Email and password are required for staff and admin accounts' },
+        { status: 400 }
+      );
+    }
+
+    // Check if user already exists (only check email if provided)
+    const existingUserQuery: any = { phone };
+    if (email) {
+      existingUserQuery.$or = [{ email }, { phone }];
+    }
+    
+    const existingUser = await User.findOne(existingUserQuery);
 
     if (existingUser) {
       return NextResponse.json(
@@ -92,8 +103,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 12);
+    // Hash password (only if provided)
+    let hashedPassword;
+    if (password) {
+      hashedPassword = await bcrypt.hash(password, 12);
+    }
 
     // Determine if created by staff (check for authorization token)
     let createdByUserId = null;
@@ -120,14 +134,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create user
+    // Create user data object
     const userData: any = {
       name,
-      email,
       phone,
-      role,
-      password: hashedPassword
+      role
     };
+
+    // Add email and password only if provided (for staff/admin)
+    if (email) {
+      userData.email = email;
+    }
+    if (hashedPassword) {
+      userData.password = hashedPassword;
+    }
 
     // Add createdBy field if created by staff
     if (createdByUserId) {

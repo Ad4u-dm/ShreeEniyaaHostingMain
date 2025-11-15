@@ -30,6 +30,14 @@ interface Plan {
   monthlyAmount: number;
   duration?: number;
   totalAmount?: number;
+  monthlyData?: Array<{
+    monthNumber: number;
+    dueAmount?: number;
+    installmentAmount?: number;
+    dividend: number;
+    auctionAmount?: number;
+    payableAmount?: number;
+  }>;
 }
 
 interface InvoiceForm {
@@ -227,7 +235,17 @@ function CreateInvoicePage() {
       const previousBalance = await getPreviousBalance(formData.customerId, planIdStr);
       
       // Calculate balance amount using correct chit fund logic
-      const balanceAmount = calculateDailyBalance(paymentMonth, dailyDue, monthlyDue, previousBalance);
+      const existingReceivedAmount = formData.receiptDetails.receivedAmount || 0;
+      const isFirstPayment = previousBalance === null;
+      
+      let balanceAmount;
+      if (isFirstPayment) {
+        // First payment: balance = monthly due - received amount
+        balanceAmount = Math.max(0, monthlyDue - existingReceivedAmount);
+      } else {
+        // Subsequent payments: balance = previous balance - received amount
+        balanceAmount = Math.max(0, previousBalance - existingReceivedAmount);
+      }
       
       console.log('Balance calculation debug:', {
         paymentMonth,
@@ -236,41 +254,33 @@ function CreateInvoicePage() {
         dailyDue,
         previousBalance,
         paymentHistory,
-        calculatedBalance: balanceAmount
+        calculatedBalance: balanceAmount,
+        isFirstPayment,
+        existingReceivedAmount
       });
 
-      // Log the amounts being set
-      console.log('=== SETTING RECEIPT AMOUNTS ===', {
-        monthlyDue,
-        arrearAmount,
-        dailyDue,
-        balanceAmount,
-        willSetReceivedAmountTo: dailyDue
-      });
-
-      // Ensure received amount is not 0 - use daily due or fallback to monthly amount
-      const finalReceivedAmount = dailyDue > 0 ? dailyDue : monthlyDue;
-      
       console.log('=== FINAL AMOUNTS BEING SET ===', {
         dueAmount: monthlyDue,
         arrearAmount: arrearAmount,
-        receivedAmount: finalReceivedAmount,
+        receivedAmount: existingReceivedAmount,
         balanceAmount: balanceAmount,
+        previousBalance,
+        isFirstPayment,
         originalDailyDue: dailyDue
       });
 
-      // Update receipt details with calculated amounts
+      // Update receipt details with calculated values
       setFormData(prev => ({
         ...prev,
         receiptDetails: {
           ...prev.receiptDetails,
           dueAmount: monthlyDue,
           arrearAmount: arrearAmount,
-          receivedAmount: finalReceivedAmount,  // Use fallback if dailyDue is 0
+          receivedAmount: existingReceivedAmount,
           balanceAmount: balanceAmount,
         },
         // Also update the main receivedAmount field
-        receivedAmount: finalReceivedAmount
+        receivedAmount: existingReceivedAmount
       }));
 
     } catch (error) {
@@ -282,16 +292,28 @@ function CreateInvoicePage() {
         const [year, month] = paymentMonth.split('-');
         const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
         const dailyDue = Math.round(monthlyAmount / daysInMonth);
-        const balanceAmount = calculateDailyBalance(paymentMonth, dailyDue, monthlyAmount, null);
         
-        // Ensure received amount is not 0 - use daily due or fallback to monthly amount
-        const finalReceivedAmount = dailyDue > 0 ? dailyDue : monthlyAmount;
+        // Get previous balance for fallback calculation
+        const fallbackPreviousBalance = await getPreviousBalance(formData.customerId, formData.planId);
+        const existingReceivedAmount = formData.receiptDetails.receivedAmount || 0;
+        const isFirstPayment = fallbackPreviousBalance === null;
+        
+        let fallbackBalanceAmount;
+        if (isFirstPayment) {
+          // First payment: balance = monthly amount - received amount
+          fallbackBalanceAmount = Math.max(0, monthlyAmount - existingReceivedAmount);
+        } else {
+          // Subsequent payments: balance = previous balance - received amount
+          fallbackBalanceAmount = Math.max(0, fallbackPreviousBalance - existingReceivedAmount);
+        }
         
         console.log('=== FALLBACK AMOUNTS BEING SET ===', {
           monthlyAmount,
           dailyDue,
-          finalReceivedAmount,
-          balanceAmount
+          existingReceivedAmount,
+          balanceAmount: fallbackBalanceAmount,
+          fallbackPreviousBalance,
+          isFirstPayment
         });
         
         setFormData(prev => ({
@@ -300,15 +322,53 @@ function CreateInvoicePage() {
             ...prev.receiptDetails,
             dueAmount: monthlyAmount,
             arrearAmount: 0,
-            receivedAmount: finalReceivedAmount,
-            balanceAmount: balanceAmount,
+            receivedAmount: existingReceivedAmount,
+            balanceAmount: fallbackBalanceAmount,
           },
           // Also update the main receivedAmount field
-          receivedAmount: finalReceivedAmount
+          receivedAmount: existingReceivedAmount
         }));
       }
     }
   };
+
+  // Function to recalculate balance when received amount changes
+  const handleReceivedAmountChange = async (newReceivedAmount: number) => {
+    // Get previous balance for proper chit fund calculation
+    const previousBalance = await getPreviousBalance(formData.customerId, formData.planId);
+    const isFirstPayment = previousBalance === null;
+    
+    setFormData(prev => {
+      let balanceAmount;
+      if (isFirstPayment) {
+        // First payment: balance = due amount - received amount
+        balanceAmount = Math.max(0, prev.receiptDetails.dueAmount - newReceivedAmount);
+      } else {
+        // Subsequent payments: balance = previous balance - received amount
+        balanceAmount = Math.max(0, previousBalance - newReceivedAmount);
+      }
+      
+      console.log('Staff balance recalculation:', {
+        previousBalance,
+        isFirstPayment,
+        dueAmount: prev.receiptDetails.dueAmount,
+        newReceivedAmount,
+        calculatedBalance: balanceAmount
+      });
+      
+      return {
+        ...prev,
+        receiptDetails: {
+          ...prev.receiptDetails,
+          receivedAmount: newReceivedAmount,
+          balanceAmount: balanceAmount,
+          pendingAmount: balanceAmount
+        },
+        receivedAmount: newReceivedAmount
+      };
+    });
+  };
+
   const [formData, setFormData] = useState<InvoiceForm>({
     customerId: '',
     planId: '',
@@ -330,6 +390,16 @@ function CreateInvoicePage() {
       issuedBy: 'ADMIN'
     }
   });
+  
+  // Customer search state
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+
+  // Filter customers based on search (name or phone)
+  const filteredCustomers = customers.filter(customer => 
+    customer.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+    customer.phone.toLowerCase().includes(customerSearch.toLowerCase())
+  );
 
   // Check authentication on component mount
   useEffect(() => {
@@ -347,6 +417,19 @@ function CreateInvoicePage() {
     if (typeof window !== 'undefined') {
       checkAuth();
     }
+  }, []);
+
+  // Handle click outside dropdown to close it
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.customer-search-container')) {
+        setShowCustomerDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   // Helper function to check if customer is enrolled in a specific plan
@@ -594,11 +677,155 @@ function CreateInvoicePage() {
     }
   };
 
+  // Function to get next due number for customer based on payment history
+  const getNextDueNumber = async (customerId: string, planId: string) => {
+    try {
+      const response = await fetch(`/api/invoices?customerId=${customerId}&planId=${planId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const invoices = data.invoices || [];
+        
+        // Count the number of previous payments/invoices for this customer and plan
+        const paymentCount = invoices.length;
+        
+        // Next due number is payment count + 1
+        return paymentCount + 1;
+      }
+    } catch (error) {
+      console.error('Error fetching payment history for due number:', error);
+    }
+    
+    // Default to 1 if no history found or error
+    return 1;
+  };
+
+  // Automated Chit Fund Payment Calculation
+  const calculateChitFundPaymentDetails = async (customerId: string, planId: string, currentDate: Date = new Date()) => {
+    try {
+      // Get plan details with monthly data
+      const selectedPlan = plans.find(p => p._id === planId);
+      if (!selectedPlan || !selectedPlan.monthlyData) {
+        console.error('Plan or monthly data not found');
+        return null;
+      }
+
+      // Get customer enrollment to find start date
+      const selectedCustomer = customers.find(c => c._id === customerId);
+      const customerEnrollment = customerEnrollments.find(
+        enrollment => enrollment.userId?.userId === selectedCustomer?.userId && enrollment.status === 'active'
+      );
+
+      if (!customerEnrollment) {
+        console.error('Customer enrollment not found');
+        return null;
+      }
+
+      const enrollmentDate = new Date(customerEnrollment.enrollmentDate || customerEnrollment.createdAt);
+      const currentDay = currentDate.getDate();
+      const currentMonth = currentDate.getMonth();
+      const currentYear = currentDate.getFullYear();
+      
+      // Calculate which month we're in based on enrollment and current date
+      let monthsElapsed = (currentYear - enrollmentDate.getFullYear()) * 12 + (currentMonth - enrollmentDate.getMonth());
+      
+      // If today is after the 20th, we're collecting for the current month
+      // If today is before the 20th, we're still in the previous month's grace period
+      if (currentDay > 20) {
+        monthsElapsed += 1; // Move to next month after due date
+      }
+
+      // Ensure we don't exceed the plan duration
+      monthsElapsed = Math.min(monthsElapsed, selectedPlan.monthlyData.length);
+      
+      // Current month index (0-based)
+      const currentMonthIndex = Math.max(0, monthsElapsed - 1);
+      const nextMonthIndex = Math.min(monthsElapsed, selectedPlan.monthlyData.length - 1);
+
+      console.log('Payment calculation details:', {
+        enrollmentDate,
+        currentDate,
+        currentDay,
+        monthsElapsed,
+        currentMonthIndex,
+        nextMonthIndex,
+        planDuration: selectedPlan.monthlyData.length
+      });
+
+      // Get payment history for this customer and plan
+      const historyResponse = await fetch(`/api/invoices?customerId=${customerId}&planId=${planId}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('auth-token')}` }
+      });
+      
+      let paidMonths = [];
+      if (historyResponse.ok) {
+        const historyData = await historyResponse.json();
+        paidMonths = historyData.invoices || [];
+      }
+
+      // Calculate arrears from unpaid previous months
+      let arrearAmount = 0;
+      let currentDueAmount = 0;
+      let balanceAmount = 0;
+
+      // Check all months up to current month for arrears
+      for (let i = 0; i < currentMonthIndex; i++) {
+        const monthData = selectedPlan.monthlyData[i];
+        if (!monthData) continue;
+
+        const monthDue = monthData.dueAmount || monthData.installmentAmount || 0;
+        
+        // Check if this month was paid
+        const paidForThisMonth = paidMonths.find((payment: any) => {
+          const paymentMonth = new Date(payment.createdAt).getMonth();
+          const enrollmentStartMonth = enrollmentDate.getMonth();
+          const expectedMonthIndex = paymentMonth - enrollmentStartMonth + (new Date(payment.createdAt).getFullYear() - enrollmentDate.getFullYear()) * 12;
+          return Math.abs(expectedMonthIndex - i) <= 1; // Allow some tolerance
+        });
+
+        if (!paidForThisMonth) {
+          arrearAmount += monthDue;
+          console.log(`Month ${i + 1} unpaid, adding ₹${monthDue} to arrears`);
+        }
+      }
+
+      // Current month's due (if we're past the 20th, this is for next month)
+      const currentMonthData = selectedPlan.monthlyData[currentDay > 20 ? nextMonthIndex : currentMonthIndex];
+      currentDueAmount = currentMonthData ? (currentMonthData.dueAmount || currentMonthData.installmentAmount || 0) : 0;
+
+      // Total amount due = Previous arrears + current month's due
+      const totalAmountDue = arrearAmount + currentDueAmount;
+
+      return {
+        currentDueAmount,
+        arrearAmount,
+        totalAmountDue,
+        monthNumber: currentMonthIndex + 1,
+        isAfterDueDate: currentDay > 20,
+        dueDate: new Date(currentYear, currentMonth, 20),
+        nextDueDate: new Date(currentYear, currentMonth + 1, 20)
+      };
+
+    } catch (error) {
+      console.error('Error calculating chit fund payment details:', error);
+      return null;
+    }
+  };
+
   const handleCustomerChange = async (customerId: string) => {
     // Find customer's active enrollment
     const selectedCustomer = customers.find(c => c._id === customerId);
     console.log('Selected customer:', selectedCustomer);
     console.log('All customer enrollments:', customerEnrollments);
+    
+    // Update search field to show selected customer
+    if (selectedCustomer) {
+      setCustomerSearch(`${selectedCustomer.name} - ${selectedCustomer.phone}`);
+    }
     
     const customerEnrollment = customerEnrollments.find(
       enrollment => enrollment.userId?.userId === selectedCustomer?.userId && enrollment.status === 'active'
@@ -616,6 +843,18 @@ function CreateInvoicePage() {
       customerId,
       planId: enrollmentPlanId
     }));
+    
+    // Update due number if both customer and plan are available
+    if (enrollmentPlanId) {
+      const nextDueNumber = await getNextDueNumber(customerId, enrollmentPlanId);
+      setFormData(prev => ({
+        ...prev,
+        receiptDetails: {
+          ...prev.receiptDetails,
+          dueNo: nextDueNumber.toString()
+        }
+      }));
+    }
     
     // Fetch comprehensive customer profile which will auto-populate more fields
     await fetchCustomerProfile(customerId);
@@ -997,18 +1236,37 @@ function CreateInvoicePage() {
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     Customer *
                   </label>
-                  <Select value={formData.customerId} onValueChange={handleCustomerChange}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select customer" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {customers.map((customer) => (
-                        <SelectItem key={customer._id} value={customer._id}>
-                          {customer.name} - {customer.email}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="relative customer-search-container">
+                    <input
+                      type="text"
+                      placeholder="Search customer by name or phone..."
+                      value={customerSearch}
+                      onChange={(e) => {
+                        setCustomerSearch(e.target.value);
+                        setShowCustomerDropdown(true);
+                      }}
+                      onFocus={() => setShowCustomerDropdown(true)}
+                      className="w-full p-2 border rounded-md"
+                    />
+                    {showCustomerDropdown && customerSearch && filteredCustomers.length > 0 && (
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                        {filteredCustomers.map((customer) => (
+                          <div
+                            key={customer._id}
+                            className="p-2 hover:bg-gray-100 cursor-pointer"
+                            onClick={() => {
+                              setFormData(prev => ({ ...prev, customerId: customer._id }));
+                              setCustomerSearch(`${customer.name} - ${customer.phone}`);
+                              setShowCustomerDropdown(false);
+                              handleCustomerChange(customer._id);
+                            }}
+                          >
+                            {customer.name} - {customer.phone}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   {formData.customerId && !isCustomerEnrolled(formData.customerId) && (
                     <p className="text-sm text-amber-600 mt-1">
                       ⚠️ This customer is not enrolled in any plan. Select a plan and click "Enroll Customer".
@@ -1184,14 +1442,10 @@ function CreateInvoicePage() {
                   <Input
                     type="number"
                     value={formData.receiptDetails.receivedAmount}
-                    onChange={(e) => {
+                    onChange={async (e) => {
                       const amount = parseFloat(e.target.value) || 0;
                       console.log('Receipt Details receivedAmount changed to:', amount);
-                      setFormData({ 
-                        ...formData, 
-                        receiptDetails: { ...formData.receiptDetails, receivedAmount: amount },
-                        receivedAmount: amount // Also update the main receivedAmount
-                      });
+                      await handleReceivedAmountChange(amount);
                     }}
                     placeholder="Enter received amount"
                   />
@@ -1337,6 +1591,9 @@ function CreateInvoicePage() {
                 </div>
                 <div style={{fontSize: '9px', margin: '2px 0'}}>
                   Member Name: {selectedCustomer?.name || 'Select Customer'}
+                </div>
+                <div style={{fontSize: '9px', margin: '2px 0'}}>
+                  Group Name: {plans.find(p => p._id === formData.planId)?.planName || 'Select Plan'}
                 </div>
                 <div style={{fontSize: '9px', margin: '2px 0'}}>
                   Due No: {formData.receiptDetails.dueNo}

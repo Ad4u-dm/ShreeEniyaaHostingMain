@@ -93,9 +93,6 @@ export default function ThermalReceiptPage() {
     setPrintStatus('Connecting to printer...');
     
     try {
-      console.log('🖨️ Printing invoice ID:', params.id);
-      console.log('🖨️ Invoice data for printing:', invoice);
-      
       // Fetch ESC/POS data from API
       const escposResponse = await fetch('/api/invoice/escpos', {
         method: 'POST',
@@ -107,10 +104,7 @@ export default function ThermalReceiptPage() {
         throw new Error('Failed to generate receipt data');
       }
 
-      const escposResult = await escposResponse.json();
-      console.log('🖨️ ESC/POS API result:', escposResult);
-      
-      const { data: escposData } = escposResult;
+      const { data: escposData } = await escposResponse.json();
 
       // Get the bridge URL (previously detected and stored)
       let bridgeUrl = sessionStorage.getItem('bridgeUrl');
