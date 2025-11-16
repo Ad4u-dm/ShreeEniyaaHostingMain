@@ -110,6 +110,8 @@ jobs:
         echo "Building Windows executable for x64..."
         npx electron-builder --win --x64 --config.extraMetadata.main=electron/main-simple.js
         echo "Windows build completed for x64!"
+      env:
+        GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
     # List build artifacts for debugging
     - name: 📋 List Build Artifacts
