@@ -18,12 +18,10 @@ on:
       build_type:
         description: 'Build type'
         required: true
-        default: 'universal'
+        default: 'x64-only'
         type: choice
         options:
-        - universal
         - x64-only
-        - ia32-only
 
 # Environment variables for the build
 env:
@@ -37,7 +35,7 @@ jobs:
     
     strategy:
       matrix:
-        arch: [x64, ia32]
+        arch: [x64]
     
     steps:
     # Checkout the repository
@@ -106,12 +104,12 @@ jobs:
         npm run build:standalone
         echo "Next.js build completed successfully!"
 
-    # Build Windows executable for specific architecture
-    - name: 🏗️ Build Windows Executable (${{ matrix.arch }})
+    # Build Windows executable for x64 architecture
+    - name: 🏗️ Build Windows Executable (x64)
       run: |
-        echo "Building Windows executable for ${{ matrix.arch }}..."
-        npx electron-builder --win --${{ matrix.arch }} --config.extraMetadata.main=electron/main-simple.js
-        echo "Windows build completed for ${{ matrix.arch }}!"
+        echo "Building Windows executable for x64..."
+        npx electron-builder --win --x64 --config.extraMetadata.main=electron/main-simple.js
+        echo "Windows build completed for x64!"
 
     # List build artifacts for debugging
     - name: 📋 List Build Artifacts
@@ -130,10 +128,10 @@ jobs:
     - name: 📤 Upload Windows Executable
       uses: actions/upload-artifact@v4
       with:
-        name: invoify-windows-${{ matrix.arch }}
+        name: invoify-windows-x64
         path: |
           release/*.exe
-          release/win-unpacked-${{ matrix.arch }}/
+          release/win-unpacked/
         retention-days: 30
 
     # Upload build logs if build fails
@@ -141,7 +139,7 @@ jobs:
       if: failure()
       uses: actions/upload-artifact@v4
       with:
-        name: build-logs-${{ matrix.arch }}
+        name: build-logs-x64
         path: |
           npm-debug.log*
           electron-builder-debug.log*

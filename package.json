@@ -19,8 +19,6 @@
         "electron:build:all": "npm run build:standalone && electron-builder -mwl --publish=never",
         "build:windows": "npm run build:standalone && electron-builder --win --x64",
         "build:windows:portable": "npm run build:standalone && electron-builder --win portable",
-        "build:windows:universal": "npm run build:standalone && electron-builder --win --x64 --ia32",
-        "build:windows:32": "npm run build:standalone && electron-builder --win --ia32",
         "build:app": "npm run build:standalone && electron-builder --publish=never",
         "bridge": "node scripts/bridge-simple.js",
         "bridge:dev": "nodemon scripts/bridge-simple.js",
@@ -112,15 +110,13 @@
                 {
                     "target": "nsis",
                     "arch": [
-                        "x64",
-                        "ia32"
+                        "x64"
                     ]
                 },
                 {
                     "target": "portable",
                     "arch": [
-                        "x64",
-                        "ia32"
+                        "x64"
                     ]
                 }
             ],
