@@ -65,7 +65,7 @@ jobs:
 
     # Cache node modules for faster builds
     - name: 📦 Cache Dependencies
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.npm
         key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
@@ -128,7 +128,7 @@ jobs:
 
     # Upload Windows executable as artifact
     - name: 📤 Upload Windows Executable
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: invoify-windows-${{ matrix.arch }}
         path: |
@@ -139,7 +139,7 @@ jobs:
     # Upload build logs if build fails
     - name: 📤 Upload Build Logs (on failure)
       if: failure()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: build-logs-${{ matrix.arch }}
         path: |
@@ -159,13 +159,13 @@ jobs:
 
     # Download both architecture builds
     - name: 📥 Download x64 Build
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: invoify-windows-x64
         path: release-x64/
 
     - name: 📥 Download ia32 Build  
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: invoify-windows-ia32
         path: release-ia32/
@@ -219,7 +219,7 @@ jobs:
 
     # Upload universal distribution package
     - name: 📤 Upload Universal Package
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: invoify-universal-distribution
         path: Invoify-Universal-Distribution/
