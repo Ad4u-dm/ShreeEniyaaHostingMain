@@ -27,7 +27,7 @@ on:
 
 # Environment variables for the build
 env:
-  NODE_VERSION: '18'
+  NODE_VERSION: '20'
   APP_NAME: 'Invoify'
 
 jobs:

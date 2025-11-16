@@ -62,8 +62,32 @@ export default function InvoicesPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled'>('all');
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  // Helper function to decode JWT and get user role
+  const getUserRoleFromToken = () => {
+    try {
+      const token = localStorage.getItem('auth-token');
+      if (!token) return null;
+      
+      // Decode JWT token (base64 decode the payload)
+      const payloadBase64 = token.split('.')[1];
+      const payload = JSON.parse(atob(payloadBase64));
+      return payload.role;
+    } catch (error) {
+      console.error('Error decoding token:', error);
+      return null;
+    }
+  };
+
+  // Check if user is admin
+  const isAdmin = () => userRole === 'admin';
 
   useEffect(() => {
+    // Get user role from token
+    const role = getUserRoleFromToken();
+    setUserRole(role);
+    
     fetchInvoices();
   }, []);
 
@@ -451,15 +475,17 @@ export default function InvoicesPage() {
                               Send
                             </Button>
                           )}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDeleteInvoice(invoice)}
-                            className="flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                            Delete
-                          </Button>
+                          {isAdmin() && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDeleteInvoice(invoice)}
+                              className="flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                              Delete
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>

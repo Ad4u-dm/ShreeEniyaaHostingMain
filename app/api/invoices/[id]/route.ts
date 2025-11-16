@@ -153,10 +153,10 @@ export async function DELETE(
       )
     }
 
-    // Only admin and staff can delete invoices
-    if (!hasMinimumRole(user, 'staff')) {
+    // Only admin can delete invoices
+    if (!hasMinimumRole(user, 'admin')) {
       return NextResponse.json(
-        { error: 'Insufficient permissions' },
+        { error: 'Insufficient permissions. Only admin can delete invoices.' },
         { status: 403 }
       )
     }
