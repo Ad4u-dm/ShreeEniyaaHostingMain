@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Search, Filter, Eye, Download, Send, Edit, Plus, FileText, Calendar, IndianRupee, User, Printer } from 'lucide-react';
+import { ArrowLeft, Search, Filter, Eye, Download, Send, Edit, Plus, FileText, Calendar, IndianRupee, User, Printer, Trash2 } from 'lucide-react';
 import { formatIndianNumber } from '@/lib/helpers';
 
 interface Invoice {
@@ -191,6 +191,47 @@ export default function InvoicesPage() {
     } catch (error) {
       console.error('Failed to send invoice:', error);
       alert('Failed to send invoice');
+    }
+  };
+
+  const handleDeleteInvoice = async (invoice: Invoice) => {
+    // Confirm deletion
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete invoice ${invoice.invoiceNumber}?\n\n` +
+      `Customer: ${invoice.customerId.name}\n` +
+      `Amount: ₹${formatIndianNumber(invoice.total)}\n` +
+      `Status: ${invoice.status}\n\n` +
+      `This action cannot be undone.`
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+      const response = await fetch(`/api/invoices/${invoice._id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        }
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        // Remove invoice from local state
+        setInvoices(invoices.filter(inv => inv._id !== invoice._id));
+        
+        // Show success message
+        alert(`Invoice ${invoice.invoiceNumber} has been deleted successfully.`);
+        
+        // Refresh invoice data to update stats
+        fetchInvoices();
+        
+      } else {
+        throw new Error(result.error || 'Failed to delete invoice');
+      }
+    } catch (error: any) {
+      console.error('Failed to delete invoice:', error);
+      alert(`Failed to delete invoice: ${error.message}`);
     }
   };
 
@@ -410,6 +451,15 @@ export default function InvoicesPage() {
                               Send
                             </Button>
                           )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDeleteInvoice(invoice)}
+                            className="flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            Delete
+                          </Button>
                         </div>
                       </td>
                     </tr>

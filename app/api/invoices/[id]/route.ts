@@ -3,6 +3,8 @@ import connectDB from '@/lib/mongodb';
 import Invoice from '@/models/Invoice';
 import User from '@/models/User';
 import ChitPlan from '@/models/ChitPlan';
+import Payment from '@/models/Payment';
+import { getUserFromRequest, hasMinimumRole } from '@/lib/auth';
 
 export async function GET(
   request: NextRequest,
@@ -134,5 +136,103 @@ export async function GET(
       },
       { status: 500 }
     );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    // Verify authentication
+    const user = getUserFromRequest(request)
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    // Only admin and staff can delete invoices
+    if (!hasMinimumRole(user, 'staff')) {
+      return NextResponse.json(
+        { error: 'Insufficient permissions' },
+        { status: 403 }
+      )
+    }
+
+    await connectDB()
+
+    const { id } = await params
+    
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Invoice ID is required' },
+        { status: 400 }
+      )
+    }
+
+    // Find the invoice first
+    const invoice = await Invoice.findById(id)
+    if (!invoice) {
+      return NextResponse.json(
+        { error: 'Invoice not found' },
+        { status: 404 }
+      )
+    }
+
+    // Store invoice details before deletion
+    const invoiceDetails = {
+      id: invoice._id,
+      invoiceNumber: invoice.invoiceNumber,
+      amount: invoice.amount,
+      totalAmount: invoice.totalAmount,
+      customerName: invoice.customerName || invoice.customerDetails?.name,
+      status: invoice.status,
+      paymentId: invoice.paymentId
+    }
+
+    // Check if invoice can be deleted (business rule)
+    if (invoice.status === 'paid') {
+      // Option: You might want to restrict deletion of paid invoices
+      // return NextResponse.json(
+      //   { error: 'Cannot delete paid invoices. Please contact administrator.' },
+      //   { status: 400 }
+      // )
+    }
+
+    // Get related payment if exists
+    let relatedPayment = null
+    if (invoice.paymentId) {
+      relatedPayment = await Payment.findById(invoice.paymentId)
+    }
+
+    // Delete the invoice
+    await Invoice.findByIdAndDelete(id)
+
+    // Log the deletion for audit purposes
+    console.log(`🗑️ Invoice ${invoice.invoiceNumber} deleted by ${user.email}`)
+    console.log(`   - Amount: ₹${invoice.amount}`)
+    console.log(`   - Customer: ${invoice.customerName}`)
+    console.log(`   - Status: ${invoice.status}`)
+    console.log(`   - Had related payment: ${relatedPayment ? 'Yes' : 'No'}`)
+
+    return NextResponse.json({
+      success: true,
+      message: 'Invoice deleted successfully',
+      deletedInvoice: invoiceDetails,
+      warning: relatedPayment ? 'Note: Related payment record still exists in system' : null
+    })
+
+  } catch (error: any) {
+    console.error('❌ Error deleting invoice:', error)
+    
+    return NextResponse.json(
+      { 
+        error: 'Failed to delete invoice',
+        details: error.message 
+      },
+      { status: 500 }
+    )
   }
 }

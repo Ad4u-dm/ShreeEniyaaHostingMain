@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Search, Filter, Eye, Download, Send, Edit, Plus, FileText, Calendar, IndianRupee, User, Printer, LogOut } from 'lucide-react';
+import { ArrowLeft, Search, Filter, Eye, Download, Send, Edit, Plus, FileText, Calendar, IndianRupee, User, Printer, LogOut, Trash2 } from 'lucide-react';
 import { formatIndianNumber } from '@/lib/helpers';
 import Link from 'next/link';
 
@@ -151,6 +151,44 @@ export default function StaffInvoicesPage() {
     } catch (error) {
       console.error('Send invoice error:', error);
       alert('Failed to send invoice');
+    }
+  };
+
+  const handleDeleteInvoice = async (invoice: Invoice) => {
+    // Confirm deletion
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete invoice ${invoice.invoiceNumber}?\n\n` +
+      `Customer: ${invoice.customerId.name}\n` +
+      `Amount: ₹${formatIndianNumber(invoice.total)}\n` +
+      `Status: ${invoice.status}\n\n` +
+      `This action cannot be undone.`
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+      const response = await fetch(`/api/invoices/${invoice._id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        }
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        // Refresh invoices list
+        fetchInvoices(currentPage);
+        
+        // Show success message
+        alert(`Invoice ${invoice.invoiceNumber} has been deleted successfully.`);
+        
+      } else {
+        throw new Error(result.error || 'Failed to delete invoice');
+      }
+    } catch (error: any) {
+      console.error('Failed to delete invoice:', error);
+      alert(`Failed to delete invoice: ${error.message}`);
     }
   };
 
@@ -418,6 +456,16 @@ export default function StaffInvoicesPage() {
                         >
                           <Printer className="h-4 w-4" />
                           <span className="ml-1 hidden sm:inline">Print</span>
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 mobile-btn flex-1"
+                          onClick={() => handleDeleteInvoice(invoice)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span className="ml-1 hidden sm:inline">Delete</span>
                         </Button>
                       </div>
                     </div>

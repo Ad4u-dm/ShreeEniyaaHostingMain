@@ -1,0 +1,250 @@
+# 🚀 Windows Build CI/CD Pipeline
+# Automatically builds Windows executables on GitHub's Windows runners
+# Solves cross-compilation issues by building natively on Windows
+
+name: Build Windows Executable
+
+# Trigger on push to main branch or manual workflow dispatch
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'universal'
+        type: choice
+        options:
+        - universal
+        - x64-only
+        - ia32-only
+
+# Environment variables for the build
+env:
+  NODE_VERSION: '18'
+  APP_NAME: 'Invoify'
+
+jobs:
+  build-windows:
+    name: 'Build Windows App'
+    runs-on: windows-latest
+    
+    strategy:
+      matrix:
+        arch: [x64, ia32]
+    
+    steps:
+    # Checkout the repository
+    - name: 📥 Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    # Setup Node.js environment
+    - name: ⚙️ Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    # Setup Python for native module compilation
+    - name: 🐍 Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    # Install Visual Studio Build Tools for native modules
+    - name: 🔨 Setup MSBuild
+      uses: microsoft/setup-msbuild@v1.3
+
+    # Cache node modules for faster builds
+    - name: 📦 Cache Dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
+
+    # Install dependencies
+    - name: 📦 Install Dependencies
+      run: |
+        echo "Installing npm dependencies..."
+        npm ci
+        echo "Dependencies installed successfully!"
+
+    # Generate Prisma client for SQLite
+    - name: 🗄️ Setup Database
+      run: |
+        echo "Generating Prisma client..."
+        npx prisma generate
+        echo "Prisma client generated successfully!"
+
+    # Create production environment file
+    - name: 📝 Create Production Environment
+      run: |
+        echo "Creating production environment..."
+        echo "MONGODB_URI=mongodb+srv://user:password02@cluster0.lxwwhmj.mongodb.net/invoify" > .env.production
+        echo "DATABASE_URL=file:./prisma/local_chitfund.db" >> .env.production
+        echo "JWT_SECRET=your-super-secret-jwt-key-change-in-production-12345" >> .env.production
+        echo "NODE_ENV=production" >> .env.production
+        echo "FAST2SMS_API_KEY=paste_your_api_key_here_from_dashboard" >> .env.production
+        echo "FAST2SMS_SENDER_ID=FSTSMS" >> .env.production
+        echo "FAST2SMS_ROUTE=q" >> .env.production
+        echo "Production environment created!"
+
+    # Build Next.js application
+    - name: ⚛️ Build Next.js App
+      run: |
+        echo "Building Next.js application..."
+        npm run build:standalone
+        echo "Next.js build completed successfully!"
+
+    # Build Windows executable for specific architecture
+    - name: 🏗️ Build Windows Executable (${{ matrix.arch }})
+      run: |
+        echo "Building Windows executable for ${{ matrix.arch }}..."
+        npx electron-builder --win --${{ matrix.arch }} --config.extraMetadata.main=electron/main-simple.js
+        echo "Windows build completed for ${{ matrix.arch }}!"
+
+    # List build artifacts for debugging
+    - name: 📋 List Build Artifacts
+      run: |
+        echo "Build artifacts created:"
+        dir release /s
+        echo "Build size information:"
+        if (Test-Path "release\*.exe") {
+          Get-ChildItem "release\*.exe" | ForEach-Object {
+            $size = [math]::Round($_.Length / 1MB, 2)
+            Write-Host "$($_.Name): $size MB"
+          }
+        }
+
+    # Upload Windows executable as artifact
+    - name: 📤 Upload Windows Executable
+      uses: actions/upload-artifact@v3
+      with:
+        name: invoify-windows-${{ matrix.arch }}
+        path: |
+          release/*.exe
+          release/win-unpacked-${{ matrix.arch }}/
+        retention-days: 30
+
+    # Upload build logs if build fails
+    - name: 📤 Upload Build Logs (on failure)
+      if: failure()
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-logs-${{ matrix.arch }}
+        path: |
+          npm-debug.log*
+          electron-builder-debug.log*
+        retention-days: 7
+
+  # Create universal build combining both architectures
+  build-universal:
+    name: 'Build Universal Windows Package'
+    runs-on: windows-latest
+    needs: build-windows
+    
+    steps:
+    - name: 📥 Checkout Repository
+      uses: actions/checkout@v4
+
+    # Download both architecture builds
+    - name: 📥 Download x64 Build
+      uses: actions/download-artifact@v3
+      with:
+        name: invoify-windows-x64
+        path: release-x64/
+
+    - name: 📥 Download ia32 Build  
+      uses: actions/download-artifact@v3
+      with:
+        name: invoify-windows-ia32
+        path: release-ia32/
+
+    # Create distribution package
+    - name: 📦 Create Distribution Package
+      run: |
+        echo "Creating universal distribution package..."
+        
+        # Create distribution directory
+        New-Item -ItemType Directory -Force -Path "Invoify-Universal-Distribution"
+        
+        # Copy installers
+        if (Test-Path "release-x64\*.exe") {
+          Copy-Item "release-x64\*.exe" "Invoify-Universal-Distribution\Invoify-64bit-Installer.exe"
+          echo "✅ 64-bit installer copied"
+        }
+        
+        if (Test-Path "release-ia32\*.exe") {
+          Copy-Item "release-ia32\*.exe" "Invoify-Universal-Distribution\Invoify-32bit-Installer.exe"
+          echo "✅ 32-bit installer copied"
+        }
+        
+        # Copy portable versions if they exist
+        if (Test-Path "release-x64\win-unpacked-x64") {
+          Copy-Item "release-x64\win-unpacked-x64" "Invoify-Universal-Distribution\Invoify-64bit-Portable" -Recurse
+          echo "✅ 64-bit portable copied"
+        }
+        
+        if (Test-Path "release-ia32\win-unpacked-ia32") {
+          Copy-Item "release-ia32\win-unpacked-ia32" "Invoify-Universal-Distribution\Invoify-32bit-Portable" -Recurse
+          echo "✅ 32-bit portable copied"
+        }
+
+    # Create installation guide
+    - name: 📖 Create Installation Guide
+      run: |
+        echo "Creating installation guide..."
+        echo "INVOIFY - CHIT FUND MANAGEMENT SYSTEM" > "Invoify-Universal-Distribution\README.txt"
+        echo "Windows Installation Guide" >> "Invoify-Universal-Distribution\README.txt"
+        echo "" >> "Invoify-Universal-Distribution\README.txt"
+        echo "STEP 1: Choose the right installer for your Windows version" >> "Invoify-Universal-Distribution\README.txt"
+        echo "- 64-bit Windows: Use Invoify-64bit-Installer.exe" >> "Invoify-Universal-Distribution\README.txt"
+        echo "- 32-bit Windows: Use Invoify-32bit-Installer.exe" >> "Invoify-Universal-Distribution\README.txt"
+        echo "" >> "Invoify-Universal-Distribution\README.txt"
+        echo "STEP 2: Run installer as Administrator" >> "Invoify-Universal-Distribution\README.txt"
+        echo "STEP 3: If Windows shows security warning, click 'More info' then 'Run anyway'" >> "Invoify-Universal-Distribution\README.txt"
+        echo "STEP 4: App will open at http://localhost:3000 after installation" >> "Invoify-Universal-Distribution\README.txt"
+        echo "" >> "Invoify-Universal-Distribution\README.txt"
+        echo "Built by GitHub Actions on $(Get-Date)" >> "Invoify-Universal-Distribution\README.txt"
+
+    # Upload universal distribution package
+    - name: 📤 Upload Universal Package
+      uses: actions/upload-artifact@v3
+      with:
+        name: invoify-universal-distribution
+        path: Invoify-Universal-Distribution/
+        retention-days: 90
+
+  # Notification job
+  notify-completion:
+    name: '📱 Build Status'
+    runs-on: ubuntu-latest
+    needs: [build-windows, build-universal]
+    if: always()
+    
+    steps:
+    - name: 📱 Success Notification
+      if: needs.build-universal.result == 'success'
+      run: |
+        echo "🎉 Windows build completed successfully!"
+        echo "✅ Universal package ready for distribution"
+        echo "✅ Both 32-bit and 64-bit installers created"
+        echo "✅ Professional chit fund management system ready!"
+        echo ""
+        echo "📥 Download: Actions → Artifacts → invoify-universal-distribution"
+
+    - name: ❌ Failure Notification
+      if: needs.build-universal.result == 'failure'
+      run: |
+        echo "❌ Windows build failed!"
+        echo "🔍 Check build logs in artifacts for details"

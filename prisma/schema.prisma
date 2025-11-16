@@ -1,0 +1,284 @@
+// Offline-First SQLite Schema for Chit Fund Management
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./local_chitfund.db"
+}
+
+// Users Model - matches MongoDB User schema
+model User {
+  id                String   @id @default(cuid())
+  mongoId           String?  @unique // Original MongoDB _id for sync
+  name              String
+  email             String   @unique
+  phone             String?
+  password          String
+  role              Role     @default(CUSTOMER)
+  isActive          Boolean  @default(true)
+  
+  // Customer specific fields
+  address           String?
+  dateOfBirth       DateTime?
+  nomineeName       String?
+  nomineeRelation   String?
+  
+  // Business fields
+  totalInvestment   Float    @default(0)
+  currentBalance    Float    @default(0)
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  lastSyncedAt      DateTime?
+  
+  // Relations
+  enrollments       Enrollment[]
+  payments          Payment[]
+  sentSMS           SMSLog[] @relation("SentBy")
+  
+  @@map("users")
+}
+
+// Chit Plans Model
+model Plan {
+  id                String   @id @default(cuid())
+  mongoId           String?  @unique
+  name              String
+  description       String?
+  totalAmount       Float
+  installmentAmount Float
+  duration          Int      // months
+  memberLimit       Int
+  isActive          Boolean  @default(true)
+  
+  // Plan details
+  commissionRate    Float    @default(0.05)
+  penaltyRate       Float    @default(0.02)
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  lastSyncedAt      DateTime?
+  
+  // Relations
+  enrollments       Enrollment[]
+  payments          Payment[]
+  
+  @@map("plans")
+}
+
+// Customer Enrollments in Plans
+model Enrollment {
+  id                String   @id @default(cuid())
+  mongoId           String?  @unique
+  userId            String
+  planId            String
+  
+  // Enrollment details
+  enrollmentDate    DateTime @default(now())
+  memberNumber      Int
+  status            EnrollmentStatus @default(ACTIVE)
+  
+  // Financial tracking
+  totalPaid         Float    @default(0)
+  remainingAmount   Float
+  nextDueDate       DateTime?
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  lastSyncedAt      DateTime?
+  
+  // Relations
+  user              User     @relation(fields: [userId], references: [id])
+  plan              Plan     @relation(fields: [planId], references: [id])
+  payments          Payment[]
+  
+  @@unique([userId, planId])
+  @@map("enrollments")
+}
+
+// Payments Model
+model Payment {
+  id                String   @id @default(cuid())
+  mongoId           String?  @unique
+  userId            String
+  planId            String
+  enrollmentId      String?
+  
+  // Payment details
+  amount            Float
+  paymentDate       DateTime @default(now())
+  paymentMethod     PaymentMethod @default(CASH)
+  status            PaymentStatus @default(COMPLETED)
+  receiptNumber     String   @unique
+  
+  // Due tracking
+  dueNumber         Int?
+  dueDate           DateTime?
+  lateFee           Float    @default(0)
+  
+  // Notes
+  remarks           String?
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  lastSyncedAt      DateTime?
+  
+  // Relations
+  user              User     @relation(fields: [userId], references: [id])
+  plan              Plan     @relation(fields: [planId], references: [id])
+  enrollment        Enrollment? @relation(fields: [enrollmentId], references: [id])
+  invoice           Invoice?
+  
+  @@map("payments")
+}
+
+// Invoices Model
+model Invoice {
+  id                String   @id @default(cuid())
+  mongoId           String?  @unique
+  paymentId         String   @unique
+  invoiceNumber     String   @unique
+  
+  // Invoice details
+  customerName      String
+  customerEmail     String?
+  customerPhone     String?
+  customerAddress   String?
+  
+  // Financial details
+  amount            Float
+  taxAmount         Float    @default(0)
+  totalAmount       Float
+  
+  // Status
+  status            InvoiceStatus @default(DRAFT)
+  issueDate         DateTime @default(now())
+  dueDate           DateTime?
+  
+  // Payment info
+  paymentDate       DateTime?
+  paymentMethod     PaymentMethod?
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  lastSyncedAt      DateTime?
+  
+  // Relations
+  payment           Payment  @relation(fields: [paymentId], references: [id])
+  
+  @@map("invoices")
+}
+
+// SMS Logs Model
+model SMSLog {
+  id                String   @id @default(cuid())
+  mongoId           String?  @unique
+  
+  // Recipient details
+  recipientPhone    String
+  recipientName     String?
+  message           String
+  
+  // SMS details
+  provider          String?  // MSG91, Fast2SMS, etc.
+  templateId        String?
+  status            SMSStatus @default(PENDING)
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  
+  // Tracking
+  messageId         String?
+  cost              Float?
+  sentById          String?
+  
+  // Error handling
+  errorMessage      String?
+  retryCount        Int      @default(0)
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  lastSyncedAt      DateTime?
+  
+  // Relations
+  sentBy            User?    @relation("SentBy", fields: [sentById], references: [id])
+  
+  @@map("sms_logs")
+}
+
+// Sync Status Model - tracks what data needs syncing
+model SyncStatus {
+  id                String   @id @default(cuid())
+  tableName         String   @unique
+  lastSyncedAt      DateTime?
+  pendingSync       Boolean  @default(false)
+  syncDirection     SyncDirection @default(BIDIRECTIONAL)
+  
+  // Error tracking
+  lastError         String?
+  errorCount        Int      @default(0)
+  
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@map("sync_status")
+}
+
+// Enums
+enum Role {
+  ADMIN
+  STAFF
+  CUSTOMER
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  COMPLETED
+  SUSPENDED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  UPI
+  BANK_TRANSFER
+  CHEQUE
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum SMSStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
+enum SyncDirection {
+  TO_CLOUD
+  FROM_CLOUD
+  BIDIRECTIONAL
+}
