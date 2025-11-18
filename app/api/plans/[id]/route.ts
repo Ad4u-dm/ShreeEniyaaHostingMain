@@ -61,6 +61,14 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       }, { status: 400 });
     }
 
+    // Normalize monthly data field names (handle both frontend and backend formats)
+    const normalizedMonthlyData = monthlyData.map((month: any) => ({
+      monthNumber: month.monthNumber,
+      installmentAmount: month.installmentAmount || month.dueAmount || 0,
+      dividend: month.dividend || 0,
+      payableAmount: month.payableAmount || month.auctionAmount || 0
+    }));
+
     const updatedPlan = await Plan.findByIdAndUpdate(
       id,
       {
@@ -68,7 +76,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         planType: planType || 'monthly',
         totalAmount,
         duration,
-        monthlyData,
+        monthlyData: normalizedMonthlyData,
         totalMembers: totalMembers || 20,
         commissionRate: commissionRate || 5,
         processingFee: processingFee || 0,

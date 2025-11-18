@@ -78,6 +78,10 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     fetchDashboardData();
+    // Listen for global 'plans-changed' event to auto-refresh dashboard
+    const handler = () => fetchDashboardData();
+    window.addEventListener('plans-changed', handler);
+    return () => window.removeEventListener('plans-changed', handler);
   }, []);
 
   const fetchDashboardData = async () => {
@@ -176,7 +180,7 @@ export default function AdminDashboard() {
     },
     {
       title: 'Available Plans',
-      value: 4, // From plans.json
+      value: data.stats.activePlans, // Only active plans
       icon: FileText,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50',

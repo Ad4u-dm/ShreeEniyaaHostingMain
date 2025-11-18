@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Get dashboard statistics
+    const Plan = (await import('@/models/Plan')).default;
     const [
       totalUsers,
       totalStaff,
@@ -30,8 +31,8 @@ export async function GET(request: NextRequest) {
     ] = await Promise.all([
       User.countDocuments({ role: 'user' }),
       User.countDocuments({ role: 'staff' }),
-      ChitPlan.countDocuments(),
-      ChitPlan.countDocuments({ status: 'active' }),
+      Plan.countDocuments(),
+      Plan.countDocuments({ status: 'active' }),
       Enrollment.countDocuments(),
       Enrollment.countDocuments({ status: 'active' }),
       Payment.countDocuments(),

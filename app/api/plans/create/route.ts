@@ -53,13 +53,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Normalize monthly data field names (handle both frontend and backend formats)
+    const normalizedMonthlyData = monthlyData.map((month: any) => ({
+      monthNumber: month.monthNumber,
+      installmentAmount: month.installmentAmount || month.dueAmount || 0,
+      dividend: month.dividend || 0,
+      payableAmount: month.payableAmount || month.auctionAmount || 0
+    }));
+
     // Create new plan with the new schema
     const newPlan = new Plan({
       planName,
       planType: planType || 'monthly',
       totalAmount,
       duration,
-      monthlyData,
+      monthlyData: normalizedMonthlyData,
       totalMembers: totalMembers || 20,
       commissionRate: commissionRate || 5,
       processingFee: processingFee || 0,

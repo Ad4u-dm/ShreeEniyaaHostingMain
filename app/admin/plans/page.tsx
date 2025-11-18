@@ -84,6 +84,17 @@ export default function PlansPage() {
   const handleSavePlan = async () => {
     if (!editingPlan) return;
 
+    // Map frontend field names to backend field names for monthlyData
+    const planDataToUpdate = {
+      ...editingPlan,
+      monthlyData: editingPlan.monthlyData.map(month => ({
+        monthNumber: month.monthNumber,
+        installmentAmount: month.dueAmount || month.installmentAmount || 0,
+        dividend: month.dividend || 0,
+        payableAmount: month.auctionAmount || month.payableAmount || 0
+      }))
+    };
+
     try {
       const response = await fetch(`/api/plans/${editingPlan._id}`, {
         method: 'PUT',
@@ -91,14 +102,15 @@ export default function PlansPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
         },
-        body: JSON.stringify(editingPlan)
+        body: JSON.stringify(planDataToUpdate)
       });
 
       const result = await response.json();
       if (result.success) {
-        alert('Plan updated successfully!');
-        setShowEditModal(false);
-        fetchPlans();
+  alert('Plan updated successfully!');
+  setShowEditModal(false);
+  fetchPlans();
+  window.dispatchEvent(new Event('plans-changed'));
       } else {
         alert('Failed to update plan: ' + result.message);
       }
@@ -122,8 +134,9 @@ export default function PlansPage() {
 
       const result = await response.json();
       if (result.success) {
-        alert('Plan deactivated successfully!');
-        fetchPlans();
+  alert('Plan deactivated successfully!');
+  fetchPlans();
+  window.dispatchEvent(new Event('plans-changed'));
       } else {
         alert('Failed to deactivate plan: ' + result.message);
       }
@@ -147,7 +160,13 @@ export default function PlansPage() {
         alert('Please configure all monthly data before creating the plan');
         return;
       }
-      monthlyData = manualMonthlyData;
+      // Map frontend field names to backend field names
+      monthlyData = manualMonthlyData.map(month => ({
+        monthNumber: month.monthNumber,
+        installmentAmount: month.dueAmount || month.installmentAmount || 0,
+        dividend: month.dividend || 0,
+        payableAmount: month.auctionAmount || month.payableAmount || 0
+      }));
     } else {
       // Generate monthly data with equal distribution (auto mode)
       const baseAmount = Math.round(newPlan.totalAmount / newPlan.duration);
@@ -199,6 +218,7 @@ export default function PlansPage() {
           description: ''
         });
         fetchPlans();
+        window.dispatchEvent(new Event('plans-changed'));
       } else {
         alert('Failed to create plan: ' + result.error);
       }
