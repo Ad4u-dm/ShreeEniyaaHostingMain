@@ -43,7 +43,21 @@ const SelectPlan = () => {
                 const response = await fetch('/api/plans');
                 if (response.ok) {
                     const data = await response.json();
-                    setPlans(data);
+                    // Map backend fields to frontend expectations
+                    const mappedPlans = (data.plans || []).map((plan: any) => ({
+                        _id: plan._id,
+                        plan_name: plan.planName,
+                        total_value: plan.totalAmount,
+                        months: plan.duration,
+                        data: (plan.monthlyData || []).map((month: any) => ({
+                            month_number: month.monthNumber,
+                            installment_amount: month.installmentAmount,
+                            dividend: month.dividend,
+                            payable_amount: month.payableAmount,
+                        })),
+                        paymentType: plan.planType,
+                    }));
+                    setPlans(mappedPlans);
                 }
             } catch (error) {
                 console.error('Failed to fetch plans:', error);
@@ -51,7 +65,6 @@ const SelectPlan = () => {
                 setLoading(false);
             }
         };
-
         fetchPlans();
     }, []);
 
