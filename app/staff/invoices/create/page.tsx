@@ -369,11 +369,34 @@ function CreateInvoicePage() {
     });
   };
 
+  // Calculate fixed due date (20th of current month, or next month if past 20th)
+  const getFixedDueDate = () => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const currentDay = now.getDate();
+    
+    // If we're past the 20th, due date is 20th of next month
+    // Otherwise, due date is 20th of current month
+    let dueMonth = currentDay > 20 ? currentMonth + 1 : currentMonth;
+    let dueYear = currentYear;
+    
+    if (dueMonth > 11) {
+      dueMonth = 0;
+      dueYear += 1;
+    }
+    
+    // Format as YYYY-MM-DD directly to avoid timezone issues
+    const monthStr = (dueMonth + 1).toString().padStart(2, '0');
+    const dayStr = '20';
+    return `${dueYear}-${monthStr}-${dayStr}`;
+  };
+
   const [formData, setFormData] = useState<InvoiceForm>({
     customerId: '',
     planId: '',
     description: '',
-    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    dueDate: getFixedDueDate(),
     paymentTerms: '30 days',
     notes: 'Thank you for your business!',
     template: 1,
@@ -440,9 +463,14 @@ function CreateInvoicePage() {
     return customerEnrollments.some(enrollment => {
       const userMatch = enrollment.userId?.userId === selectedCustomer.userId;
       const statusMatch = enrollment.status === 'active';
-      const planMatch = planId ? 
-        (enrollment.planId === planId || enrollment.planId?._id === planId) : 
-        true;
+      
+      // Handle planId comparison - enrollment.planId can be string or populated object
+      let planMatch = true;
+      if (planId) {
+        const enrollmentPlanId = typeof enrollment.planId === 'object' ? 
+          enrollment.planId?._id : enrollment.planId;
+        planMatch = enrollmentPlanId === planId;
+      }
       
       console.log('Enrollment check:', {
         userMatch,
@@ -450,7 +478,7 @@ function CreateInvoicePage() {
         planMatch,
         enrollmentUserId: enrollment.userId?.userId,
         customerUserId: selectedCustomer.userId,
-        enrollmentPlanId: enrollment.planId,
+        enrollmentPlanId: typeof enrollment.planId === 'object' ? enrollment.planId?._id : enrollment.planId,
         formPlanId: planId,
         enrollmentStatus: enrollment.status
       });
@@ -632,27 +660,20 @@ function CreateInvoicePage() {
         console.log('Credit score:', data.customer?.creditScore);
         setSelectedCustomerProfile(data.customer);
         
-        // Auto-populate form fields from customer profile
+        // Don't auto-populate plan - let handleCustomerChange handle it
         if (data.customer.currentEnrollment) {
-          setFormData(prev => {
-            const enrollmentPlanId = typeof data.customer.currentEnrollment.planId === 'string' 
-              ? data.customer.currentEnrollment.planId 
-              : data.customer.currentEnrollment.planId?._id || prev.planId;
-              
-            return {
-              ...prev,
-              planId: enrollmentPlanId, // Auto-select plan
-              receiptDetails: {
-                ...prev.receiptDetails,
-                memberNo: data.customer.memberNumber || data.customer.currentEnrollment.memberNumber || '2154',
-                dueNo: data.customer.paymentSummary?.currentDueNumber?.toString() || '1',
-                dueAmount: data.customer.paymentSummary?.nextDueAmount || data.customer.currentEnrollment.monthlyAmount || 0,
-                receivedAmount: data.customer.paymentSummary?.nextDueAmount || data.customer.currentEnrollment.monthlyAmount || 0,
-                pendingAmount: data.customer.paymentSummary?.pendingAmount || 0,
-                arrearAmount: data.customer.paymentSummary?.arrearAmount || 0
-              }
-            };
-          });
+          setFormData(prev => ({
+            ...prev,
+            receiptDetails: {
+              ...prev.receiptDetails,
+              memberNo: data.customer.memberNumber || data.customer.currentEnrollment.memberNumber || '2154',
+              dueNo: data.customer.paymentSummary?.currentDueNumber?.toString() || '1',
+              dueAmount: data.customer.paymentSummary?.nextDueAmount || data.customer.currentEnrollment.monthlyAmount || 0,
+              receivedAmount: data.customer.paymentSummary?.nextDueAmount || data.customer.currentEnrollment.monthlyAmount || 0,
+              pendingAmount: data.customer.paymentSummary?.pendingAmount || 0,
+              arrearAmount: data.customer.paymentSummary?.arrearAmount || 0
+            }
+          }));
         } else {
           // Reset form if no enrollment
           setFormData(prev => ({
@@ -767,37 +788,25 @@ function CreateInvoicePage() {
         paidMonths = historyData.invoices || [];
       }
 
-      // Calculate arrears from unpaid previous months
+      // Get previous balance and arrears
+      const previousBalance = await getPreviousBalance(customerId, planId);
       let arrearAmount = 0;
-      let currentDueAmount = 0;
-      let balanceAmount = 0;
 
-      // Check all months up to current month for arrears
-      for (let i = 0; i < currentMonthIndex; i++) {
-        const monthData = selectedPlan.monthlyData[i];
-        if (!monthData) continue;
-
-        const monthDue = monthData.dueAmount || monthData.installmentAmount || 0;
-        
-        // Check if this month was paid
-        const paidForThisMonth = paidMonths.find((payment: any) => {
-          const paymentMonth = new Date(payment.createdAt).getMonth();
-          const enrollmentStartMonth = enrollmentDate.getMonth();
-          const expectedMonthIndex = paymentMonth - enrollmentStartMonth + (new Date(payment.createdAt).getFullYear() - enrollmentDate.getFullYear()) * 12;
-          return Math.abs(expectedMonthIndex - i) <= 1; // Allow some tolerance
-        });
-
-        if (!paidForThisMonth) {
-          arrearAmount += monthDue;
-          console.log(`Month ${i + 1} unpaid, adding ₹${monthDue} to arrears`);
-        }
+      // On 20th of the month, check if there's outstanding balance from previous month
+      // If balance > 0, it becomes arrears
+      if (currentDay === 20 && previousBalance !== null && previousBalance > 0) {
+        arrearAmount = previousBalance;
+        console.log(`On 20th: Previous balance ₹${previousBalance} added to arrears`);
+      } else {
+        // Get existing arrears from previous invoice or customer profile
+        arrearAmount = previousBalance || 0;
       }
 
       // Current month's due (if we're past the 20th, this is for next month)
       const currentMonthData = selectedPlan.monthlyData[currentDay > 20 ? nextMonthIndex : currentMonthIndex];
-      currentDueAmount = currentMonthData ? (currentMonthData.dueAmount || currentMonthData.installmentAmount || 0) : 0;
+      const currentDueAmount = currentMonthData ? (currentMonthData.dueAmount || currentMonthData.installmentAmount || 0) : 0;
 
-      // Total amount due = Previous arrears + current month's due
+      // Total amount due = Arrears + current month's due
       const totalAmountDue = arrearAmount + currentDueAmount;
 
       return {
@@ -1268,9 +1277,23 @@ function CreateInvoicePage() {
                     )}
                   </div>
                   {formData.customerId && !isCustomerEnrolled(formData.customerId) && (
-                    <p className="text-sm text-amber-600 mt-1">
-                      ⚠️ This customer is not enrolled in any plan. Select a plan and click "Enroll Customer".
-                    </p>
+                    <div className="bg-amber-50 border border-amber-200 rounded-md p-3 mt-2">
+                      <div className="flex">
+                        <div className="flex-shrink-0">
+                          <svg className="h-5 w-5 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <div className="ml-3">
+                          <h3 className="text-sm font-medium text-amber-800">
+                            Customer Not Enrolled
+                          </h3>
+                          <div className="mt-2 text-sm text-amber-700">
+                            <p>This customer is not enrolled in any chit fund plan. Please select a plan and click "Enroll Customer" to enroll them, or select a different customer who is already enrolled.</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </div>
 
@@ -1322,8 +1345,12 @@ function CreateInvoicePage() {
                   <Input
                     type="date"
                     value={formData.dueDate}
-                    onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                    readOnly
+                    className="bg-gray-50 cursor-not-allowed"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Due date is fixed to the 20th of every month
+                  </p>
                 </div>
 
                 <div>

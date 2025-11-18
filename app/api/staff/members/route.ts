@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     const memberData = await request.json();
     
     // Validate required fields
-    const requiredFields = ['name', 'email', 'phone', 'planId'];
+    const requiredFields = ['name', 'email', 'phone'];
     for (const field of requiredFields) {
       if (!memberData[field]) {
         return NextResponse.json(
@@ -47,15 +47,6 @@ export async function POST(request: NextRequest) {
     if (existingUser) {
       return NextResponse.json(
         { error: 'User with this email or phone already exists' },
-        { status: 400 }
-      );
-    }
-
-    // Validate plan exists
-    const plan = await Plan.findById(memberData.planId);
-    if (!plan) {
-      return NextResponse.json(
-        { error: 'Invalid plan selected' },
         { status: 400 }
       );
     }
@@ -89,71 +80,6 @@ export async function POST(request: NextRequest) {
 
     const savedUser = await newUser.save();
 
-    // Generate member number (CF + year + sequential number)
-    const currentYear = new Date().getFullYear();
-    const totalEnrollments = await Enrollment.countDocuments();
-    const memberNumber = `CF${currentYear}${String(totalEnrollments + 1).padStart(4, '0')}`;
-    
-    // For the enrollment's memberNumber field (numeric position in the plan)
-    const planEnrollments = await Enrollment.countDocuments({ planId: plan._id });
-    const memberPosition = planEnrollments + 1;
-
-    // Create enrollment
-    const enrollment = new Enrollment({
-      userId: savedUser.userId, // Use custom userId for consistency with admin system
-      planId: plan._id,
-      memberNumber: memberPosition, // Numeric position in the plan (1, 2, 3, etc.)
-      enrollmentId: `ENR${memberNumber}`, // String identifier like ENR-CF20250001
-      assignedStaff: user.userId,
-      startDate: new Date(),
-      endDate: new Date(Date.now() + plan.duration * 30 * 24 * 60 * 60 * 1000), // duration in months
-      status: 'active',
-      totalPaid: 0,
-      totalDue: plan.totalAmount,
-      nextDueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-      createdAt: new Date()
-    });
-
-    const savedEnrollment = await enrollment.save();
-
-    // Create payment schedule using month-wise data
-    const payments: any[] = [];
-    const startDate = new Date();
-    
-    for (let i = 1; i <= plan.duration; i++) {
-      const dueDate = new Date(startDate);
-      dueDate.setMonth(dueDate.getMonth() + i);
-      
-      // Get amount for this specific month from monthlyData
-      const monthData = plan.monthlyData?.find((m: any) => m.monthNumber === i);
-      const amount = monthData ? monthData.payableAmount : (plan.monthlyAmount || Math.round(plan.totalAmount / plan.duration));
-      
-      const payment = new Payment({
-        enrollmentId: savedEnrollment._id,
-        userId: savedUser.userId, // Use custom userId for consistency
-        planId: plan._id,
-        installmentNumber: i,
-        amount: amount,
-        dueDate: dueDate,
-        status: 'pending',
-        paymentType: 'installment', // Correct enum value
-        paymentMethod: 'cash', // Default payment method
-        createdAt: new Date()
-      });
-      
-      payments.push(payment);
-    }
-
-    // Save payments individually to trigger pre-save hooks
-    for (const payment of payments) {
-      await payment.save();
-    }
-
-    // Populate the enrollment with user and plan details for response
-    const populatedEnrollment = await Enrollment.findById(savedEnrollment._id)
-      .populate('userId')
-      .populate('planId');
-
     return NextResponse.json({
       success: true,
       message: 'Member registered successfully',
@@ -162,14 +88,7 @@ export async function POST(request: NextRequest) {
         name: savedUser.name,
         email: savedUser.email,
         phone: savedUser.phone,
-        memberNumber: memberNumber,
-        enrollmentId: savedEnrollment.enrollmentId,
-        planName: plan.planName,
-        monthlyAmount: plan.monthlyAmount || Math.round(plan.totalAmount / plan.duration),
-        totalAmount: plan.totalAmount,
-        duration: plan.duration,
-        nextPaymentDate: savedEnrollment.nextPaymentDate,
-        status: savedEnrollment.status,
+        memberNumber: savedUser.memberNumber,
         tempPassword: tempPassword // Include temporary password for staff to communicate to customer
       }
     });
