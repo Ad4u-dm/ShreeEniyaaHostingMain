@@ -926,7 +926,9 @@ export default function CreateInvoicePage() {
         // Plan details snapshot
         planDetails: {
           planName: selectedPlan.planName,
-          monthlyAmount: selectedPlan.monthlyAmount,
+          monthlyAmount: selectedPlan.monthlyAmount && selectedPlan.monthlyAmount > 0
+            ? selectedPlan.monthlyAmount
+            : (selectedPlan.monthlyData?.[0]?.dueAmount || selectedPlan.monthlyData?.[0]?.installmentAmount || 0),
           duration: selectedPlan.duration,
           totalAmount: selectedPlan.totalAmount
         },
@@ -1129,11 +1131,17 @@ export default function CreateInvoicePage() {
                         <SelectValue placeholder="Select plan" />
                       </SelectTrigger>
                       <SelectContent>
-                        {Array.isArray(plans) && plans.map((plan) => (
-                          <SelectItem key={plan._id} value={plan._id}>
-                            {plan.planName} - ₹{formatIndianNumber(plan.monthlyAmount)}
-                          </SelectItem>
-                        ))}
+                        {Array.isArray(plans) && plans.filter(plan => {
+                          const monthly = plan.monthlyAmount || plan.monthlyData?.[0]?.dueAmount || plan.monthlyData?.[0]?.installmentAmount || 0;
+                          return monthly > 0;
+                        }).map((plan) => {
+                          const monthly = plan.monthlyAmount || plan.monthlyData?.[0]?.dueAmount || plan.monthlyData?.[0]?.installmentAmount || 0;
+                          return (
+                            <SelectItem key={plan._id} value={plan._id}>
+                              {plan.planName} - ₹{formatIndianNumber(monthly)}
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                     {formData.customerId && formData.planId && !isCustomerEnrolled(formData.customerId, formData.planId) && (

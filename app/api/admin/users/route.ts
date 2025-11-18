@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
+import Invoice from '@/models/Invoice';
 import User from '@/models/User';
 import Enrollment from '@/models/Enrollment';
 import Payment from '@/models/Payment';
@@ -98,21 +99,41 @@ export async function GET(request: NextRequest) {
         ? userPayments.sort((a, b) => new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime())[0]
         : null;
 
+      console.log('Processing user:', userData.userId, userData.name);
       const activeEnrollment = userEnrollments.find(e => e.status === 'active');
+      console.log('Active enrollment:', activeEnrollment);
       const planName = activeEnrollment?.planId?.planName || 'No Plan';
       const monthlyAmount = activeEnrollment?.planId?.monthlyAmount || 0;
-      
-      // Calculate pending amount based on plan duration and payments made
+
+      // Find latest invoice for this user and plan
       let pendingAmount = 0;
       if (activeEnrollment && activeEnrollment.planId) {
-        const totalPlanAmount = activeEnrollment.planId.totalAmount || 0;
-        pendingAmount = Math.max(0, totalPlanAmount - totalPaid);
+        const latestInvoice = await Invoice.findOne({ customerId: userData.userId, planId: activeEnrollment.planId._id })
+          .sort({ createdAt: -1 })
+          .lean();
+        console.log('Latest invoice:', latestInvoice);
+        if (latestInvoice && typeof latestInvoice.balanceAmount === 'number') {
+          pendingAmount = latestInvoice.balanceAmount;
+          console.log('Using invoice balanceAmount for pendingAmount:', pendingAmount);
+        } else {
+          const totalPlanAmount = activeEnrollment.planId.totalAmount || 0;
+          pendingAmount = Math.max(0, totalPlanAmount - totalPaid);
+          console.log('Using fallback pendingAmount:', pendingAmount);
+        }
       }
 
       // Calculate next due date (30 days from last payment or enrollment date)
       const referenceDate = lastPayment?.paymentDate || activeEnrollment?.enrollmentDate || userData.createdAt;
       const nextDue = new Date(new Date(referenceDate).getTime() + 30 * 24 * 60 * 60 * 1000);
 
+      console.log('Customer object:', {
+        _id: userData._id,
+        name: userData.name,
+        pendingAmount,
+        planName,
+        totalPaid,
+        lastPayment: lastPayment?.paymentDate || null
+      });
       return {
         _id: userData._id,
         name: userData.name,

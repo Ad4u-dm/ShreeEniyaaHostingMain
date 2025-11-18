@@ -347,7 +347,7 @@ export default function UsersPage() {
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Customer</th>
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Plan</th>
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Total Paid</th>
-                    <th className="text-left py-3 px-4 font-medium text-slate-600">Group Name</th>
+                    <th className="text-left py-3 px-4 font-medium text-slate-600">Pending Amount</th>
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Last Payment</th>
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Actions</th>
                   </tr>
