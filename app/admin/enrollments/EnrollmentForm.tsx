@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { db } from '@/utils/db';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -28,13 +29,38 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ users, plans, onEnroll 
   const [selectedUser, setSelectedUser] = useState<string>('');
   const [selectedPlan, setSelectedPlan] = useState<string>('');
 
-  const handleEnroll = () => {
+  const handleEnroll = async () => {
     if (!selectedUser || !selectedPlan) {
       alert('Please select both user and plan before enrolling.');
       return;
     }
+    if (!navigator.onLine) {
+      await db.enrollments.add({
+        userId: selectedUser,
+        planId: selectedPlan,
+        synced: false,
+      });
+      alert('You are offline. Enrollment saved locally and will sync when online.');
+      return;
+    }
     onEnroll(selectedUser, selectedPlan);
   };
+
+  // Sync logic (run when online)
+  useEffect(() => {
+    const syncEnrollments = async () => {
+      if (navigator.onLine) {
+        const unsynced = await db.enrollments.where('synced').equals(false).toArray();
+        for (const enrollment of unsynced) {
+          await onEnroll(enrollment.userId, enrollment.planId);
+          await db.enrollments.update(enrollment.id, { synced: true });
+        }
+      }
+    };
+    window.addEventListener('online', syncEnrollments);
+    syncEnrollments();
+    return () => window.removeEventListener('online', syncEnrollments);
+  }, []);
 
   return (
     <div className="space-y-4">

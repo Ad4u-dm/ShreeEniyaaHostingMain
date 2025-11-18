@@ -1,4 +1,13 @@
+
+const withPWA = require('next-pwa')({
+  dest: 'public',
+  disable: process.env.NODE_ENV === 'development',
+});
+
 const withNextIntl = require("next-intl/plugin")("./i18n/request.ts");
+const withBundleAnalyzer = require("@next/bundle-analyzer")({
+    enabled: process.env.ANALYZE === "true",
+});
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -16,9 +25,4 @@ const nextConfig = {
     },
 };
 
-// Bundle analyzer
-const withBundleAnalyzer = require("@next/bundle-analyzer")({
-    enabled: process.env.ANALYZE === "true",
-});
-
-module.exports = withBundleAnalyzer(withNextIntl(nextConfig));
+module.exports = withPWA(withBundleAnalyzer(withNextIntl(nextConfig)));
