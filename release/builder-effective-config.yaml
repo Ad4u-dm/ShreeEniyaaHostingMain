@@ -19,11 +19,9 @@ win:
     - target: nsis
       arch:
         - x64
-        - ia32
     - target: portable
       arch:
         - x64
-        - ia32
   icon: public/favicon.ico
   requestedExecutionLevel: asInvoker
   verifyUpdateCodeSignature: false

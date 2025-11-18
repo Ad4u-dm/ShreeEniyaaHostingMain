@@ -50,10 +50,12 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ users, plans, onEnroll 
   useEffect(() => {
     const syncEnrollments = async () => {
       if (navigator.onLine) {
-        const unsynced = await db.enrollments.where('synced').equals(false).toArray();
+        const unsynced = await db.enrollments.filter(e => e.synced === false).toArray();
         for (const enrollment of unsynced) {
           await onEnroll(enrollment.userId, enrollment.planId);
-          await db.enrollments.update(enrollment.id, { synced: true });
+          if (typeof enrollment.id === 'number') {
+            await db.enrollments.update(enrollment.id, { synced: true });
+          }
         }
       }
     };
