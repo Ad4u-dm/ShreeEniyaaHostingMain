@@ -111,11 +111,10 @@ export async function GET(request: NextRequest) {
     if (latest && customerId && planId) {
       const latestInvoice = await Invoice.findOne({
         customerId: customerId,
-        planId: planId,
-        status: { $in: ['sent', 'paid'] }
+        planId: planId
       })
       .sort({ createdAt: -1 })
-      .select('balanceAmount totalAmount receivedAmount dueAmount')
+      .select('balanceAmount totalAmount receivedAmount dueAmount arrearAmount')
       .lean();
 
       console.log('Latest invoice lookup:', {
@@ -128,7 +127,8 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
           success: true,
           invoice: {
-            balanceAmount: latestInvoice.balanceAmount || 0
+            balanceAmount: latestInvoice.balanceAmount || 0,
+            arrearAmount: latestInvoice.arrearAmount || 0
           }
         });
       } else {

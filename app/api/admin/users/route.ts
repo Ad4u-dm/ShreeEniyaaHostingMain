@@ -107,33 +107,100 @@ export async function GET(request: NextRequest) {
 
       // Find latest invoice for this user and plan
       let pendingAmount = 0;
+      let totalPaidFromInvoices = 0;
+      let lastInvoiceDate = null;
+      
       if (activeEnrollment && activeEnrollment.planId) {
-        const latestInvoice = await Invoice.findOne({ customerId: userData.userId, planId: activeEnrollment.planId._id })
-          .sort({ createdAt: -1 })
-          .lean();
-        console.log('Latest invoice:', latestInvoice);
-        if (latestInvoice && typeof latestInvoice.balanceAmount === 'number') {
-          pendingAmount = latestInvoice.balanceAmount;
-          console.log('Using invoice balanceAmount for pendingAmount:', pendingAmount);
+        // Get all invoices for this user (temporarily without plan filter)
+        const allUserInvoices = await Invoice.find({ 
+          customerId: userData._id
+        }).lean();
+        console.log('All invoices for user (any plan):', allUserInvoices.length);
+        
+        // Then filter by plan
+        const userInvoices = allUserInvoices.filter(inv => 
+          inv.planId && (
+            inv.planId.toString() === activeEnrollment.planId._id.toString() ||
+            inv.planId === activeEnrollment.planId._id
+          )
+        );
+        console.log('Filtered invoices for user and plan:', userInvoices.length);
+        
+        // Also try direct query for comparison
+        const directQueryInvoices = await Invoice.find({ 
+          customerId: userData._id, 
+          planId: activeEnrollment.planId._id 
+        }).lean();
+        console.log('Direct query invoices:', directQueryInvoices.length);
+        
+        console.log('User data:', {
+          userId: userData._id,
+          userUserId: userData.userId,
+          name: userData.name
+        });
+        console.log('Active enrollment:', {
+          planId: activeEnrollment.planId._id,
+          planName: activeEnrollment.planId.planName
+        });
+        console.log('Invoice query result:', userInvoices.length, 'invoices found');
+        userInvoices.forEach(inv => {
+          console.log('Invoice:', {
+            id: inv._id,
+            customerId: inv.customerId,
+            planId: inv.planId,
+            balanceAmount: inv.balanceAmount,
+            receivedAmount: inv.receivedAmount,
+            createdAt: inv.createdAt
+          });
+        });
+        
+        if (userInvoices.length > 0) {
+          // Sort invoices by creation date (newest first)
+          const sortedInvoices = userInvoices.sort((a, b) => 
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+          
+          const latestInvoice = sortedInvoices[0];
+          
+          // Use the latest invoice's balance amount as pending amount
+          pendingAmount = typeof latestInvoice.balanceAmount === 'number' ? latestInvoice.balanceAmount : 0;
+          
+          // Calculate total paid from all invoices' received amounts
+          totalPaidFromInvoices = sortedInvoices.reduce((sum, inv) => 
+            sum + (typeof inv.receivedAmount === 'number' ? inv.receivedAmount : 0), 0
+          );
+          
+          // Use the latest invoice's creation date as last payment date
+          lastInvoiceDate = latestInvoice.createdAt;
+          
+          console.log('Using invoice data:', {
+            pendingAmount,
+            totalPaidFromInvoices,
+            lastInvoiceDate,
+            latestInvoiceId: latestInvoice.invoiceId
+          });
         } else {
+          // Fallback if no invoices found
           const totalPlanAmount = activeEnrollment.planId.totalAmount || 0;
           pendingAmount = Math.max(0, totalPlanAmount - totalPaid);
-          console.log('Using fallback pendingAmount:', pendingAmount);
+          totalPaidFromInvoices = totalPaid;
+          console.log('Using fallback data:', { pendingAmount, totalPaidFromInvoices });
         }
       }
 
       // Calculate next due date (30 days from last payment or enrollment date)
-      const referenceDate = lastPayment?.paymentDate || activeEnrollment?.enrollmentDate || userData.createdAt;
+      const referenceDate = lastInvoiceDate || lastPayment?.paymentDate || activeEnrollment?.enrollmentDate || userData.createdAt;
       const nextDue = new Date(new Date(referenceDate).getTime() + 30 * 24 * 60 * 60 * 1000);
 
       console.log('Customer object:', {
         _id: userData._id,
         name: userData.name,
         pendingAmount,
+        totalPaidFromInvoices,
         planName,
-        totalPaid,
-        lastPayment: lastPayment?.paymentDate || null
+        lastInvoiceDate
       });
+      
       return {
         _id: userData._id,
         name: userData.name,
@@ -146,9 +213,9 @@ export async function GET(request: NextRequest) {
         planName,
         joinDate: userData.createdAt,
         status: activeEnrollment?.status || 'inactive',
-        totalPaid,
+        totalPaid: totalPaidFromInvoices,
         pendingAmount,
-        lastPayment: lastPayment?.paymentDate || null,
+        lastPayment: lastInvoiceDate || lastPayment?.paymentDate || null,
         nextDue: nextDue.toISOString(),
         paymentHistory: userPayments.length,
         role: userData.role,

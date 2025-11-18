@@ -18,9 +18,6 @@ interface Customer {
   planName: string;
   joinDate: string;
   status: 'active' | 'inactive' | 'suspended';
-  totalPaid: number;
-  pendingAmount: number;
-  lastPayment: string;
   nextDue: string;
   paymentHistory: number;
   createdBy?: {
@@ -341,14 +338,11 @@ export default function UsersPage() {
           </CardHeader>
           <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
             <div className="overflow-x-auto mobile-scroll">
-              <table className="w-full min-w-[800px]">
+              <table className="w-full min-w-[600px]">
                 <thead>
                   <tr className="border-b border-slate-200">
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Customer</th>
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Plan</th>
-                    <th className="text-left py-3 px-4 font-medium text-slate-600">Total Paid</th>
-                    <th className="text-left py-3 px-4 font-medium text-slate-600">Pending Amount</th>
-                    <th className="text-left py-3 px-4 font-medium text-slate-600">Last Payment</th>
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Actions</th>
                   </tr>
                 </thead>
@@ -372,29 +366,6 @@ export default function UsersPage() {
                         <div className="font-medium text-slate-800">{customer.planName}</div>
                         <div className="text-sm text-slate-600">
                           Joined: {new Date(customer.joinDate).toLocaleDateString('en-IN')}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="font-medium text-green-600">
-                          ₹{formatIndianNumber(customer.totalPaid)}
-                        </div>
-                        <div className="text-xs text-slate-600">
-                          {customer.paymentHistory} payments
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className={`font-medium ${customer.pendingAmount > 0 ? 'text-red-600' : 'text-slate-600'}`}> 
-                          ₹{formatIndianNumber(customer.pendingAmount)}
-                        </div>
-                        {customer.pendingAmount > 0 && (
-                          <div className="text-xs text-red-600">
-                            Due: {new Date(customer.nextDue).toLocaleDateString('en-IN')}
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="text-sm text-slate-800">
-                          {new Date(customer.lastPayment).toLocaleDateString('en-IN')}
                         </div>
                       </td>
                       <td className="py-3 px-4">
@@ -620,16 +591,6 @@ export default function UsersPage() {
                       <div>
                         <label className="text-sm text-slate-600">Join Date</label>
                         <p className="font-medium">{new Date(selectedCustomer.joinDate).toLocaleDateString('en-IN')}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm text-slate-600">Total Paid</label>
-                        <p className="font-medium text-green-600">₹{formatIndianNumber(selectedCustomer.totalPaid)}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm text-slate-600">Pending Amount</label>
-                        <p className={`font-medium ${selectedCustomer.pendingAmount > 0 ? 'text-red-600' : 'text-slate-600'}`}>
-                          ₹{formatIndianNumber(selectedCustomer.pendingAmount)}
-                        </p>
                       </div>
                       <div>
                         <label className="text-sm text-slate-600">Payment History</label>

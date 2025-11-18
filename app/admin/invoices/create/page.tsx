@@ -78,13 +78,16 @@ export default function CreateInvoicePage() {
       const response = await fetch(`/api/invoices?customerId=${customerId}&planId=${planId}&latest=true`);
       if (response.ok) {
         const data = await response.json();
-        // Return the balance amount from the latest invoice, or monthly due if no previous invoice
-        return data.invoice?.balanceAmount || null;
+        // Return the balance and arrear amounts from the latest invoice
+        return {
+          balance: data.invoice?.balanceAmount || null,
+          arrear: data.invoice?.arrearAmount || null
+        };
       }
     } catch (error) {
       console.error('Error fetching previous balance:', error);
     }
-    return null;
+    return { balance: null, arrear: null };
   };
 
   // Calculate balance amount: Previous balance - today's payment (or monthly due if no previous invoice)
@@ -162,17 +165,19 @@ export default function CreateInvoicePage() {
       }
 
       // Get previous balance and arrears
-      const previousBalance = await getPreviousBalance(customerId, planId);
+      const previousData = await getPreviousBalance(customerId, planId);
+      const previousBalance = previousData.balance || 0;
+      const previousArrear = previousData.arrear || 0;
       let arrearAmount = 0;
 
-      // On 20th of the month, check if there's outstanding balance from previous month
-      // If balance > 0, it becomes arrears
-      if (currentDay === 20 && previousBalance !== null && previousBalance > 0) {
-        arrearAmount = previousBalance;
-        console.log(`On 20th: Previous balance ₹${previousBalance} added to arrears`);
-      } else {
-        // Get existing arrears from previous invoice or customer profile
+      // On 21st of the month, arrears = previous balance
+      // On other days, arrears = previous arrears
+      if (currentDay === 21) {
         arrearAmount = previousBalance || 0;
+        console.log(`On 21st: Arrears set to previous balance ₹${arrearAmount}`);
+      } else {
+        arrearAmount = previousArrear || 0;
+        console.log(`On other days: Arrears carried over ₹${arrearAmount}`);
       }
 
       // Current month's due (if we're past the 20th, this is for next month)
@@ -223,7 +228,8 @@ export default function CreateInvoicePage() {
       console.log('Automated payment details:', paymentDetails);
 
       // Get previous balance from latest invoice
-      const previousBalance = await getPreviousBalance(formData.customerId, formData.planId);
+      const previousData = await getPreviousBalance(formData.customerId, formData.planId);
+      const previousBalance = previousData.balance || 0;
       
       // Calculate daily due amount (for users who pay daily)
       const [year, month] = formData.receiptDetails.paymentMonth.split('-');
@@ -278,16 +284,40 @@ export default function CreateInvoicePage() {
     };
 
   // Function to recalculate balance when received amount changes
-  const handleReceivedAmountChange = (newReceivedAmount: number) => {
+  const handleReceivedAmountChange = async (newReceivedAmount: number) => {
+    // Get previous balance for proper chit fund calculation
+    const previousData = await getPreviousBalance(formData.customerId, formData.planId);
+    const previousBalance = previousData.balance || 0;
+    const previousArrear = previousData.arrear || 0;
+    const isFirstPayment = previousBalance === null;
+    
     setFormData(prev => {
-      // Simple and direct: balance = due amount - received amount
-      const balanceAmount = Math.max(0, prev.receiptDetails.dueAmount - newReceivedAmount);
+      let balanceAmount;
+      if (isFirstPayment) {
+        // First payment: balance = due amount - received amount
+        balanceAmount = Math.max(0, prev.receiptDetails.dueAmount - newReceivedAmount);
+      } else {
+        // Subsequent payments: balance = previous balance - received amount
+        balanceAmount = Math.max(0, previousBalance - newReceivedAmount);
+      }
       
-      console.log('DIRECT balance calculation:', {
+      console.log('Admin balance recalculation:', {
+        previousBalance,
+        isFirstPayment,
         dueAmount: prev.receiptDetails.dueAmount,
         newReceivedAmount,
         calculatedBalance: balanceAmount
       });
+      
+      // Recalculate arrear amount
+      let arrearAmount = prev.receiptDetails.arrearAmount;
+      const today = new Date();
+      const isCycleStart = today.getDate() === 21;
+      if (isCycleStart && !isFirstPayment) {
+        arrearAmount = previousBalance;
+      } else {
+        arrearAmount = previousArrear || 0;
+      }
       
       return {
         ...prev,
@@ -295,6 +325,7 @@ export default function CreateInvoicePage() {
           ...prev.receiptDetails,
           receivedAmount: newReceivedAmount,
           balanceAmount: balanceAmount,
+          arrearAmount: arrearAmount,
           pendingAmount: balanceAmount
         },
         receivedAmount: newReceivedAmount

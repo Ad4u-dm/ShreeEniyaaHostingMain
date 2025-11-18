@@ -175,10 +175,33 @@ export async function POST(request: NextRequest) {
       invoiceNumber = `INV-${String(lastNumber + 1).padStart(4, '0')}`;
     }
     
+    // Calculate balanceAmount according to business rules
+    let balanceAmount = 0;
+    const today = new Date();
+    const isCycleStart = today.getDate() === 21;
+    const dueAmount = invoiceData.dueAmount || 0;
+    const receivedAmount = invoiceData.receivedAmount || 0;
+    if (isCycleStart) {
+      balanceAmount = dueAmount - receivedAmount;
+    } else {
+      // Find previous invoice for this enrollment, customer, and plan
+      const prevInvoice = await Invoice.findOne({
+        enrollmentId: invoiceData.enrollmentId,
+        customerId: invoiceData.customerId,
+        planId: invoiceData.planId
+      }).sort({ createdAt: -1 }).lean();
+      if (prevInvoice && typeof prevInvoice.balanceAmount === 'number') {
+        balanceAmount = prevInvoice.balanceAmount - receivedAmount;
+      } else {
+        balanceAmount = dueAmount - receivedAmount;
+      }
+    }
+
     // Create new invoice in database
     const newInvoice = new Invoice({
       ...invoiceData,
       invoiceNumber,
+      balanceAmount,
       createdAt: new Date(),
       updatedAt: new Date()
     });
@@ -189,12 +212,13 @@ export async function POST(request: NextRequest) {
       planId: newInvoice.planId,
       createdBy: newInvoice.createdBy,
       totalAmount: newInvoice.totalAmount,
-      items: newInvoice.items
+      items: newInvoice.items,
+      balanceAmount: newInvoice.balanceAmount
     });
-    
+
     await newInvoice.save();
     console.log('Invoice saved successfully with ID:', newInvoice._id);
-    
+
     // Populate references for response
     const populatedInvoice = await Invoice.findById(newInvoice._id)
       .populate('customerId', 'name email phone')
