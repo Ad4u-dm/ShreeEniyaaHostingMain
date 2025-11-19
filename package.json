@@ -7,14 +7,14 @@
     "scripts": {
         "dev": "next dev",
         "build": "next build",
-        "build:standalone": "next build && echo 'Standalone build complete'",
+        "build:standalone": "next build",
         "start": "next start",
         "lint": "next lint",
         "analyze": "cross-env ANALYZE=true next build",
         "seed": "node scripts/seedFromJson.js",
         "seed-chitfund": "tsx scripts/seed.ts",
         "electron": "electron .",
-        "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:3000 && cross-env NODE_ENV=development electron .\"",
+        "electron:dev": "concurrently \"npm run dev\" \"cross-env NODE_ENV=development electron .\"",
         "electron:build": "npm run build:standalone && electron-builder --win --x64 --publish=never",
         "electron:build:all": "npm run build:standalone && electron-builder -mwl --publish=never",
         "build:windows": "npm run build:standalone && electron-builder --win --x64",
@@ -98,6 +98,7 @@
         "files": [
             "electron/main-simple.js",
             "electron/preload.js",
+            ".next/standalone/**/*",
             "!.next/cache",
             "!src",
             "!scripts",
@@ -124,9 +125,14 @@
             "icon": "public/favicon.ico",
             "requestedExecutionLevel": "asInvoker",
             "verifyUpdateCodeSignature": false,
+            "forceCodeSigning": false,
+            "signAndEditExecutable": false,
             "artifactName": "${productName}-${version}-${arch}.${ext}",
             "asar": true,
-            "asarUnpack": "**\\*.{node,dll}"
+            "asarUnpack": [
+                "**\\*.{node,dll}",
+                ".next/standalone/**/*"
+            ]
         },
         "nsis": {
             "oneClick": false,

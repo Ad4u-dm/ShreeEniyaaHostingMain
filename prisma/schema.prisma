@@ -5,7 +5,7 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./local_chitfund.db"
+  url      = "file:./prisma/local_chitfund.db"
 }
 
 // Users Model - matches MongoDB User schema
