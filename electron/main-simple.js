@@ -11,67 +11,85 @@ console.log('Invoify Desktop App Starting...');
 async function startServer() {
   if (isDev) return;
 
-  try {
-    // Start Next.js server directly in the main process
-    const serverPath = path.join(__dirname, '..', '.next', 'standalone');
-    
-    // Change to server directory temporarily
-    const originalCwd = process.cwd();
-    process.chdir(serverPath);
-    
+  return new Promise((resolve, reject) => {
     try {
-      // Load the server.js file directly - it will start the server automatically
-      require(path.join(serverPath, 'server.js'));
+      // Start Next.js server using portable Node.js
+      const serverPath = path.join(__dirname, '..', '.next', 'standalone', 'server.js');
+      const nodePath = path.join(__dirname, '..', 'portable-node', 'node.exe');
       
-      console.log('Next.js server starting in main process...');
+      console.log('Starting Next.js server with portable Node.js...');
+      console.log('Node path:', nodePath);
+      console.log('Server path:', serverPath);
       
-      // Wait for server to be ready
-      await new Promise((resolve, reject) => {
-        const checkServer = () => {
-          // Simple check - try to connect to localhost:3000
-          const http = require('http');
-          const req = http.request({
-            hostname: 'localhost',
-            port: 3000,
-            path: '/',
-            method: 'HEAD',
-            timeout: 1000
-          }, (res) => {
-            console.log('Next.js server is ready!');
-            resolve();
-          });
-          
-          req.on('error', () => {
-            // Server not ready yet, try again
-            setTimeout(checkServer, 500);
-          });
-          
-          req.on('timeout', () => {
-            req.destroy();
-            setTimeout(checkServer, 500);
-          });
-          
-          req.end();
-        };
-        
-        // Start checking after a short delay
-        setTimeout(checkServer, 1000);
-        
-        // Timeout after 30 seconds
-        setTimeout(() => {
-          reject(new Error('Server failed to start within 30 seconds'));
-        }, 30000);
+      const { spawn } = require('child_process');
+      const serverProcess = spawn(nodePath, [serverPath], {
+        cwd: path.join(__dirname, '..', '.next', 'standalone'),
+        stdio: 'pipe', // Changed from 'inherit' to 'pipe' to prevent console spam
+        env: { ...process.env, NODE_ENV: 'production' }
       });
-      
-    } finally {
-      // Restore original working directory
-      process.chdir(originalCwd);
+
+      serverProcess.on('error', (error) => {
+        console.error('Server process error:', error);
+        reject(error);
+      });
+
+      // Log server output for debugging
+      serverProcess.stdout.on('data', (data) => {
+        console.log('Server stdout:', data.toString());
+      });
+
+      serverProcess.stderr.on('data', (data) => {
+        console.log('Server stderr:', data.toString());
+      });
+
+      // Wait for server to be ready
+      let ready = false;
+      const checkServer = () => {
+        if (ready) return;
+        
+        const http = require('http');
+        const req = http.request({
+          hostname: 'localhost',
+          port: 3000,
+          path: '/_next/static/chunks/webpack.js',
+          method: 'HEAD',
+          timeout: 2000
+        }, (res) => {
+          if (res.statusCode === 200) {
+            console.log('Next.js server is ready!');
+            ready = true;
+            resolve();
+          }
+        });
+        
+        req.on('error', () => {
+          // Try again
+          setTimeout(checkServer, 500);
+        });
+        
+        req.on('timeout', () => {
+          req.destroy();
+          setTimeout(checkServer, 500);
+        });
+        
+        req.end();
+      };
+
+      // Start checking after 2 seconds
+      setTimeout(checkServer, 2000);
+
+      // Timeout after 30 seconds
+      setTimeout(() => {
+        if (!ready) {
+          reject(new Error('Server failed to start within 30 seconds'));
+        }
+      }, 30000);
+
+    } catch (error) {
+      console.error('Failed to start server:', error);
+      reject(error);
     }
-    
-  } catch (error) {
-    console.error('Failed to start server:', error);
-    throw error; // Re-throw to prevent app from starting
-  }
+  });
 }
 
 async function findNextJsPort() {

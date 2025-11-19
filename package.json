@@ -98,6 +98,7 @@
         "files": [
             "electron/main-simple.js",
             "electron/preload.js",
+            "portable-node/node.exe",
             ".next/standalone/**/*",
             "!.next/cache",
             "!src",
