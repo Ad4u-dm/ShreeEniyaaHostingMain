@@ -90,7 +90,6 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
         <div style={{margin: '1px 0'}}>Due No         : {invoice.dueNumber || '1'}</div>
         <div style={{margin: '1px 0'}}>Due Amount     : ₹ {(invoice.dueAmount || 0).toLocaleString('en-IN')}</div>
         <div style={{margin: '1px 0'}}>Arrear Amount  : ₹ {(invoice.arrearAmount || 0).toLocaleString('en-IN')}</div>
-        <div style={{margin: '1px 0'}}>Pending Amount : ₹ {(invoice.pendingAmount || 0).toLocaleString('en-IN')}</div>
         <div style={{margin: '1px 0'}}>Received Amount: ₹ {(invoice.receivedAmount || 0).toLocaleString('en-IN')}</div>
         <div style={{margin: '1px 0'}}>Balance Amount : ₹ {(invoice.balanceAmount || 0).toLocaleString('en-IN')}</div>
       </div>

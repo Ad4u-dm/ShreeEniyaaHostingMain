@@ -119,12 +119,6 @@
                     "arch": [
                         "x64"
                     ]
-                },
-                {
-                    "target": "portable",
-                    "arch": [
-                        "x64"
-                    ]
                 }
             ],
             "icon": "public/favicon.ico",
@@ -139,7 +133,8 @@
                 "**/*.dll",
                 ".next/standalone/**/*",
                 "node_modules/**/*"
-            ]
+            ],
+            "compression": "maximum"
         },
         "nsis": {
             "oneClick": false,
@@ -158,7 +153,11 @@
             "installerHeaderIcon": "public/favicon.ico",
             "deleteAppDataOnUninstall": false,
             "menuCategory": "Office\\Financial",
-            "guid": "a74f865d-5c91-4385-b9a8-9a8b6f8b5e1c"
+            "guid": "a74f865d-5c91-4385-b9a8-9a8b6f8b5e1c",
+            "differentialPackage": false,
+            "packElevateHelper": true,
+            "unicode": true,
+            "include": "build/installer.nsh"
         },
         "extraMetadata": {
             "main": "electron/main-simple.js",

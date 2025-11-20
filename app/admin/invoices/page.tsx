@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Search, Filter, Eye, Download, Send, Edit, Plus, FileText, Calendar, IndianRupee, User, Printer, Trash2 } from 'lucide-react';
 import { formatIndianNumber } from '@/lib/helpers';
-import { isDesktopApp } from '@/lib/isDesktopApp';
 
 interface Invoice {
   _id: string;
@@ -72,7 +71,6 @@ export default function InvoicesPage() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showViewModal, setShowViewModal] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [offlineMode, setOfflineMode] = useState(false);
 
   // Helper function to decode JWT and get user role
   const getUserRoleFromToken = () => {
@@ -407,7 +405,6 @@ export default function InvoicesPage() {
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Date</th>
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Customer</th>
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Amount</th>
-                    <th className="text-left py-3 px-4 font-medium text-slate-600">Status</th>
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Actions</th>
                   </tr>
                 </thead>
@@ -431,11 +428,6 @@ export default function InvoicesPage() {
                         <div className="font-medium text-slate-800">
                           ₹{formatIndianNumber(invoice.total)}
                         </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <Badge className={getStatusColor(invoice.status)}>
-                          {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-                        </Badge>
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">

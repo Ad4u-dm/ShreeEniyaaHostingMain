@@ -115,12 +115,13 @@ export async function POST(request: NextRequest) {
         amount: invoice.totalAmount || 0,
         total: invoice.paidAmount || invoice.totalAmount || 0,
         enrollment: {
-          memberNumber: invoice.memberNumber || invoice.dueNumber || 'N/A'
+          memberNumber: invoice.memberNumber || 'N/A'
         },
         collectedBy: {
           name: user.name || invoice.issuedBy || 'ADMIN'
         },
         // Additional receipt fields
+        dueNumber: invoice.dueNumber || 'N/A',
         dueAmount: invoice.dueAmount || 0,
         arrearAmount: invoice.arrearAmount || 0,
         pendingAmount: invoice.pendingAmount || 0,
@@ -135,10 +136,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No data found' }, { status: 404 });
     }
 
-    // Format date and time
+    // Format date and time in IST timezone
     const date = new Date(invoiceData.issueDate);
-    const formattedDate = date.toLocaleDateString('en-GB');
-    const formattedTime = date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    const formattedDate = date.toLocaleDateString('en-GB', { timeZone: 'Asia/Kolkata' });
+    const formattedTime = date.toLocaleTimeString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
 
     // Calculate amounts from invoice snapshot fields
     const dueAmount = invoiceData.dueAmount || invoiceData.planId?.monthlyAmount || 0;
