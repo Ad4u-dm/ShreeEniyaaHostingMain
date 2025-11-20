@@ -64,7 +64,10 @@ const UserSchema = new mongoose.Schema({
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Staff/Admin who created this user
   
   // Chit Fund Tracking Data
-  memberNumber: { type: String, unique: true }, // Auto-generated member number
+  memberNumber: { 
+    type: String, 
+    unique: true
+  }, // Auto-generated unique member number for all users
   
   // Current Active Enrollment Summary
   currentEnrollment: {
@@ -136,64 +139,95 @@ const UserSchema = new mongoose.Schema({
 
 // Generate userId and memberNumber automatically
 UserSchema.pre('save', async function(next) {
-  if (!this.userId) {
-    // Keep incrementing until we find an unused userId
-    // Start from the highest existing userId
-    const lastUser = await mongoose.model('User').findOne({}, { userId: 1 }).sort({ userId: -1 });
-    let nextNumber = 1;
-
-    if (lastUser && lastUser.userId) {
-      // Extract number from userId (e.g., "CF000020" -> 20)
-      const match = lastUser.userId.match(/CF(\d+)/);
-      if (match) {
-        nextNumber = parseInt(match[1]) + 1;
-      }
-    }
-
-    // Keep trying until we find an unused userId (in case of gaps from deletions)
-    let userId = `CF${String(nextNumber).padStart(6, '0')}`;
-    let attempts = 0;
-    const maxAttempts = 1000;
-
-    while (attempts < maxAttempts) {
-      const existing = await mongoose.model('User').findOne({ userId });
-      if (!existing) {
-        // Found an unused userId
-        this.userId = userId;
-        break;
-      }
-      // Try next number
-      nextNumber++;
-      userId = `CF${String(nextNumber).padStart(6, '0')}`;
-      attempts++;
-    }
-
+  try {
     if (!this.userId) {
-      throw new Error('Could not generate unique userId after ' + maxAttempts + ' attempts');
-    }
-  }
-  
-  // Generate member number if not exists
-  if (!this.memberNumber && this.role === 'user') {
-    const lastMember = await mongoose.model('User').findOne(
-      { memberNumber: { $exists: true } }, 
-      { memberNumber: 1 }
-    ).sort({ memberNumber: -1 });
-    
-    let nextMemberNumber = 1001; // Start from 1001
-    
-    if (lastMember && lastMember.memberNumber) {
-      const memberNum = parseInt(lastMember.memberNumber);
-      if (!isNaN(memberNum)) {
-        nextMemberNumber = memberNum + 1;
+      // Keep incrementing until we find an unused userId
+      // Start from the highest existing userId
+      const lastUser = await mongoose.model('User').findOne({}, { userId: 1 }).sort({ userId: -1 });
+      let nextNumber = 1;
+
+      if (lastUser && lastUser.userId) {
+        // Extract number from userId (e.g., "CF000020" -> 20)
+        const match = lastUser.userId.match(/CF(\d+)/);
+        if (match) {
+          nextNumber = parseInt(match[1]) + 1;
+        }
+      }
+
+      // Keep trying until we find an unused userId (in case of gaps from deletions)
+      let userId = `CF${String(nextNumber).padStart(6, '0')}`;
+      let attempts = 0;
+      const maxAttempts = 1000;
+
+      while (attempts < maxAttempts) {
+        const existing = await mongoose.model('User').findOne({ userId });
+        if (!existing) {
+          // Found an unused userId
+          this.userId = userId;
+          break;
+        }
+        // Try next number
+        nextNumber++;
+        userId = `CF${String(nextNumber).padStart(6, '0')}`;
+        attempts++;
+      }
+
+      if (!this.userId) {
+        throw new Error('Could not generate unique userId after ' + maxAttempts + ' attempts');
       }
     }
     
-    this.memberNumber = String(nextMemberNumber);
+    // Generate member number if not exists (for all user types)
+    if (!this.memberNumber) {
+      let prefix = '';
+      let startNumber = 1;
+      
+      switch (this.role) {
+        case 'user':
+          prefix = '';
+          startNumber = 1001; // Customers start from 1001
+          break;
+        case 'staff':
+          prefix = 'STF';
+          startNumber = 1; // Staff start from STF001
+          break;
+        case 'admin':
+          prefix = 'ADM';
+          startNumber = 1; // Admins start from ADM001
+          break;
+        default:
+          prefix = 'USR';
+          startNumber = 1; // Fallback
+      }
+      
+      let nextNumber = startNumber;
+      let attempts = 0;
+      const maxAttempts = 1000;
+      
+      while (attempts < maxAttempts) {
+        const memberNumber = prefix ? `${prefix}${String(nextNumber).padStart(3, '0')}` : String(nextNumber);
+        const existing = await mongoose.model('User').findOne({ memberNumber });
+        
+        if (!existing) {
+          this.memberNumber = memberNumber;
+          break;
+        }
+        
+        nextNumber++;
+        attempts++;
+      }
+      
+      if (!this.memberNumber) {
+        throw new Error('Could not generate unique memberNumber after ' + maxAttempts + ' attempts');
+      }
+    }
+    
+    this.updatedAt = new Date();
+    next();
+  } catch (error) {
+    console.error('Error in User pre-save hook:', error);
+    next(error as Error);
   }
-  
-  this.updatedAt = new Date();
-  next();
 });
 
 export default (mongoose.models.User || mongoose.model('User', UserSchema)) as any;

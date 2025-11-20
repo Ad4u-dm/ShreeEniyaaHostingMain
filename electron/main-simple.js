@@ -36,8 +36,31 @@ async function startServer() {
         return;
       }
 
-      // Start the server using the Electron's bundled Node.js
-      serverProcess = spawn(process.execPath, [serverPath], {
+      // Try to find Node.js executable
+      let nodePath = null;
+      const possibleNodePaths = [
+        path.join(path.dirname(process.execPath), 'node.exe'),
+        path.join(resourcesPath, '..', 'node.exe'),
+        'node.exe', // In PATH
+        process.execPath // Fallback to Electron
+      ];
+
+      for (const testPath of possibleNodePaths) {
+        if (fs.existsSync(testPath)) {
+          nodePath = testPath;
+          console.log('Found Node.js at:', nodePath);
+          break;
+        }
+      }
+
+      if (!nodePath) {
+        console.error('No Node.js executable found');
+        reject(new Error('No Node.js executable found'));
+        return;
+      }
+
+      // Start the server
+      serverProcess = spawn(nodePath, [serverPath], {
         cwd: path.dirname(serverPath), // Set cwd to the standalone directory
         stdio: ['pipe', 'pipe', 'pipe'],
         env: {
@@ -162,8 +185,19 @@ async function createWindow() {
       appUrl = `http://localhost:${port}`;
       console.log(`Next.js detected on port ${port}`);
     } else {
-      await startServer();
-      appUrl = 'http://localhost:3000';
+      try {
+        await startServer();
+        console.log('Server started successfully');
+        appUrl = 'http://localhost:3000';
+      } catch (serverError) {
+        console.error('Failed to start server:', serverError);
+        dialog.showErrorBox(
+          'Server Startup Failed',
+          `Failed to start the application server: ${serverError.message}\n\nPlease check your installation and try again.`
+        );
+        app.quit();
+        return;
+      }
     }
 
     mainWindow = new BrowserWindow({

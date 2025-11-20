@@ -168,8 +168,13 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Create user error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     return NextResponse.json(
-      { success: false, error: 'Failed to create user' },
+      { success: false, error: `Failed to create user: ${error.message}` },
       { status: 500 }
     );
   }
