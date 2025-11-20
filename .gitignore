@@ -46,6 +46,7 @@ logs/
 *.snap
 *.msi
 release/
+release.backup/
 build/
 scripts/add-admin.ts
 app_output.log
