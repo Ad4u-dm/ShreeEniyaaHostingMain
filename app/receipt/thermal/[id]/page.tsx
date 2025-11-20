@@ -91,17 +91,24 @@ export default function ThermalReceiptPage() {
   // Print via Bluetooth bridge
   const printViaBluetooth = async () => {
     setPrintStatus('Connecting to printer...');
-    
+
     try {
+      // Get auth token from localStorage
+      const token = localStorage.getItem('token');
+
       // Fetch ESC/POS data from API
       const escposResponse = await fetch('/api/invoice/escpos', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ invoiceId: params.id }),
       });
 
       if (!escposResponse.ok) {
-        throw new Error('Failed to generate receipt data');
+        const errorData = await escposResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to generate receipt data');
       }
 
       const { data: escposData } = await escposResponse.json();

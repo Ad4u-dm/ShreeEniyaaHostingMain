@@ -163,12 +163,12 @@ export async function POST(request: NextRequest) {
   receipt += 'SHREE ENIYAA CHITFUNDS (P) LTD.\n';
   receipt += 'Mahadhana Street, Mayiladuthurai - 609 001.\n';
   receipt += dashedLine();
-  receipt += padColonLine('Receipt No', invoiceData.invoiceNumber.replace('RCP', ''));
+  receipt += padColonLine('Receipt No', String(invoiceData.invoiceNumber || 'N/A').replace('RCP', ''));
   receipt += padColonLine('Date/Time', `${formattedDate} ${formattedTime}`);
   receipt += padColonLine('Member No', String(invoiceData.enrollment?.memberNumber || 'N/A'));
-  receipt += padColonLine('Member Name', String(invoiceData.customerId?.name || 'N/A').substring(0, 12));
+  receipt += padColonLine('Member Name', String(invoiceData.customerId?.name || 'N/A').substring(0, 20));
   receipt += padColonLine('Due No', String(invoiceData.dueNumber || 'N/A'));
-  receipt += padColonLine('Plan', String(invoiceData.planId?.planName || 'N/A').substring(0, 12));
+  receipt += padColonLine('Plan', String(invoiceData.planId?.planName || 'N/A').substring(0, 20));
   receipt += padColonLine('Due Amount', `${dueAmount.toLocaleString('en-IN')}`);
   receipt += padColonLine('Arrear Amount', `${arrearAmount.toLocaleString('en-IN')}`);
   receipt += padColonLine('Received Amount', `${receivedAmount.toLocaleString('en-IN')}`);
