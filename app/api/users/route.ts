@@ -168,13 +168,15 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Create user error:', error);
-    console.error('Error details:', {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorDetails = error instanceof Error ? {
       message: error.message,
       stack: error.stack,
       name: error.name
-    });
+    } : { message: 'Unknown error' };
+    console.error('Error details:', errorDetails);
     return NextResponse.json(
-      { success: false, error: `Failed to create user: ${error.message}` },
+      { success: false, error: `Failed to create user: ${errorMessage}` },
       { status: 500 }
     );
   }
