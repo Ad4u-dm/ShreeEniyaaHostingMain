@@ -45,6 +45,10 @@ logs/
 *.rpm
 *.snap
 *.msi
+release/
+build/
+scripts/add-admin.ts
+app_output.log
 
 # ======================================================
 # ⚙️ Environment & Config
