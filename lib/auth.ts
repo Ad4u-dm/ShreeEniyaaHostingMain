@@ -36,12 +36,15 @@ export async function verifyPassword(password: string, hashedPassword: string): 
 }
 
 // Extract user from request
-export function getUserFromRequest(request: NextRequest): JWTPayload | null {
-  const token = request.headers.get('authorization')?.replace('Bearer ', '') || 
-                request.cookies.get('auth-token')?.value;
-  
+export function getUserFromRequest(request: Request): JWTPayload | null {
+  // Extract token from Authorization header
+  const authHeader = request.headers.get('authorization');
+  let token = authHeader?.replace('Bearer ', '');
+
+  // If not in header, try cookies (Next.js 15: use cookies() API in route, not here)
+  // This function only supports header extraction for Web Request
+
   if (!token) return null;
-  
   return verifyToken(token);
 }
 

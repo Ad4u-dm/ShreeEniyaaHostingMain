@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 // import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { isDesktopApp } from '@/lib/isDesktopApp';
 import {
   Users,
   UserPlus,
@@ -419,14 +420,29 @@ export default function StaffUsersPage() {
                           </Button>
                         )}
                         
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          className="text-red-600 hover:text-red-700 mobile-btn flex-1"
-                          onClick={() => handleDeleteUser(user._id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <>
+                          {isDesktopApp() ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-red-200 text-red-600 bg-gray-100 cursor-not-allowed mobile-btn flex-1"
+                              disabled
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              <span className="ml-1 hidden sm:inline">Delete (Offline)</span>
+                            </Button>
+                          ) : null}
+                          {!isDesktopApp() ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600 hover:text-red-700 mobile-btn flex-1"
+                              onClick={() => handleDeleteUser(user._id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          ) : null}
+                        </>
                       </div>
                     </div>
                   </div>

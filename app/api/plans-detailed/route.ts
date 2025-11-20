@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import mongoose from 'mongoose';
 
-export async function GET(request: NextRequest) {
+export async function GET(req: Request) {
   try {
     await connectDB();
 

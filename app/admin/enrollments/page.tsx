@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { isDesktopApp } from '@/lib/isDesktopApp';
+import { fetchWithCache } from '@/lib/fetchWithCache';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -58,6 +60,22 @@ interface EnrollmentStats {
 }
 
 export default function EnrollmentsPage() {
+  // Helper functions to safely extract data from potentially populated fields
+  const getPlanName = (planId: any) => typeof planId === "object" && planId ? planId.planName : 'Unknown Plan';
+  const getPlanTotalAmount = (planId: any) => typeof planId === "object" && planId ? planId.totalAmount : 0;
+  const getPlanDuration = (planId: any) => typeof planId === "object" && planId ? planId.duration : 0;
+  const getPlanMonthlyAmount = (planId: any) => typeof planId === "object" && planId ? planId.monthlyAmount : 0;
+  const getId = (field: any) => typeof field === "object" && field ? field._id : field;
+
+  const [offlineMode, setOfflineMode] = useState(false);
+  // Banner for offline mode (Electron only)
+  const OfflineBanner = () => (
+    isDesktopApp() && offlineMode ? (
+      <div style={{ background: '#f59e42', color: '#fff', padding: '8px', textAlign: 'center', fontWeight: 'bold' }}>
+        Offline Mode: Data may be outdated. Write actions are disabled.
+      </div>
+    ) : null
+  );
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [stats, setStats] = useState<EnrollmentStats>({
     totalEnrollments: 0,
@@ -128,7 +146,7 @@ export default function EnrollmentsPage() {
   const filteredEnrollments = enrollments.filter(enrollment =>
     enrollment.userId.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     enrollment.memberNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    enrollment.planId.planName.toLowerCase().includes(searchTerm.toLowerCase())
+    getPlanName(enrollment.planId).toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (loading) {
@@ -151,6 +169,7 @@ export default function EnrollmentsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+      <OfflineBanner />
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -308,25 +327,25 @@ export default function EnrollmentsPage() {
                         </TableCell>
                         <TableCell>
                           <div>
-                            <div className="font-medium">{enrollment.planId.planName}</div>
+                            <div className="font-medium">{getPlanName(enrollment.planId)}</div>
                             <div className="text-sm text-gray-500">
-                              ₹{formatIndianNumber(enrollment.planId.totalAmount)}
+                              ₹{formatIndianNumber(getPlanTotalAmount(enrollment.planId))}
                             </div>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Calendar className="h-4 w-4 text-gray-400" />
-                            {enrollment.planId.duration} months
+                            {getPlanDuration(enrollment.planId)} months
                           </div>
                         </TableCell>
                         <TableCell>
                           <div>
                             <div className="font-semibold">
-                              ₹{formatIndianNumber(enrollment.planId.monthlyAmount)}/month
+                              ₹{formatIndianNumber(getPlanMonthlyAmount(enrollment.planId))}/month
                             </div>
                             <div className="text-sm text-gray-500">
-                              Total: ₹{formatIndianNumber(enrollment.planId.totalAmount)}
+                              Total: ₹{formatIndianNumber(getPlanTotalAmount(enrollment.planId))}
                             </div>
                           </div>
                         </TableCell>
@@ -335,12 +354,12 @@ export default function EnrollmentsPage() {
                             <div 
                               className="bg-blue-600 h-2 rounded-full" 
                               style={{ 
-                                width: `${Math.min(100, (enrollment.totalPaid / enrollment.planId.totalAmount) * 100)}%` 
+                                width: `${Math.min(100, (enrollment.totalPaid / getPlanTotalAmount(enrollment.planId)) * 100)}%` 
                               }}
                             ></div>
                           </div>
                           <div className="text-xs text-gray-500 mt-1">
-                            ₹{formatIndianNumber(enrollment.totalPaid)} / ₹{formatIndianNumber(enrollment.planId.totalAmount)}
+                            ₹{formatIndianNumber(enrollment.totalPaid)} / ₹{formatIndianNumber(getPlanTotalAmount(enrollment.planId))}
                           </div>
                         </TableCell>
                         <TableCell>

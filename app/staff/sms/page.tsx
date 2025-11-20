@@ -59,6 +59,15 @@ interface SMSLog {
   };
 }
 
+// Electron-only offline banner
+const OfflineBanner = () => (
+  typeof window !== 'undefined' && window.navigator && window.navigator.userAgent.includes('Electron') ? (
+    <div className="bg-yellow-100 text-yellow-800 p-2 rounded mb-4 text-center text-sm">
+      Offline mode enabled (Electron desktop app). Sending SMS is disabled.
+    </div>
+  ) : null
+);
+
 export default function SMSManagementPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [templates, setTemplates] = useState<SMSTemplate[]>([]);
@@ -251,6 +260,7 @@ export default function SMSManagementPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
       <div className="container mx-auto p-4 max-w-7xl">
+        <OfflineBanner />
         
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-6">

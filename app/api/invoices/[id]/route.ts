@@ -7,15 +7,13 @@ import Payment from '@/models/Payment';
 import { getUserFromRequest, hasMinimumRole } from '@/lib/auth';
 
 export async function GET(
-  request: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectDB();
     
-    const { id } = await params;
-    
-    if (!id) {
+    const { id } = await params;    if (!id) {
       return NextResponse.json(
         { success: false, error: 'Invoice ID is required' },
         { status: 400 }

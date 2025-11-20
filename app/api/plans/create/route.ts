@@ -4,11 +4,11 @@ import { Types } from 'mongoose';
 import Plan from '@/models/Plan';
 import { getUserFromRequest, hasMinimumRole } from '@/lib/auth';
 
-export async function POST(request: NextRequest) {
+export async function POST(req: Request) {
   try {
     await connectDB();
     
-    const user = getUserFromRequest(request);
+  const user = getUserFromRequest(req);
     if (!user || !hasMinimumRole(user, 'admin')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       auctionTime,
       description,
       terms
-    } = await request.json();
+  } = await req.json();
 
     // Debug logging
     console.log('Received plan data:', {

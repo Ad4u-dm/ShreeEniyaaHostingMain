@@ -40,6 +40,12 @@ interface Invoice {
 }
 
 export default function PrintInvoicePage() {
+  // Helper functions to safely extract data from potentially populated fields
+  const getCustomerName = (customerId: any) => typeof customerId === "object" && customerId ? customerId.name : 'Unknown Customer';
+  const getCustomerEmail = (customerId: any) => typeof customerId === "object" && customerId ? customerId.email : 'No email';
+  const getCustomerPhone = (customerId: any) => typeof customerId === "object" && customerId ? customerId.phone : 'No phone';
+  const getCustomerAddress = (customerId: any) => typeof customerId === "object" && customerId ? customerId.address : 'Address not provided';
+
   const params = useParams();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
@@ -147,10 +153,10 @@ export default function PrintInvoicePage() {
       country: "India"
     },
     receiver: {
-      name: invoice.customerId.name,
-      email: invoice.customerId.email,
-      phone: invoice.customerId.phone,
-      address: invoice.customerId.address || "Customer Address"
+      name: getCustomerName(invoice.customerId),
+      email: getCustomerEmail(invoice.customerId),
+      phone: getCustomerPhone(invoice.customerId),
+      address: getCustomerAddress(invoice.customerId)
     },
     details: {
       invoiceNumber: invoice.invoiceNumber,

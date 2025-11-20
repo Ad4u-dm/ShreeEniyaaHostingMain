@@ -5,11 +5,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Users, Search, Filter, UserCheck, UserX, Mail, Phone, Calendar, Eye, AlertTriangle, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Users, Search, Filter, UserCheck, UserX, Mail, Phone, Calendar, Eye, AlertTriangle, RefreshCw, Edit2, Plus, Trash2, UserPlus } from 'lucide-react';
 import { formatIndianNumber } from '@/lib/helpers';
+import { fetchWithCache } from '@/lib/fetchWithCache';
+import { OfflineDB } from '@/lib/offlineDb';
+import { isDesktopApp } from '@/lib/isDesktopApp';
 
 interface Customer {
   _id: string;
+  userId?: string; // Custom userId like "CF000001"
   name: string;
   email: string;
   phone: string;
@@ -43,12 +47,54 @@ interface PaginationInfo {
   pages: number;
 }
 
+interface Plan {
+  _id: string;
+  planName: string;
+  totalAmount: number;
+  monthlyAmount: number;
+  duration: number;
+}
+
+interface Enrollment {
+  _id: string;
+  userId: string;
+  planId: string;
+  status: string;
+  enrollmentDate: string;
+  startDate: string;
+  endDate: string;
+  totalDue: number;
+  totalPaid: number;
+  remainingAmount: number;
+}
+
 export default function UsersPage() {
+  // Helper function to safely extract ID from potentially populated field
+  const getId = (field: any) => typeof field === "object" && field ? field._id : field;
+  
+  // Helper function to safely get plan name
+  const getPlanName = (planId: any) => typeof planId === "object" && planId ? planId.planName : 'Unknown Plan';
+  
+  // Helper function to safely get plan duration
+  const getPlanDuration = (planId: any) => typeof planId === "object" && planId ? planId.duration : 0;
+  
+  // Helper function to safely get plan total amount
+  const getPlanTotalAmount = (planId: any) => typeof planId === "object" && planId ? planId.totalAmount : 0;
+
+  // Banner for offline mode (Electron only)
+  const OfflineBanner = () => (
+    isDesktopApp() && offlineMode ? (
+      <div style={{ background: '#f59e42', color: '#fff', padding: '8px', textAlign: 'center', fontWeight: 'bold' }}>
+        Offline Mode: Data may be outdated. Write actions are disabled.
+      </div>
+    ) : null
+  );
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
   const [loading, setLoading] = useState(true);
+  const [offlineMode, setOfflineMode] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'suspended'>('all');
   const [roleFilter, setRoleFilter] = useState<'user' | 'staff' | 'admin' | 'all'>('user');
@@ -56,6 +102,15 @@ export default function UsersPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editFormData, setEditFormData] = useState<any>({});
   const [currentPage, setCurrentPage] = useState(1);
+  const [userEnrollments, setUserEnrollments] = useState<Enrollment[]>([]);
+  const [availablePlans, setAvailablePlans] = useState<Plan[]>([]);
+  const [showEnrollmentModal, setShowEnrollmentModal] = useState(false);
+  const [isEditingEnrollment, setIsEditingEnrollment] = useState(false);
+  const [currentEnrollment, setCurrentEnrollment] = useState<Enrollment | null>(null);
+  const [enrollmentFormData, setEnrollmentFormData] = useState<any>({
+    planId: '',
+    startDate: new Date().toISOString().split('T')[0]
+  });
 
   useEffect(() => {
     fetchCustomers();
@@ -175,7 +230,6 @@ export default function UsersPage() {
   const handleEditUser = (customer: Customer) => {
     setEditFormData({
       name: customer.name,
-      email: customer.email,
       phone: customer.phone,
       address: customer.address
     });
@@ -215,6 +269,157 @@ export default function UsersPage() {
     }
   };
 
+  const fetchUserEnrollments = async (userId: string) => {
+    try {
+      console.log('Fetching enrollments for userId:', userId);
+      const response = await fetch(`/api/enrollments?userId=${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        }
+      });
+      console.log('Enrollments response status:', response.status);
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Enrollments data received:', data);
+        console.log('Enrollments array:', data.enrollments);
+        setUserEnrollments(data.enrollments || []);
+      } else {
+        const errorData = await response.json();
+        console.error('Failed to fetch enrollments:', errorData);
+      }
+    } catch (error) {
+      console.error('Failed to fetch user enrollments:', error);
+    }
+  };
+
+  const fetchAvailablePlans = async () => {
+    try {
+      console.log('Fetching available plans...');
+      const response = await fetch('/api/plans', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        }
+      });
+      console.log('Plans response status:', response.status);
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Plans data received:', data);
+        console.log('Plans array:', data.plans);
+        setAvailablePlans(data.plans || []);
+      } else {
+        const errorData = await response.json();
+        console.error('Failed to fetch plans:', errorData);
+      }
+    } catch (error) {
+      console.error('Failed to fetch plans:', error);
+    }
+  };
+
+  const handleOpenEnrollmentModal = () => {
+    // Check if user already has an active enrollment
+    const activeEnrollment = userEnrollments.find(e => e.status === 'active');
+
+    if (activeEnrollment) {
+      // Edit existing enrollment
+      setIsEditingEnrollment(true);
+      setCurrentEnrollment(activeEnrollment);
+      setEnrollmentFormData({
+        planId: typeof activeEnrollment.planId === "object" && activeEnrollment.planId ? (activeEnrollment.planId as any)._id : activeEnrollment.planId,
+        startDate: new Date(activeEnrollment.startDate).toISOString().split('T')[0]
+      });
+    } else {
+      // Create new enrollment
+      setIsEditingEnrollment(false);
+      setCurrentEnrollment(null);
+      setEnrollmentFormData({
+        planId: '',
+        startDate: new Date().toISOString().split('T')[0]
+      });
+    }
+
+    setShowEnrollmentModal(true);
+  };
+
+  const handleSaveEnrollment = async () => {
+    if (!selectedCustomer || !enrollmentFormData.planId) {
+      alert('Please select a plan');
+      return;
+    }
+
+    try {
+      if (isEditingEnrollment && currentEnrollment) {
+        // Update existing enrollment
+        const response = await fetch(`/api/enrollments/${currentEnrollment._id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+          },
+          body: JSON.stringify({
+            planId: enrollmentFormData.planId,
+            startDate: enrollmentFormData.startDate
+          })
+        });
+
+        if (response.ok) {
+          alert('Enrollment updated successfully!');
+          setShowEnrollmentModal(false);
+          setIsEditingEnrollment(false);
+          setCurrentEnrollment(null);
+          setEnrollmentFormData({
+            planId: '',
+            startDate: new Date().toISOString().split('T')[0]
+          });
+          fetchUserEnrollments(selectedCustomer.userId || selectedCustomer._id);
+          fetchCustomers();
+        } else {
+          const error = await response.json();
+          alert(error.error || 'Failed to update enrollment');
+        }
+      } else {
+        // Create new enrollment
+        const response = await fetch('/api/enrollments', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+          },
+          body: JSON.stringify({
+            userId: selectedCustomer.userId || selectedCustomer._id,
+            planId: enrollmentFormData.planId,
+            startDate: enrollmentFormData.startDate
+          })
+        });
+
+        if (response.ok) {
+          alert('Enrollment created successfully!');
+          setShowEnrollmentModal(false);
+          setEnrollmentFormData({
+            planId: '',
+            startDate: new Date().toISOString().split('T')[0]
+          });
+          fetchUserEnrollments(selectedCustomer.userId || selectedCustomer._id);
+          fetchCustomers();
+        } else {
+          const error = await response.json();
+          alert(error.error || 'Failed to create enrollment');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to save enrollment:', error);
+      alert('Failed to save enrollment');
+    }
+  };
+
+  const handleViewCustomer = (customer: Customer) => {
+    setSelectedCustomer(customer);
+    console.log('Selected customer:', customer);
+    console.log('Using userId for enrollment fetch:', customer.userId || customer._id);
+    // Use customer.userId if available, otherwise fall back to _id
+    fetchUserEnrollments(customer.userId || customer._id);
+    fetchAvailablePlans();
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'text-green-600 bg-green-100';
@@ -252,6 +457,7 @@ export default function UsersPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-3 sm:p-4 md:p-6">
+      <OfflineBanner />
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 sm:mb-6">
@@ -326,10 +532,13 @@ export default function UsersPage() {
         </Card>
 
         {/* Users Table */}
-        <Card>
-          <CardHeader className="px-4 sm:px-6 py-4 sm:py-6">
+        <Card className="shadow-lg">
+          <CardHeader className="px-4 sm:px-6 py-4 sm:py-6 bg-gradient-to-r from-slate-50 to-blue-50">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <CardTitle className="text-lg sm:text-xl">Users ({filteredCustomers.length})</CardTitle>
+              <CardTitle className="text-lg sm:text-xl flex items-center gap-2">
+                <Users className="h-5 w-5 text-blue-600" />
+                Users ({filteredCustomers.length})
+              </CardTitle>
               <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-600">
                 <Filter className="h-3 w-3 sm:h-4 sm:w-4" />
                 <span className="hidden sm:inline">Showing</span> {filteredCustomers.length} of {pagination?.total || customers.length} users
@@ -340,43 +549,46 @@ export default function UsersPage() {
             <div className="overflow-x-auto mobile-scroll">
               <table className="w-full min-w-[600px]">
                 <thead>
-                  <tr className="border-b border-slate-200">
-                    <th className="text-left py-3 px-4 font-medium text-slate-600">Customer</th>
-                    <th className="text-left py-3 px-4 font-medium text-slate-600">Plan</th>
-                    <th className="text-left py-3 px-4 font-medium text-slate-600">Actions</th>
+                  <tr className="border-b-2 border-slate-200 bg-slate-50">
+                    <th className="text-left py-3 px-4 font-semibold text-slate-700">Customer Details</th>
+                    <th className="text-left py-3 px-4 font-semibold text-slate-700">Current Plan</th>
+                    <th className="text-left py-3 px-4 font-semibold text-slate-700">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredCustomers.map((customer) => (
-                    <tr key={customer._id} className="border-b border-slate-100 hover:bg-slate-50">
-                      <td className="py-3 px-4">
+                    <tr key={customer._id} className="border-b border-slate-100 hover:bg-blue-50/50 transition-colors">
+                      <td className="py-4 px-4">
                         <div>
-                          <div className="font-medium text-slate-800">{customer.name}</div>
-                          <div className="text-sm text-slate-600 flex items-center gap-2 mt-1">
-                            <Mail className="h-3 w-3" />
-                            {customer.email}
-                          </div>
-                          <div className="text-sm text-slate-600 flex items-center gap-2 mt-1">
-                            <Phone className="h-3 w-3" />
+                          <div className="font-semibold text-slate-800 text-base">{customer.name}</div>
+                          <div className="text-sm text-slate-600 flex items-center gap-2 mt-2">
+                            <Phone className="h-3.5 w-3.5 text-green-500" />
                             {customer.phone}
                           </div>
                         </div>
                       </td>
-                      <td className="py-3 px-4">
-                        <div className="font-medium text-slate-800">{customer.planName}</div>
-                        <div className="text-sm text-slate-600">
+                      <td className="py-4 px-4">
+                        <div className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium ${
+                          customer.planName === 'No Plan'
+                            ? 'bg-gray-100 text-gray-700'
+                            : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {customer.planName}
+                        </div>
+                        <div className="text-xs text-slate-500 mt-2 flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
                           Joined: {new Date(customer.joinDate).toLocaleDateString('en-IN')}
                         </div>
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-4 px-4">
                         <div className="flex items-center gap-2">
                           <Button
                             size="sm"
-                            variant="outline"
-                            onClick={() => setSelectedCustomer(customer)}
-                            className="flex items-center gap-1"
+                            variant="default"
+                            onClick={() => handleViewCustomer(customer)}
+                            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700"
                           >
-                            <Eye className="h-3 w-3" />
+                            <Eye className="h-3.5 w-3.5" />
                             View
                           </Button>
                           <Button
@@ -400,9 +612,9 @@ export default function UsersPage() {
                                 alert('Error deleting user.');
                               }
                             }}
-                            className="flex items-center gap-1"
+                            className="flex items-center gap-1.5"
                           >
-                            <UserX className="h-3 w-3" />
+                            <Trash2 className="h-3.5 w-3.5" />
                             Delete
                           </Button>
                         </div>
@@ -468,142 +680,252 @@ export default function UsersPage() {
         {/* Customer Detail Modal */}
         {selectedCustomer && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold text-slate-800">Customer Details</h2>
-                  <div className="flex gap-2">
+                  <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                    <UserCheck className="h-6 w-6 text-blue-600" />
+                    Customer Details
+                  </h2>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedCustomer(null);
+                      setIsEditing(false);
+                      setEditFormData({});
+                      setUserEnrollments([]);
+                    }}
+                  >
+                    ✕
+                  </Button>
+                </div>
+
+                {/* User Info Section */}
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mb-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-slate-600 mb-1">Name</p>
+                      {isEditing ? (
+                        <Input
+                          value={editFormData.name || ''}
+                          onChange={(e) => setEditFormData({...editFormData, name: e.target.value})}
+                          className="bg-white"
+                        />
+                      ) : (
+                        <p className="font-semibold text-slate-800">{selectedCustomer.name}</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm text-slate-600 mb-1">Phone</p>
+                      {isEditing ? (
+                        <Input
+                          value={editFormData.phone || ''}
+                          onChange={(e) => setEditFormData({...editFormData, phone: e.target.value})}
+                          className="bg-white"
+                        />
+                      ) : (
+                        <p className="font-semibold text-slate-800">{selectedCustomer.phone}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-4 flex gap-2">
                     {!isEditing ? (
-                      <Button
-                        variant="outline"
-                        onClick={() => handleEditUser(selectedCustomer)}
-                      >
-                        Edit
-                      </Button>
-                    ) : (
                       <>
-                        <Button
-                          variant="outline"
-                          onClick={handleSaveEdit}
-                        >
-                          Save
+                        <Button size="sm" variant="outline" onClick={() => handleEditUser(selectedCustomer)}>
+                          <Edit2 className="h-3 w-3 mr-1" />
+                          Edit Info
                         </Button>
-                        <Button
-                          variant="outline"
-                          onClick={handleCancelEdit}
-                        >
-                          Cancel
+                        <Button size="sm" variant="destructive" onClick={() => handleDeleteUser(selectedCustomer._id)}>
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          Delete User
                         </Button>
                       </>
+                    ) : (
+                      <>
+                        <Button size="sm" onClick={handleSaveEdit}>Save Changes</Button>
+                        <Button size="sm" variant="outline" onClick={handleCancelEdit}>Cancel</Button>
+                      </>
                     )}
-                    {/* Show Delete button only for non-admin users */}
-                    {selectedCustomer?.createdBy?.role !== 'admin' && (
-                      <Button
-                        variant="destructive"
-                        onClick={() => handleDeleteUser(selectedCustomer._id)}
-                      >
-                        Delete
-                      </Button>
-                    )}
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setSelectedCustomer(null);
-                        setIsEditing(false);
-                        setEditFormData({});
-                      }}
-                    >
-                      Close
-                    </Button>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="font-semibold text-slate-800 mb-3">Personal Information</h3>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="text-sm text-slate-600">Name</label>
-                        {isEditing ? (
-                          <Input
-                            value={editFormData.name || ''}
-                            onChange={(e) => setEditFormData({...editFormData, name: e.target.value})}
-                            className="mt-1"
-                          />
-                        ) : (
-                          <p className="font-medium">{selectedCustomer.name}</p>
-                        )}
-                      </div>
-                      <div>
-                        <label className="text-sm text-slate-600">Email</label>
-                        {isEditing ? (
-                          <Input
-                            value={editFormData.email || ''}
-                            onChange={(e) => setEditFormData({...editFormData, email: e.target.value})}
-                            className="mt-1"
-                            type="email"
-                          />
-                        ) : (
-                          <p className="font-medium">{selectedCustomer.email}</p>
-                        )}
-                      </div>
-                      <div>
-                        <label className="text-sm text-slate-600">Phone</label>
-                        {isEditing ? (
-                          <Input
-                            value={editFormData.phone || ''}
-                            onChange={(e) => setEditFormData({...editFormData, phone: e.target.value})}
-                            className="mt-1"
-                          />
-                        ) : (
-                          <p className="font-medium">{selectedCustomer.phone}</p>
-                        )}
-                      </div>
-                      <div>
-                        <label className="text-sm text-slate-600">Address</label>
-                        {isEditing ? (
-                          <Input
-                            value={editFormData.address || ''}
-                            onChange={(e) => setEditFormData({...editFormData, address: e.target.value})}
-                            className="mt-1"
-                          />
-                        ) : (
-                          <p className="font-medium">{selectedCustomer.address}</p>
-                        )}
-                      </div>
-                    </div>
+                {/* Enrollments Section */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                      <Users className="h-5 w-5 text-blue-600" />
+                      Plan Enrollment
+                    </h3>
+                    <Button size="sm" onClick={handleOpenEnrollmentModal}>
+                      {userEnrollments.some(e => e.status === 'active') ? (
+                        <>
+                          <Edit2 className="h-4 w-4 mr-1" />
+                          Edit Enrollment
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="h-4 w-4 mr-1" />
+                          Add Enrollment
+                        </>
+                      )}
+                    </Button>
                   </div>
 
-                  <div>
-                    <h3 className="font-semibold text-slate-800 mb-3">Investment Details</h3>
+                  {userEnrollments.filter(e => e.status === 'active').length > 0 ? (
                     <div className="space-y-3">
-                      <div>
-                        <label className="text-sm text-slate-600">Plan</label>
-                        <p className="font-medium">{selectedCustomer.planName}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm text-slate-600">Status</label>
-                        <p className={`font-medium inline-flex items-center gap-1 px-2 py-1 rounded text-sm ${getStatusColor(selectedCustomer.status)}`}>
-                          {getStatusIcon(selectedCustomer.status)}
-                          {selectedCustomer.status}
-                        </p>
-                      </div>
-                      <div>
-                        <label className="text-sm text-slate-600">Join Date</label>
-                        <p className="font-medium">{new Date(selectedCustomer.joinDate).toLocaleDateString('en-IN')}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm text-slate-600">Payment History</label>
-                        <p className="font-medium">{selectedCustomer.paymentHistory} payments made</p>
-                      </div>
-                      <div>
-                        <label className="text-sm text-slate-600">Created By</label>
-                        <p className="font-medium">
-                          {selectedCustomer.createdBy?.name || 'Admin'} ({selectedCustomer.createdBy?.role || 'admin'})
-                        </p>
-                      </div>
+                      {userEnrollments.filter(e => e.status === 'active').map((enrollment: any) => (
+                        <Card key={enrollment._id} className="border-l-4 border-l-blue-600">
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <p className="font-semibold text-slate-800 text-lg">{getPlanName(enrollment.planId)}</p>
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  Active
+                                </span>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                              <div>
+                                <p className="text-slate-600 text-xs mb-1">Start Date</p>
+                                <p className="font-medium text-slate-800">{new Date(enrollment.startDate).toLocaleDateString('en-IN')}</p>
+                              </div>
+                              <div>
+                                <p className="text-slate-600 text-xs mb-1">End Date</p>
+                                <p className="font-medium text-slate-800">{new Date(enrollment.endDate).toLocaleDateString('en-IN')}</p>
+                              </div>
+                              <div>
+                                <p className="text-slate-600 text-xs mb-1">Duration</p>
+                                <p className="font-medium text-slate-800">{getPlanDuration(enrollment.planId)} months</p>
+                              </div>
+                              <div>
+                                <p className="text-slate-600 text-xs mb-1">Plan Amount (Total)</p>
+                                <p className="font-medium text-slate-800">₹{formatIndianNumber(getPlanTotalAmount(enrollment.planId))}</p>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 text-sm mt-3 pt-3 border-t">
+                              <div>
+                                <p className="text-slate-600 text-xs mb-1">Total Paid</p>
+                                <p className="font-semibold text-green-600 text-base">₹{formatIndianNumber(enrollment.totalPaid || 0)}</p>
+                              </div>
+                              <div>
+                                <p className="text-slate-600 text-xs mb-1">Balance Remaining</p>
+                                <p className="font-semibold text-orange-600 text-base">₹{formatIndianNumber(enrollment.remainingAmount || 0)}</p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
                     </div>
-                  </div>
+                  ) : (
+                    <div className="text-center py-8 bg-slate-50 rounded-lg">
+                      <Users className="h-12 w-12 text-slate-400 mx-auto mb-2" />
+                      <p className="text-slate-600">No active enrollment</p>
+                      <p className="text-sm text-slate-500 mt-1">Click "Add Enrollment" to assign this user to a plan</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add/Edit Enrollment Modal */}
+        {showEnrollmentModal && selectedCustomer && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60] p-4"
+            onClick={(e) => {
+              // Only close if clicking directly on the backdrop, not its children
+              if (e.target === e.currentTarget) {
+                setShowEnrollmentModal(false);
+                setIsEditingEnrollment(false);
+                setCurrentEnrollment(null);
+                setEnrollmentFormData({
+                  planId: '',
+                  startDate: new Date().toISOString().split('T')[0]
+                });
+              }
+            }}
+          >
+            <div className="bg-white rounded-lg max-w-md w-full p-6">
+              <h3 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                {isEditingEnrollment ? (
+                  <>
+                    <Edit2 className="h-5 w-5 text-blue-600" />
+                    Edit Plan Enrollment
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="h-5 w-5 text-blue-600" />
+                    Add Plan Enrollment
+                  </>
+                )}
+              </h3>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-slate-700 block mb-2">
+                    Select Plan
+                  </label>
+                  <Select
+                    value={enrollmentFormData.planId}
+                    onValueChange={(value) => {
+                      console.log('Plan selected:', value);
+                      setEnrollmentFormData({...enrollmentFormData, planId: value});
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder={availablePlans.length === 0 ? "No plans available" : "Choose a plan"} />
+                    </SelectTrigger>
+                    <SelectContent className="z-[70]">
+                      {availablePlans.length === 0 ? (
+                        <div className="p-2 text-sm text-slate-500">No active plans found</div>
+                      ) : (
+                        availablePlans.map((plan) => (
+                          <SelectItem key={plan._id} value={plan._id}>
+                            {plan.planName} - ₹{formatIndianNumber(plan.totalAmount)}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {availablePlans.length > 0 && (
+                    <p className="text-xs text-slate-500 mt-1">
+                      {availablePlans.length} plan(s) available
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-slate-700 block mb-2">
+                    Start Date
+                  </label>
+                  <Input
+                    type="date"
+                    value={enrollmentFormData.startDate}
+                    onChange={(e) => setEnrollmentFormData({...enrollmentFormData, startDate: e.target.value})}
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-4">
+                  <Button onClick={handleSaveEnrollment} className="flex-1">
+                    {isEditingEnrollment ? 'Update Enrollment' : 'Create Enrollment'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowEnrollmentModal(false);
+                      setIsEditingEnrollment(false);
+                      setCurrentEnrollment(null);
+                      setEnrollmentFormData({
+                        planId: '',
+                        startDate: new Date().toISOString().split('T')[0]
+                      });
+                    }}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
                 </div>
               </div>
             </div>

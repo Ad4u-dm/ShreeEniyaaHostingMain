@@ -6,9 +6,9 @@ import smsService from '@/lib/sms';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
 
-export async function POST(request: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const user = getUserFromRequest(request);
+  const user = getUserFromRequest(req);
     if (!user || !hasMinimumRole(user, 'staff')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 401 });
     }
 
-    const { recipients, message, template, templateData } = await request.json();
+  const { recipients, message, template, templateData } = await req.json();
 
     if (!recipients || !recipients.length) {
       return NextResponse.json(
@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
 // Get SMS templates
 export async function GET(request: NextRequest) {
   try {
-    const user = getUserFromRequest(request);
+  const user = getUserFromRequest(req);
     if (!user || !hasMinimumRole(user, 'staff')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

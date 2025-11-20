@@ -5,11 +5,11 @@ import ChitPlan from '@/models/ChitPlan';
 import User from '@/models/User';
 import Enrollment from '@/models/Enrollment';
 
-export async function GET(request: NextRequest) {
+export async function GET(req: Request) {
   try {
     await connectDB();
 
-    const { searchParams } = new URL(request.url);
+  const { searchParams } = new URL(req.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
     const search = searchParams.get('search') || '';

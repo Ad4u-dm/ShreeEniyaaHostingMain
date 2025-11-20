@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { isDesktopApp } from '@/lib/isDesktopApp';
+import { fetchWithCache } from '@/lib/fetchWithCache';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import AdminDashboard from './AdminDashboard';
@@ -18,6 +20,7 @@ export default function MainDashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [offlineMode, setOfflineMode] = useState(false);
 
   useEffect(() => {
     checkAuthentication();
@@ -36,27 +39,37 @@ export default function MainDashboard() {
       if (!token) {
         throw new Error('No authentication token found');
       }
-
-      const response = await fetch('/api/auth/me', {
-        headers: {
-          'Authorization': `Bearer ${token}`
+      if (isDesktopApp()) {
+        const res = await fetchWithCache<User>('/api/auth/me', 'users');
+        setUser(res.data as any);
+        setOfflineMode(res.fromCache);
+      } else {
+        const response = await fetch('/api/auth/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        if (!response.ok) {
+          throw new Error('Authentication failed');
         }
-      });
-
-      if (!response.ok) {
-        throw new Error('Authentication failed');
+        const result = await response.json();
+        setUser(result.user);
       }
-
-      const result = await response.json();
-      setUser(result.user);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Authentication failed');
-      // Redirect to login page or show login form
       localStorage.removeItem('auth-token');
     } finally {
       setLoading(false);
     }
   };
+  // Banner for offline mode (Electron only)
+  const OfflineBanner = () => (
+    isDesktopApp() && offlineMode ? (
+      <div style={{ background: '#f59e42', color: '#fff', padding: '8px', textAlign: 'center', fontWeight: 'bold' }}>
+        Offline Mode: Data may be outdated. Write actions are disabled.
+      </div>
+    ) : null
+  );
 
   if (loading) {
     return (
@@ -101,26 +114,35 @@ export default function MainDashboard() {
   // Render appropriate dashboard based on user role
   switch (user.role) {
     case 'admin':
-      return <AdminDashboard />;
+      return <>
+        <OfflineBanner />
+        <AdminDashboard />
+      </>;
     case 'staff':
       // Staff users will be redirected to /staff in useEffect
       return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
-          <Card className="max-w-md">
-            <CardHeader>
-              <CardTitle>Redirecting...</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              </div>
-              <p className="text-center text-slate-600">Taking you to the staff dashboard...</p>
-            </CardContent>
-          </Card>
-        </div>
+        <>
+          <OfflineBanner />
+          <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+            <Card className="max-w-md">
+              <CardHeader>
+                <CardTitle>Redirecting...</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+                <p className="text-center text-slate-600">Taking you to the staff dashboard...</p>
+              </CardContent>
+            </Card>
+          </div>
+        </>
       );
     case 'user':
-      return <UserDashboard />;
+      return <>
+        <OfflineBanner />
+        <UserDashboard />
+      </>;
     default:
       return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">

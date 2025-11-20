@@ -69,27 +69,88 @@ export async function GET(request: NextRequest) {
     // Manually populate user data for userId and assignedStaff
     const userIds = rawEnrollments.map(enrollment => enrollment.userId).filter(Boolean);
     const staffIds = rawEnrollments.map(enrollment => enrollment.assignedStaff).filter(Boolean);
-    
+
     // Get all unique user IDs (both customers and staff)
     const allUserIds = Array.from(new Set(userIds.concat(staffIds)));
     const users = await User.find({ userId: { $in: allUserIds } }, 'name email phone userId');
     const userMap = new Map(users.map(user => [user.userId, user]));
 
-    // Combine enrollment data with user data
-    const enrollments = rawEnrollments.map(enrollment => ({
-      ...enrollment.toObject(),
-      userId: userMap.get(enrollment.userId) || { 
-        userId: enrollment.userId, 
-        name: 'Unknown User', 
-        email: '', 
-        phone: '' 
-      },
-      assignedStaff: enrollment.assignedStaff ? (userMap.get(enrollment.assignedStaff) || {
-        userId: enrollment.assignedStaff,
-        name: 'Unknown Staff',
-        email: ''
-      }) : null
-    }));
+    // Get enrollment IDs for payment/invoice lookup
+    const enrollmentIds = rawEnrollments.map(e => e._id);
+
+    // Import Invoice model
+    const Invoice = (await import('@/models/Invoice')).default;
+
+    // Fetch all invoices for these enrollments
+    const invoices = await Invoice.find({
+      enrollmentId: { $in: enrollmentIds }
+    }).lean();
+
+    // Create a map of enrollment payments
+    const enrollmentPaymentsMap = new Map();
+    console.log('=== ENROLLMENT PAYMENT CALCULATION ===');
+    console.log('Total invoices found:', invoices.length);
+
+    invoices.forEach(invoice => {
+      const enrollmentId = invoice.enrollmentId.toString();
+      console.log('Invoice:', {
+        invoiceId: invoice.invoiceId,
+        enrollmentId,
+        receivedAmount: invoice.receivedAmount,
+        totalReceivedAmount: invoice.totalReceivedAmount,
+        paidAmount: invoice.paidAmount,
+        balanceAmount: invoice.balanceAmount
+      });
+
+      if (!enrollmentPaymentsMap.has(enrollmentId)) {
+        enrollmentPaymentsMap.set(enrollmentId, {
+          totalPaid: 0,
+          totalDue: 0,
+          remainingAmount: 0
+        });
+      }
+      const data = enrollmentPaymentsMap.get(enrollmentId);
+      data.totalPaid += invoice.receivedAmount || 0;
+      console.log('Updated totalPaid for enrollment:', enrollmentId, 'to:', data.totalPaid);
+    });
+    console.log('=== END PAYMENT CALCULATION ===');
+
+    // Combine enrollment data with user data and payment data
+    const enrollments = rawEnrollments.map(enrollment => {
+      const enrollmentObj = enrollment.toObject();
+      const enrollmentId = enrollment._id.toString();
+      const paymentData = enrollmentPaymentsMap.get(enrollmentId) || { totalPaid: 0 };
+
+      // Calculate remaining amount
+      const totalDue = enrollmentObj.totalDue || enrollmentObj.planId?.totalAmount || 0;
+      const totalPaid = paymentData.totalPaid;
+      const remainingAmount = Math.max(0, totalDue - totalPaid);
+
+      console.log('Enrollment calculation:', {
+        enrollmentId,
+        totalDue,
+        totalPaid,
+        remainingAmount
+      });
+
+      return {
+        ...enrollmentObj,
+        totalPaid,
+        totalDue,
+        remainingAmount,
+        userId: userMap.get(enrollment.userId) || {
+          userId: enrollment.userId,
+          name: 'Unknown User',
+          email: '',
+          phone: ''
+        },
+        assignedStaff: enrollment.assignedStaff ? (userMap.get(enrollment.assignedStaff) || {
+          userId: enrollment.assignedStaff,
+          name: 'Unknown Staff',
+          email: ''
+        }) : null
+      };
+    });
 
     // Calculate stats (only for admin/staff)
     let stats: any = null;

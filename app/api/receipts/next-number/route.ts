@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Invoice from '@/models/Invoice';
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     await connectDB();
     

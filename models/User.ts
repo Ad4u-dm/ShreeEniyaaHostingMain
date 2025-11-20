@@ -137,10 +137,11 @@ const UserSchema = new mongoose.Schema({
 // Generate userId and memberNumber automatically
 UserSchema.pre('save', async function(next) {
   if (!this.userId) {
-    // Find the highest existing userId and increment
+    // Keep incrementing until we find an unused userId
+    // Start from the highest existing userId
     const lastUser = await mongoose.model('User').findOne({}, { userId: 1 }).sort({ userId: -1 });
     let nextNumber = 1;
-    
+
     if (lastUser && lastUser.userId) {
       // Extract number from userId (e.g., "CF000020" -> 20)
       const match = lastUser.userId.match(/CF(\d+)/);
@@ -148,8 +149,28 @@ UserSchema.pre('save', async function(next) {
         nextNumber = parseInt(match[1]) + 1;
       }
     }
-    
-    this.userId = `CF${String(nextNumber).padStart(6, '0')}`;
+
+    // Keep trying until we find an unused userId (in case of gaps from deletions)
+    let userId = `CF${String(nextNumber).padStart(6, '0')}`;
+    let attempts = 0;
+    const maxAttempts = 1000;
+
+    while (attempts < maxAttempts) {
+      const existing = await mongoose.model('User').findOne({ userId });
+      if (!existing) {
+        // Found an unused userId
+        this.userId = userId;
+        break;
+      }
+      // Try next number
+      nextNumber++;
+      userId = `CF${String(nextNumber).padStart(6, '0')}`;
+      attempts++;
+    }
+
+    if (!this.userId) {
+      throw new Error('Could not generate unique userId after ' + maxAttempts + ' attempts');
+    }
   }
   
   // Generate member number if not exists

@@ -203,10 +203,11 @@ export async function GET(request: NextRequest) {
       
       return {
         _id: userData._id,
+        userId: userData.userId, // Include custom userId for enrollment lookup
         name: userData.name,
         email: userData.email,
         phone: userData.phone,
-        address: typeof userData.address === 'object' 
+        address: typeof userData.address === 'object'
           ? `${userData.address.street || ''}, ${userData.address.city || ''}, ${userData.address.state || ''} - ${userData.address.pincode || ''}`.replace(/,\s*,/g, ',').replace(/^,\s*|,\s*$/g, '')
           : userData.address || 'Address not provided',
         planId: activeEnrollment?.planId?._id || null,

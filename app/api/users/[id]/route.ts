@@ -4,11 +4,11 @@ import User from '@/models/User';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
 
-    const { id } = await params;
+  const { id } = await params;
     const user = await User.findById(id).select('-password');
     
     if (!user) {
@@ -22,12 +22,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
 
-    const { id } = await params;
-    const { name, email, phone, role, address } = await request.json();
+  const { id } = await params;
+  const { name, email, phone, role, address } = await req.json();
 
     // Check if email is already taken by another user
     const existingUser = await User.findOne({ 
@@ -73,11 +73,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
 
-    const { id } = await params;
+  const { id } = await params;
     const user = await User.findById(id);
     
     if (!user) {

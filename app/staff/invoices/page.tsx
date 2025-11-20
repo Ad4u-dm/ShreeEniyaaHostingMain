@@ -1,6 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { fetchWithCache } from '@/lib/fetchWithCache';
+import { OfflineDB } from '@/lib/offlineDb';
+import { isDesktopApp } from '@/lib/isDesktopApp';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,6 +56,13 @@ interface InvoiceStats {
 }
 
 export default function StaffInvoicesPage() {
+  // Helper functions to safely extract data from potentially populated fields
+  const getCustomerName = (customerId: any) => typeof customerId === "object" && customerId ? customerId.name : 'Unknown Customer';
+  const getCustomerEmail = (customerId: any) => typeof customerId === "object" && customerId ? customerId.email : 'No email';
+  const getCustomerPhone = (customerId: any) => typeof customerId === "object" && customerId ? customerId.phone : 'No phone';
+  const getPlanName = (planId: any) => typeof planId === "object" && planId ? planId.name : 'Unknown Plan';
+  const getPlanMonthlyAmount = (planId: any) => typeof planId === "object" && planId ? planId.monthlyAmount : 0;
+
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [stats, setStats] = useState<InvoiceStats>({
     totalInvoices: 0,
@@ -74,8 +84,6 @@ export default function StaffInvoicesPage() {
   const fetchInvoices = async (page: number = 1) => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('auth-token');
-
       const params = new URLSearchParams({
         page: page.toString(),
         limit: '10',
@@ -83,21 +91,26 @@ export default function StaffInvoicesPage() {
         ...(statusFilter !== 'all' && { status: statusFilter }),
         ...(selectedCustomer && { customerId: selectedCustomer }),
       });
-
-      const response = await fetch(`/api/staff/invoices?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setInvoices(data.invoices || []);
-        setStats(data.stats || stats);
-        setCurrentPage(data.pagination?.page || 1);
-        setTotalPages(data.pagination?.pages || 1);
+      let data;
+      if (isDesktopApp()) {
+  const result = await fetchWithCache<Invoice>(`/api/staff/invoices?${params}`, 'invoices' as keyof OfflineDB);
+        setInvoices(result.data || []);
+        // In offline mode, stats/pagination may not be available, so keep previous values
       } else {
-        console.error('Failed to fetch invoices');
+        const response = await fetch(`/api/staff/invoices?${params}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+          }
+        });
+        if (response.ok) {
+          data = await response.json();
+          setInvoices(data.invoices || []);
+          setStats(data.stats || stats);
+          setCurrentPage(data.pagination?.page || 1);
+          setTotalPages(data.pagination?.pages || 1);
+        } else {
+          console.error('Failed to fetch invoices');
+        }
       }
     } catch (error) {
       console.error('Invoice fetch error:', error);
@@ -105,6 +118,14 @@ export default function StaffInvoicesPage() {
       setLoading(false);
     }
   };
+  // Electron-only offline banner
+  const OfflineBanner = () => (
+    isDesktopApp() ? (
+      <div className="bg-yellow-100 text-yellow-800 p-2 rounded mb-4 text-center text-sm">
+        Offline mode enabled (Electron desktop app). Write actions are disabled.
+      </div>
+    ) : null
+  );
 
   useEffect(() => {
     fetchInvoices(currentPage);
@@ -158,7 +179,7 @@ export default function StaffInvoicesPage() {
     // Confirm deletion
     const confirmDelete = window.confirm(
       `Are you sure you want to delete invoice ${invoice.invoiceNumber}?\n\n` +
-      `Customer: ${invoice.customerId.name}\n` +
+      `Customer: ${getCustomerName(invoice.customerId)}\n` +
       `Amount: ₹${formatIndianNumber(invoice.total)}\n` +
       `Status: ${invoice.status}\n\n` +
       `This action cannot be undone.`
@@ -285,7 +306,8 @@ export default function StaffInvoicesPage() {
           </Link>
         </div>
 
-        {/* Header */}
+  {/* Header */}
+  <OfflineBanner />
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mobile-flex-col">
           <div>
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-800">Invoice Management</h1>
@@ -415,7 +437,7 @@ export default function StaffInvoicesPage() {
                         </div>
                         <p className="text-sm text-slate-600 mb-1">
                           <User className="h-4 w-4 inline mr-1" />
-                          {invoice.customerId.name}
+                          {getCustomerName(invoice.customerId)}
                         </p>
                         <p className="text-sm text-slate-600 mb-1">
                           <Calendar className="h-4 w-4 inline mr-1" />
@@ -439,14 +461,28 @@ export default function StaffInvoicesPage() {
                         </Button>
 
                         {invoice.status === 'draft' && (
-                          <Button
-                            size="sm"
-                            className="bg-blue-600 hover:bg-blue-700 mobile-btn flex-1"
-                            onClick={() => handleSendInvoice(invoice._id)}
-                          >
-                            <Send className="h-4 w-4" />
-                            <span className="ml-1 hidden sm:inline">Send</span>
-                          </Button>
+                          <>
+                            {isDesktopApp() ? (
+                              <Button
+                                size="sm"
+                                className="bg-blue-300 text-blue-700 cursor-not-allowed mobile-btn flex-1"
+                                disabled
+                              >
+                                <Send className="h-4 w-4" />
+                                <span className="ml-1 hidden sm:inline">Send (Offline)</span>
+                              </Button>
+                            ) : null}
+                            {!isDesktopApp() ? (
+                              <Button
+                                size="sm"
+                                className="bg-blue-600 hover:bg-blue-700 mobile-btn flex-1"
+                                onClick={() => handleSendInvoice(invoice._id)}
+                              >
+                                <Send className="h-4 w-4" />
+                                <span className="ml-1 hidden sm:inline">Send</span>
+                              </Button>
+                            ) : null}
+                          </>
                         )}
 
                         <Button
@@ -458,15 +494,28 @@ export default function StaffInvoicesPage() {
                           <span className="ml-1 hidden sm:inline">Print</span>
                         </Button>
 
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 mobile-btn flex-1"
-                          onClick={() => handleDeleteInvoice(invoice)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          <span className="ml-1 hidden sm:inline">Delete</span>
-                        </Button>
+                        {isDesktopApp() ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-red-200 text-red-600 bg-gray-100 cursor-not-allowed mobile-btn flex-1"
+                            disabled
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            <span className="ml-1 hidden sm:inline">Delete (Offline)</span>
+                          </Button>
+                        ) : null}
+                        {!isDesktopApp() ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 mobile-btn flex-1"
+                            onClick={() => handleDeleteInvoice(invoice)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            <span className="ml-1 hidden sm:inline">Delete</span>
+                          </Button>
+                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -555,9 +604,9 @@ export default function StaffInvoicesPage() {
                     <div>
                       <h3 className="font-semibold text-slate-800 mb-3">Bill To:</h3>
                       <div className="space-y-1">
-                        <p className="font-medium">{selectedInvoice.customerId.name}</p>
-                        <p className="text-slate-600">{selectedInvoice.customerId.email}</p>
-                        <p className="text-slate-600">{selectedInvoice.customerId.phone}</p>
+                        <p className="font-medium">{getCustomerName(selectedInvoice.customerId)}</p>
+                        <p className="text-slate-600">{getCustomerEmail(selectedInvoice.customerId)}</p>
+                        <p className="text-slate-600">{getCustomerPhone(selectedInvoice.customerId)}</p>
                       </div>
                     </div>
                     <div>

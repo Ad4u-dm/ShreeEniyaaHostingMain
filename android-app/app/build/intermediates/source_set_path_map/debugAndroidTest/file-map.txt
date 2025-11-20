@@ -1,6 +1,0 @@
-com.shreeiniyaa.invoifybridge.test.app-core-1.5.0-0 /home/nishant/.gradle/caches/transforms-3/4afbad93ac04819864683aca8a8f1d4f/transformed/core-1.5.0/res
-com.shreeiniyaa.invoifybridge.test.app-annotation-experimental-1.3.0-1 /home/nishant/.gradle/caches/transforms-3/bf276fbfacd3d9eef4dbe3237c8390d6/transformed/annotation-experimental-1.3.0/res
-com.shreeiniyaa.invoifybridge.test.app-androidTest-2 /media/newvolume/PP/billing_app/invoify/android-app/app/build/generated/res/resValues/androidTest/debug
-com.shreeiniyaa.invoifybridge.test.app-mergeDebugAndroidTestResources-3 /media/newvolume/PP/billing_app/invoify/android-app/app/build/intermediates/incremental/debugAndroidTest/mergeDebugAndroidTestResources/merged.dir
-com.shreeiniyaa.invoifybridge.test.app-mergeDebugAndroidTestResources-4 /media/newvolume/PP/billing_app/invoify/android-app/app/build/intermediates/incremental/debugAndroidTest/mergeDebugAndroidTestResources/stripped.dir
-com.shreeiniyaa.invoifybridge.test.app-merged_res-5 /media/newvolume/PP/billing_app/invoify/android-app/app/build/intermediates/merged_res/debugAndroidTest

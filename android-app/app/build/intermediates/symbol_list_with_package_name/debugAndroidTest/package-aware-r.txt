@@ -1,3 +1,0 @@
-com.shreeiniyaa.invoifybridge.test
-style WhiteBackgroundDialogTheme
-style WhiteBackgroundTheme

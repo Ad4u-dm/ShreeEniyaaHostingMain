@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, IndianRupee, Calendar, TrendingUp, Users, FileText, Plus, Edit, Eye, X, Save, Trash2 } from 'lucide-react';
 import { formatIndianNumber } from '@/lib/helpers';
+import { isDesktopApp } from '@/lib/isDesktopApp';
 
 interface MonthlyData {
   monthNumber: number;
@@ -35,8 +36,17 @@ interface Plan {
 }
 
 export default function PlansPage() {
+  // Banner for offline mode (Electron only)
+  const OfflineBanner = () => (
+    isDesktopApp() && offlineMode ? (
+      <div style={{ background: '#f59e42', color: '#fff', padding: '8px', textAlign: 'center', fontWeight: 'bold' }}>
+        Offline Mode: Data may be outdated. Write actions are disabled.
+      </div>
+    ) : null
+  );
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [offlineMode, setOfflineMode] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -318,6 +328,7 @@ export default function PlansPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+      <OfflineBanner />
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">

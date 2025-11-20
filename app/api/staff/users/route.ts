@@ -11,10 +11,10 @@ interface JwtPayload {
   role: string;
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(req: Request) {
   try {
     // Get JWT token from Authorization header
-    const authHeader = request.headers.get('authorization');
+  const authHeader = req.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json(
         { error: 'Authorization token required' },
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get query parameters
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(req.url);
     const search = searchParams.get('search') || '';
     const status = searchParams.get('status') || '';
     const page = parseInt(searchParams.get('page') || '1');

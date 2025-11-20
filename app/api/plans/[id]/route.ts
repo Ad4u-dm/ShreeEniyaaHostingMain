@@ -3,11 +3,11 @@ import connectDB from '@/lib/mongodb';
 import Plan from '@/models/Plan';
 import { getUserFromRequest, hasMinimumRole } from '@/lib/auth';
 
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
 
-    const { id } = await params;
+  const { id } = await params;
     const plan = await Plan.findById(id);
     
     if (!plan) {
@@ -21,12 +21,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
     
-    const { id } = await params;
-    const user = getUserFromRequest(request);
+  const { id } = await params;
+  const user = getUserFromRequest(req);
     if (!user || !hasMinimumRole(user, 'admin')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -45,7 +45,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       description,
       terms,
       status
-    } = await request.json();
+  } = await req.json();
 
     // Validate required fields
     if (!planName || !totalAmount || !duration || !monthlyData || monthlyData.length === 0) {
@@ -105,12 +105,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
     
-    const { id } = await params;
-    const user = getUserFromRequest(request);
+  const { id } = await params;
+    const user = getUserFromRequest(req);
     if (!user || !hasMinimumRole(user, 'admin')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

@@ -62,6 +62,9 @@ interface InvoiceForm {
 }
 
 export default function CreateInvoicePage() {
+  // Helper function to safely extract ID from potentially populated field
+  const getId = (field: any) => typeof field === "object" && field ? field._id : field;
+
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(false);
@@ -230,28 +233,19 @@ export default function CreateInvoicePage() {
       // Get previous balance from latest invoice
       const previousData = await getPreviousBalance(formData.customerId, formData.planId);
       const previousBalance = previousData.balance || 0;
-      
+
       // Calculate daily due amount (for users who pay daily)
       const [year, month] = formData.receiptDetails.paymentMonth.split('-');
       const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
       const dailyDue = Math.round(paymentDetails.currentDueAmount / daysInMonth);
-      
-      // Calculate balance amount using correct chit fund logic with daily payment
-      const balanceAmount = calculateDailyBalance(
-        formData.receiptDetails.paymentMonth, 
-        dailyDue,  // Use daily due, not full monthly amount
-        paymentDetails.currentDueAmount, 
-        previousBalance
-      );
-      
+
       console.log('Balance calculation debug:', {
         paymentMonth: formData.receiptDetails.paymentMonth,
         currentDueAmount: paymentDetails.currentDueAmount,
         arrearAmount: paymentDetails.arrearAmount,
         daysInMonth,
         dailyDue,
-        previousBalance,
-        calculatedBalance: balanceAmount
+        previousBalance
       });
 
         // Update form with calculated values (received amount defaults to daily due)
@@ -261,8 +255,14 @@ export default function CreateInvoicePage() {
             preservingDueNo: 'Not changing due number here - handled separately'
           });
 
-          // Only update receivedAmount and related fields if calculated value is non-zero
-          const shouldUpdateReceived = dailyDue > 0;
+          // Only update receivedAmount if it's currently 0 (initial load)
+          // Don't overwrite user's manual input
+          const shouldUpdateReceived = dailyDue > 0 && prev.receiptDetails.receivedAmount === 0;
+
+          // Calculate balance based on current or new received amount
+          const receivedAmount = shouldUpdateReceived ? dailyDue : prev.receiptDetails.receivedAmount;
+          const totalDue = paymentDetails.currentDueAmount + paymentDetails.arrearAmount;
+          const balanceAmount = Math.max(0, totalDue - receivedAmount);
 
           return {
             ...prev,
@@ -272,10 +272,10 @@ export default function CreateInvoicePage() {
               dueAmount: paymentDetails.currentDueAmount,
               arrearAmount: paymentDetails.arrearAmount,
               balanceAmount: balanceAmount,
-              receivedAmount: shouldUpdateReceived ? dailyDue : prev.receiptDetails.receivedAmount,
+              receivedAmount: receivedAmount,
               pendingAmount: balanceAmount
             },
-            receivedAmount: shouldUpdateReceived ? dailyDue : prev.receivedAmount
+            receivedAmount: receivedAmount
           };
         });
       } catch (error) {
@@ -285,48 +285,28 @@ export default function CreateInvoicePage() {
 
   // Function to recalculate balance when received amount changes
   const handleReceivedAmountChange = async (newReceivedAmount: number) => {
-    // Get previous balance for proper chit fund calculation
-    const previousData = await getPreviousBalance(formData.customerId, formData.planId);
-    const previousBalance = previousData.balance || 0;
-    const previousArrear = previousData.arrear || 0;
-    const isFirstPayment = previousBalance === null;
-    
     setFormData(prev => {
-      let balanceAmount;
-      if (isFirstPayment) {
-        // First payment: balance = due amount - received amount
-        balanceAmount = Math.max(0, prev.receiptDetails.dueAmount - newReceivedAmount);
-      } else {
-        // Subsequent payments: balance = previous balance - received amount
-        balanceAmount = Math.max(0, previousBalance - newReceivedAmount);
-      }
-      
-      console.log('Admin balance recalculation:', {
-        previousBalance,
-        isFirstPayment,
+      // Pending Amount = Due Amount + Arrear Amount
+      const pendingAmount = prev.receiptDetails.dueAmount + prev.receiptDetails.arrearAmount;
+
+      // Balance Amount = Pending Amount - Received Amount
+      const balanceAmount = Math.max(0, pendingAmount - newReceivedAmount);
+
+      console.log('Balance recalculation:', {
         dueAmount: prev.receiptDetails.dueAmount,
-        newReceivedAmount,
-        calculatedBalance: balanceAmount
+        arrearAmount: prev.receiptDetails.arrearAmount,
+        pendingAmount: pendingAmount,
+        receivedAmount: newReceivedAmount,
+        balanceAmount: balanceAmount
       });
-      
-      // Recalculate arrear amount
-      let arrearAmount = prev.receiptDetails.arrearAmount;
-      const today = new Date();
-      const isCycleStart = today.getDate() === 21;
-      if (isCycleStart && !isFirstPayment) {
-        arrearAmount = previousBalance;
-      } else {
-        arrearAmount = previousArrear || 0;
-      }
-      
+
       return {
         ...prev,
         receiptDetails: {
           ...prev.receiptDetails,
           receivedAmount: newReceivedAmount,
-          balanceAmount: balanceAmount,
-          arrearAmount: arrearAmount,
-          pendingAmount: balanceAmount
+          pendingAmount: pendingAmount,
+          balanceAmount: balanceAmount
         },
         receivedAmount: newReceivedAmount
       };
@@ -825,7 +805,7 @@ export default function CreateInvoicePage() {
         console.log('Active enrollment:', selectedCustomerProfile.activeEnrollment);
         const activeEnrollment = selectedCustomerProfile.activeEnrollment;
         
-        if (activeEnrollment.planId === formData.planId || activeEnrollment.planId._id === formData.planId) {
+        if (getId(activeEnrollment.planId) === formData.planId) {
           enrollmentId = activeEnrollment._id;
           console.log('Found active enrollment ID:', enrollmentId);
         }
@@ -1287,29 +1267,55 @@ export default function CreateInvoicePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Due Amount
+                    Due Amount (Monthly)
                   </label>
                   <Input
                     type="number"
                     value={formData.receiptDetails.dueAmount}
-                    onChange={(e) => setFormData({ 
-                      ...formData, 
-                      receiptDetails: { ...formData.receiptDetails, dueAmount: parseFloat(e.target.value) || 0 }
-                    })}
+                    onChange={(e) => {
+                      const amount = parseFloat(e.target.value) || 0;
+                      setFormData(prev => {
+                        const newDueAmount = amount;
+                        const pendingAmount = newDueAmount + prev.receiptDetails.arrearAmount;
+                        const balanceAmount = Math.max(0, pendingAmount - prev.receiptDetails.receivedAmount);
+                        return {
+                          ...prev,
+                          receiptDetails: {
+                            ...prev.receiptDetails,
+                            dueAmount: newDueAmount,
+                            pendingAmount: pendingAmount,
+                            balanceAmount: balanceAmount
+                          }
+                        };
+                      });
+                    }}
                     placeholder="0"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Arrear Amount
+                    Arrear Amount (Last Month Pending)
                   </label>
                   <Input
                     type="number"
                     value={formData.receiptDetails.arrearAmount}
-                    onChange={(e) => setFormData({ 
-                      ...formData, 
-                      receiptDetails: { ...formData.receiptDetails, arrearAmount: parseFloat(e.target.value) || 0 }
-                    })}
+                    onChange={(e) => {
+                      const amount = parseFloat(e.target.value) || 0;
+                      setFormData(prev => {
+                        const newArrearAmount = amount;
+                        const pendingAmount = prev.receiptDetails.dueAmount + newArrearAmount;
+                        const balanceAmount = Math.max(0, pendingAmount - prev.receiptDetails.receivedAmount);
+                        return {
+                          ...prev,
+                          receiptDetails: {
+                            ...prev.receiptDetails,
+                            arrearAmount: newArrearAmount,
+                            pendingAmount: pendingAmount,
+                            balanceAmount: balanceAmount
+                          }
+                        };
+                      });
+                    }}
                     placeholder="0"
                   />
                 </div>
@@ -1318,7 +1324,7 @@ export default function CreateInvoicePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Received Amount
+                    Received Amount (Today)
                   </label>
                   <Input
                     type="number"
@@ -1331,23 +1337,22 @@ export default function CreateInvoicePage() {
                     placeholder="Enter received amount"
                   />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Balance Amount
+                    Balance Amount (Auto-calculated)
                   </label>
                   <Input
                     type="number"
                     value={formData.receiptDetails.balanceAmount}
-                    onChange={(e) => setFormData({ 
-                      ...formData, 
-                      receiptDetails: { ...formData.receiptDetails, balanceAmount: parseFloat(e.target.value) || 0 }
-                    })}
+                    readOnly
+                    className="bg-green-50 border-green-200 cursor-not-allowed font-semibold"
                     placeholder="0"
                   />
+                  <p className="text-xs text-slate-500 mt-1">(Due + Arrear) - Received</p>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     Issued By

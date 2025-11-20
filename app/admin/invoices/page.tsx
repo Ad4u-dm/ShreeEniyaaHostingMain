@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Search, Filter, Eye, Download, Send, Edit, Plus, FileText, Calendar, IndianRupee, User, Printer, Trash2 } from 'lucide-react';
 import { formatIndianNumber } from '@/lib/helpers';
+import { isDesktopApp } from '@/lib/isDesktopApp';
 
 interface Invoice {
   _id: string;
@@ -54,6 +55,14 @@ interface InvoiceStats {
 }
 
 export default function InvoicesPage() {
+  // Banner for offline mode (Electron only)
+  const OfflineBanner = () => (
+    isDesktopApp() && offlineMode ? (
+      <div style={{ background: '#f59e42', color: '#fff', padding: '8px', textAlign: 'center', fontWeight: 'bold' }}>
+        Offline Mode: Data may be outdated. Write actions are disabled.
+      </div>
+    ) : null
+  );
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>([]);
   const [stats, setStats] = useState<InvoiceStats | null>(null);
@@ -63,6 +72,7 @@ export default function InvoicesPage() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showViewModal, setShowViewModal] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [offlineMode, setOfflineMode] = useState(false);
 
   // Helper function to decode JWT and get user role
   const getUserRoleFromToken = () => {
@@ -278,6 +288,7 @@ export default function InvoicesPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+      <OfflineBanner />
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -353,7 +364,7 @@ export default function InvoicesPage() {
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
-                  placeholder="Search by invoice number, customer name, or email..."
+                  placeholder="Search by invoice number, customer name..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -397,7 +408,6 @@ export default function InvoicesPage() {
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Customer</th>
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Amount</th>
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Status</th>
-                    <th className="text-left py-3 px-4 font-medium text-slate-600">Due Date</th>
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Actions</th>
                   </tr>
                 </thead>
@@ -415,10 +425,7 @@ export default function InvoicesPage() {
                         </div>
                       </td>
                       <td className="py-3 px-4">
-                        <div>
-                          <div className="font-medium text-slate-800">{invoice.customerId.name}</div>
-                          <div className="text-sm text-slate-600">{invoice.customerId.email}</div>
-                        </div>
+                        <div className="font-medium text-slate-800">{invoice.customerId.name}</div>
                       </td>
                       <td className="py-3 px-4">
                         <div className="font-medium text-slate-800">
@@ -429,11 +436,6 @@ export default function InvoicesPage() {
                         <Badge className={getStatusColor(invoice.status)}>
                           {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
                         </Badge>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="text-sm text-slate-800">
-                          {new Date(invoice.dueDate).toLocaleDateString('en-IN')}
-                        </div>
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">

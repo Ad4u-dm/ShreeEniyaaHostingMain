@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Eye, EyeOff, LogIn } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
+import Image from 'next/image';
 
 interface LoginFormProps {
   onLoginSuccess?: (user: any) => void;
@@ -73,8 +74,14 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4 sm:p-6">
       <Card className="w-full max-w-sm sm:max-w-md bg-white/80 backdrop-blur-sm shadow-2xl">
         <CardHeader className="text-center space-y-2 px-4 sm:px-6 py-6 sm:py-8">
-          <div className="mx-auto w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center mb-3 sm:mb-4">
-            <LogIn className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
+          <div className="mx-auto mb-3 sm:mb-4 relative w-24 h-24 sm:w-32 sm:h-32">
+            <Image
+              src="/logo.jpg"
+              alt="Shree Eniyaa Chitfunds Logo"
+              fill
+              className="object-contain rounded-lg"
+              priority
+            />
           </div>
           <CardTitle className="text-xl sm:text-2xl font-bold text-slate-800 leading-tight">
             Shree Eniyaa Chitfunds

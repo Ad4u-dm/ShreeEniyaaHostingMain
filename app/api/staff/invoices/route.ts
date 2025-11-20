@@ -6,9 +6,9 @@ import Plan from '@/models/Plan';
 import Enrollment from '@/models/Enrollment';
 import { getUserFromRequest, hasMinimumRole } from '@/lib/auth';
 
-export async function GET(request: NextRequest) {
+export async function GET(req: Request) {
   try {
-    const user = getUserFromRequest(request);
+  const user = getUserFromRequest(req);
     if (!user || !hasMinimumRole(user, 'staff')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = getUserFromRequest(request);
+  const user = getUserFromRequest(request);
     if (!user || !hasMinimumRole(user, 'staff')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

@@ -63,6 +63,9 @@ interface InvoiceForm {
 }
 
 function CreateInvoicePage() {
+  // Helper function to safely extract ID from potentially populated field
+  const getId = (field: any) => typeof field === "object" && field ? field._id : field;
+
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(false);
@@ -1023,7 +1026,7 @@ function CreateInvoicePage() {
         console.log('Active enrollment:', selectedCustomerProfile.activeEnrollment);
         const activeEnrollment = selectedCustomerProfile.activeEnrollment;
         
-        if (activeEnrollment.planId === formData.planId || activeEnrollment.planId._id === formData.planId) {
+        if (getId(activeEnrollment.planId) === formData.planId) {
           enrollmentId = activeEnrollment._id;
           console.log('Found active enrollment ID:', enrollmentId);
         }

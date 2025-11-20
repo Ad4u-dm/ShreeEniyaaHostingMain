@@ -57,6 +57,7 @@
         "class-variance-authority": "^0.7.0",
         "clsx": "^2.0.0",
         "cors": "^2.8.5",
+        "dexie": "^4.2.1",
         "dotenv": "^17.2.3",
         "jsonwebtoken": "^9.0.2",
         "lucide-react": "^0.279.0",
