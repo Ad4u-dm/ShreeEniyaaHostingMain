@@ -502,7 +502,7 @@ export default function CreateInvoicePage() {
         headers['Authorization'] = `Bearer ${token}`;
       }
       
-      const response = await fetch('/api/users?role=user', { headers });
+      const response = await fetch('/api/users?role=user&limit=1000', { headers });
       
       if (response.ok) {
         const data = await response.json();
