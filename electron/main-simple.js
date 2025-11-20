@@ -1,31 +1,51 @@
 const { app, BrowserWindow, Menu, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { spawn } = require('child_process');
 const isDev = process.env.NODE_ENV === 'development';
 
 let mainWindow;
 let serverProcess;
 
 console.log('Invoify Desktop App Starting...');
+console.log('Is Dev:', isDev);
+console.log('App Path:', app.getAppPath());
+console.log('Resources Path:', process.resourcesPath);
 
 async function startServer() {
   if (isDev) return;
 
   return new Promise((resolve, reject) => {
     try {
-      // Start Next.js server using portable Node.js
-      const serverPath = path.join(__dirname, '..', '.next', 'standalone', 'server.js');
-      const nodePath = path.join(__dirname, '..', 'portable-node', 'node.exe');
-      
-      console.log('Starting Next.js server with portable Node.js...');
-      console.log('Node path:', nodePath);
-      console.log('Server path:', serverPath);
-      
-      const { spawn } = require('child_process');
-      const serverProcess = spawn(nodePath, [serverPath], {
-        cwd: path.join(__dirname, '..', '.next', 'standalone'),
-        stdio: 'pipe', // Changed from 'inherit' to 'pipe' to prevent console spam
-        env: { ...process.env, NODE_ENV: 'production' }
+      // In production, start the Next.js standalone server
+      const resourcesPath = process.resourcesPath;
+      const appPath = app.getAppPath();
+
+      // Path to the standalone server.js
+      const serverPath = path.join(resourcesPath, 'app.asar.unpacked', '.next', 'standalone', 'server.js');
+
+      console.log('Starting Next.js standalone server...');
+      console.log('Resources Path:', resourcesPath);
+      console.log('App Path:', appPath);
+      console.log('Server Path:', serverPath);
+
+      // Check if server.js exists
+      if (!fs.existsSync(serverPath)) {
+        console.error('Server.js not found at:', serverPath);
+        reject(new Error(`Server file not found at: ${serverPath}`));
+        return;
+      }
+
+      // Start the server using the Electron's bundled Node.js
+      serverProcess = spawn(process.execPath, [serverPath], {
+        cwd: path.dirname(serverPath), // Set cwd to the standalone directory
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env: {
+          ...process.env,
+          NODE_ENV: 'production',
+          PORT: '3000',
+          HOSTNAME: 'localhost'
+        }
       });
 
       serverProcess.on('error', (error) => {
@@ -46,7 +66,7 @@ async function startServer() {
       let ready = false;
       const checkServer = () => {
         if (ready) return;
-        
+
         const http = require('http');
         const req = http.request({
           hostname: 'localhost',
@@ -61,29 +81,29 @@ async function startServer() {
             resolve();
           }
         });
-        
+
         req.on('error', () => {
           // Try again
           setTimeout(checkServer, 500);
         });
-        
+
         req.on('timeout', () => {
           req.destroy();
           setTimeout(checkServer, 500);
         });
-        
+
         req.end();
       };
 
       // Start checking after 2 seconds
       setTimeout(checkServer, 2000);
 
-      // Timeout after 30 seconds
+      // Timeout after 60 seconds
       setTimeout(() => {
         if (!ready) {
-          reject(new Error('Server failed to start within 30 seconds'));
+          reject(new Error('Server failed to start within 60 seconds'));
         }
-      }, 30000);
+      }, 60000);
 
     } catch (error) {
       console.error('Failed to start server:', error);

@@ -15,18 +15,18 @@ export async function POST(req: Request) {
 
     const {
       planName,
-      planType,
       totalAmount,
       duration,
       monthlyData,
-      totalMembers,
-      commissionRate,
-      processingFee,
-      auctionDay,
-      auctionTime,
-      description,
-      terms
-  } = await req.json();
+      planType = 'monthly',
+      totalMembers = 20,
+      commissionRate = 5,
+      processingFee = 0,
+      auctionDay = 1,
+      auctionTime = '10:00',
+      description = '',
+      terms = ''
+    } = await req.json();
 
     // Debug logging
     console.log('Received plan data:', {
@@ -34,7 +34,8 @@ export async function POST(req: Request) {
       totalAmount,
       duration,
       monthlyData: monthlyData?.length || 0,
-      monthlyDataSample: monthlyData?.[0]
+      monthlyDataSample: monthlyData?.[0],
+      user: user?.email
     });
 
     // Validate required fields

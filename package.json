@@ -13,6 +13,7 @@
         "analyze": "cross-env ANALYZE=true next build",
         "seed": "node scripts/seedFromJson.js",
         "seed-chitfund": "tsx scripts/seed.ts",
+        "add-admin": "tsx scripts/add-admin.ts",
         "electron": "electron .",
         "electron:dev": "concurrently \"npm run dev\" \"cross-env NODE_ENV=development electron .\"",
         "electron:build": "npm run build:standalone && electron-builder --win --x64 --publish=never",
@@ -99,15 +100,17 @@
         "files": [
             "electron/main-simple.js",
             "electron/preload.js",
-            "portable-node/node.exe",
             ".next/standalone/**/*",
-            "!.next/cache",
+            "public/**/*",
             "!src",
             "!scripts",
             "!*.md",
             "!release",
             "!node_modules/serialport/**/*",
-            "!node_modules/@serialport/**/*"
+            "!node_modules/@serialport/**/*",
+            "!node_modules/electron/**/*",
+            "!node_modules/electron-builder/**/*",
+            "!node_modules/electron-reload/**/*"
         ],
         "win": {
             "target": [
@@ -132,8 +135,10 @@
             "artifactName": "${productName}-${version}-${arch}.${ext}",
             "asar": true,
             "asarUnpack": [
-                "**\\*.{node,dll}",
-                ".next/standalone/**/*"
+                "**/*.node",
+                "**/*.dll",
+                ".next/standalone/**/*",
+                "node_modules/**/*"
             ]
         },
         "nsis": {

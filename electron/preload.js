@@ -3,6 +3,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('electron', {
+  // App detection
+  isElectron: true,
   // Thermal Printing
   print: {
     thermal: (data) => ipcRenderer.invoke('print:thermal', data),

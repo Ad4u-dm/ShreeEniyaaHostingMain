@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, IndianRupee, Calendar, TrendingUp, Users, FileText, Plus, Edit, Eye, X, Save, Trash2 } from 'lucide-react';
 import { formatIndianNumber } from '@/lib/helpers';
+import { fetchWithCache } from '@/lib/fetchWithCache';
+import { OfflineDB } from '@/lib/offlineDb';
 import { isDesktopApp } from '@/lib/isDesktopApp';
 
 interface MonthlyData {

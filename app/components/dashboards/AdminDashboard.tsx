@@ -31,6 +31,7 @@ import {
   Tooltip,
   Legend,
   ArcElement,
+  Filler,
 } from 'chart.js';
 import { Bar, Line, Doughnut } from 'react-chartjs-2';
 
@@ -43,7 +44,8 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
-  ArcElement
+  ArcElement,
+  Filler
 );
 import { formatIndianNumber } from '@/lib/helpers';
 import InvoiceActionModal from '@/app/components/modals/InvoiceActionModal';
@@ -771,9 +773,9 @@ function CreatePlanModal({ onClose, onSuccess }: any) {
       const response = await fetch('/api/plans/create', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
         },
-        credentials: 'include', // Use cookies instead of Authorization header
         body: JSON.stringify(planData)
       });
 
