@@ -41,8 +41,17 @@ export function getUserFromRequest(request: Request): JWTPayload | null {
   const authHeader = request.headers.get('authorization');
   let token = authHeader?.replace('Bearer ', '');
 
-  // If not in header, try cookies (Next.js 15: use cookies() API in route, not here)
-  // This function only supports header extraction for Web Request
+  // If not in header, try cookies
+  if (!token) {
+    const cookieHeader = request.headers.get('cookie');
+    if (cookieHeader) {
+      const cookies = cookieHeader.split(';').map(c => c.trim());
+      const authCookie = cookies.find(c => c.startsWith('auth-token='));
+      if (authCookie) {
+        token = authCookie.split('=')[1];
+      }
+    }
+  }
 
   if (!token) return null;
   return verifyToken(token);

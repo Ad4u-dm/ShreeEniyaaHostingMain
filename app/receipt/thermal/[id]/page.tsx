@@ -93,17 +93,14 @@ export default function ThermalReceiptPage() {
     setPrintStatus('Connecting to printer...');
 
     try {
-      // Get auth token from localStorage
-      const token = localStorage.getItem('token');
-
-      // Fetch ESC/POS data from API
+      // Fetch ESC/POS data from API (auth cookie sent automatically)
       const escposResponse = await fetch('/api/invoice/escpos', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ invoiceId: params.id }),
+        credentials: 'include' // Important: ensures cookies are sent
       });
 
       if (!escposResponse.ok) {
