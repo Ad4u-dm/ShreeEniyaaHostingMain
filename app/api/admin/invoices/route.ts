@@ -5,6 +5,12 @@ import User from '@/models/User';
 import Plan from '@/models/Plan';
 import Enrollment from '@/models/Enrollment';
 import { getUserFromRequest, hasMinimumRole } from '@/lib/auth';
+import {
+  calculateDueNumber,
+  formatPaymentMonth,
+  calculateArrearAmount,
+  calculateBalanceAmount
+} from '@/lib/invoiceUtils';
 
 export async function GET(request: NextRequest) {
   try {
@@ -53,7 +59,8 @@ export async function GET(request: NextRequest) {
           name: invoice.planId?.planName || 'No Plan',
           monthlyAmount: invoice.planId?.monthlyAmount || 0
         },
-        amount: invoice.amount || invoice.total || invoice.totalAmount || 0,
+        // Use receivedAmount for display (what customer actually paid)
+        amount: invoice.receivedAmount || 0,
         dueDate: invoice.dueDate,
         issueDate: invoice.issueDate || invoice.createdAt,
         status,
@@ -61,12 +68,13 @@ export async function GET(request: NextRequest) {
         items: invoice.items || [{
           description: `Payment - ${invoice.planId?.planName || 'Chit Fund'}`,
           quantity: 1,
-          rate: invoice.amount || invoice.total || 0,
-          amount: invoice.amount || invoice.total || 0
+          rate: invoice.receivedAmount || 0,
+          amount: invoice.receivedAmount || 0
         }],
-        subtotal: invoice.subtotal || invoice.amount || invoice.total || 0,
+        subtotal: invoice.receivedAmount || 0,
         tax: invoice.tax || 0,
-        total: invoice.total || invoice.amount || invoice.totalAmount || 0,
+        // Use receivedAmount as total for display (what customer paid)
+        total: invoice.receivedAmount || 0,
         paymentTerms: invoice.paymentTerms || '30 days',
         notes: invoice.notes || 'Thank you for your business!',
         template: invoice.template || 1,
@@ -117,11 +125,11 @@ export async function POST(request: NextRequest) {
 
     const invoiceData = await request.json();
     console.log('Received invoice data:', invoiceData);
-    
+
     await connectDB();
 
-    // Validate required fields
-    const requiredFields = ['enrollmentId', 'customerId', 'planId', 'createdBy', 'totalAmount', 'customerDetails', 'planDetails', 'dueNumber'];
+    // Validate required fields (enrollmentId and dueNumber NOT required - auto-handled by backend)
+    const requiredFields = ['customerId', 'planId', 'createdBy', 'customerDetails', 'planDetails'];
     for (const field of requiredFields) {
       if (!invoiceData[field]) {
         return NextResponse.json(
@@ -134,7 +142,44 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Fetch the plan to get monthly amount for this dueNumber
+    // STEP 1: Find or auto-create enrollment (SILENT - no UI changes needed)
+    let enrollment = await Enrollment.findOne({
+      userId: invoiceData.customerId,
+      planId: invoiceData.planId
+    }).lean();
+
+    if (!enrollment) {
+      // Auto-create enrollment if it doesn't exist
+      const invoiceDate = invoiceData.invoiceDate ? new Date(invoiceData.invoiceDate) : new Date();
+
+      // Fetch plan to calculate end date
+      const tempPlan = await Plan.findById(invoiceData.planId);
+      const endDate = new Date(invoiceDate);
+      if (tempPlan) {
+        endDate.setMonth(endDate.getMonth() + tempPlan.duration);
+      }
+
+      const newEnrollment = new Enrollment({
+        userId: invoiceData.customerId,
+        planId: invoiceData.planId,
+        enrollmentDate: invoiceDate,
+        startDate: invoiceDate,
+        endDate: endDate,
+        status: 'active'
+      });
+
+      await newEnrollment.save();
+      enrollment = newEnrollment.toObject();
+
+      console.log('Auto-created enrollment for invoice:', {
+        enrollmentId: enrollment._id,
+        userId: enrollment.userId,
+        planId: enrollment.planId,
+        enrollmentDate: enrollment.enrollmentDate
+      });
+    }
+
+    // Fetch the plan to get monthly amount array and duration
     const plan = await Plan.findById(invoiceData.planId);
     if (!plan) {
       return NextResponse.json(
@@ -143,111 +188,232 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Calculate dueAmount from plan's monthlyAmount array using dueNumber
-    const dueNumber = parseInt(invoiceData.dueNumber);
-    let calculatedDueAmount = 0;
-
-    if (plan.monthlyAmount && Array.isArray(plan.monthlyAmount) && plan.monthlyAmount.length > 0) {
-      // Use monthlyAmount array: monthlyAmount[dueNumber - 1]
-      const index = dueNumber - 1;
-      if (index >= 0 && index < plan.monthlyAmount.length) {
-        calculatedDueAmount = plan.monthlyAmount[index];
-      } else {
-        // Fallback: use last month's amount if dueNumber exceeds array length
-        calculatedDueAmount = plan.monthlyAmount[plan.monthlyAmount.length - 1];
-      }
-    } else if (plan.monthlyData && plan.monthlyData.length > 0) {
-      // Fallback: use monthlyData if monthlyAmount array not available
-      const monthData = plan.monthlyData.find((m: any) => m.monthNumber === dueNumber);
-      if (monthData) {
-        calculatedDueAmount = monthData.payableAmount;
-      } else {
-        // Use average as last resort
-        calculatedDueAmount = plan.averageMonthlyAmount || plan.totalAmount / plan.duration;
-      }
-    } else {
-      // Final fallback
-      calculatedDueAmount = invoiceData.dueAmount || 0;
+    // AUTO-HEALING: Rebuild monthlyAmount from monthlyData if missing or mismatched
+    if ((!plan.monthlyAmount || plan.monthlyAmount.length !== plan.duration) &&
+        plan.monthlyData && plan.monthlyData.length > 0) {
+      console.log('Auto-healing plan monthlyAmount array from monthlyData');
+      plan.monthlyAmount = plan.monthlyData
+        .sort((a: any, b: any) => a.monthNumber - b.monthNumber)
+        .map((m: any) => m.payableAmount ?? m.installmentAmount ?? 0);
+      await plan.save();
     }
 
-    // Override dueAmount with calculated value
-    invoiceData.dueAmount = calculatedDueAmount;
+    // STEP 1: Calculate dueNumber automatically using enrollmentDate + invoiceDate + 20th cut-off
+    const invoiceDate = invoiceData.invoiceDate ? new Date(invoiceData.invoiceDate) : new Date();
+    const enrollmentDate = new Date(enrollment.enrollmentDate);
+
+    let dueNumber: number;
+    try {
+      dueNumber = calculateDueNumber(enrollmentDate, invoiceDate, plan.duration);
+    } catch (error: any) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 400 }
+      );
+    }
+
+    // Validate dueNumber against plan duration
+    if (dueNumber > plan.duration) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Invalid due number ${dueNumber}: plan has only ${plan.duration} installments`
+        },
+        { status: 400 }
+      );
+    }
+
+    // STEP 2: Calculate dueAmount from monthlyData based on dueNumber
+    // Due amount ALWAYS comes from plan.monthlyData[dueNumber - 1], regardless of date
+    const index = dueNumber - 1;
+    let calculatedDueAmount = 0;
+
+    // Primary: Use monthlyData (source of truth)
+    const monthInfo = plan.monthlyData?.[index];
+    if (monthInfo) {
+      calculatedDueAmount =
+        monthInfo.payableAmount ??
+        monthInfo.installmentAmount ??
+        0;
+    }
+    // Fallback: Use monthlyAmount array
+    else if (plan.monthlyAmount && Array.isArray(plan.monthlyAmount) && index < plan.monthlyAmount.length) {
+      calculatedDueAmount = plan.monthlyAmount[index];
+    }
+    // No data available
+    else {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Plan does not have monthly amount data configured'
+        },
+        { status: 400 }
+      );
+    }
+
+    console.log('Due amount calculation:', {
+      dueNumber,
+      index,
+      calculatedDueAmount,
+      source: 'plan.monthlyData[dueNumber-1]'
+    });
+
+    // STEP 3: Get previous invoice for arrear and balance calculation
+    const currentDay = invoiceDate.getDate();
+    const previousInvoice = await Invoice.findOne({
+      enrollmentId: enrollment._id,
+      invoiceDate: { $lt: invoiceDate }
+    })
+      .sort({ invoiceDate: -1 })
+      .limit(1)
+      .lean();
+
+    // STEP 4: Calculate arrear amount from previous invoice for same enrollment
+    const arrearAmount = await calculateArrearAmount(enrollment._id, Invoice, invoiceDate);
+
+    // For first invoice on non-21st day, use due amount as the starting balance
+    // Otherwise use the actual previous balance
+    let previousBalance: number;
+    if (!previousInvoice && currentDay !== 21) {
+      // First invoice on non-21st: starting balance = due amount
+      previousBalance = calculatedDueAmount;
+      console.log('First invoice on non-21st: setting previousBalance = dueAmount:', previousBalance);
+    } else {
+      previousBalance = previousInvoice ? (previousInvoice.balanceAmount || 0) : 0;
+    }
+
+    // STEP 5: Calculate balance amount using the 21st rule
+    const receivedAmount = invoiceData.receivedAmount || 0;
+    const balanceAmount = calculateBalanceAmount(
+      calculatedDueAmount,
+      arrearAmount,
+      receivedAmount,
+      invoiceDate,
+      previousBalance
+    );
+
+    // STEP 5: Calculate payment month from invoice date
+    const paymentMonth = formatPaymentMonth(invoiceDate);
 
     // Validate customer details required fields
     if (!invoiceData.customerDetails.name || !invoiceData.customerDetails.phone) {
       return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Customer name and phone are required' 
+        {
+          success: false,
+          error: 'Customer name and phone are required'
         },
         { status: 400 }
       );
     }
 
     // Validate plan details required fields
-    if (!invoiceData.planDetails.planName || !invoiceData.planDetails.monthlyAmount) {
+    if (!invoiceData.planDetails.planName) {
       return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Plan name and monthly amount are required' 
+        {
+          success: false,
+          error: 'Plan name is required'
         },
         { status: 400 }
       );
     }
 
-    // Validate items have descriptions
-    if (!invoiceData.items || invoiceData.items.some((item: any) => !item.description)) {
+    // Validate items have descriptions (if provided)
+    if (invoiceData.items && invoiceData.items.some((item: any) => !item.description)) {
       return NextResponse.json(
-        { 
-          success: false, 
-          error: 'All items must have descriptions' 
+        {
+          success: false,
+          error: 'All items must have descriptions'
         },
         { status: 400 }
       );
     }
-    
+
     // Generate invoice number
     const latestInvoice = await Invoice.findOne({}, {}, { sort: { 'invoiceNumber': -1 } });
     let invoiceNumber = 'INV-0001';
-    
+
     if (latestInvoice && latestInvoice.invoiceNumber) {
       const lastNumber = parseInt(latestInvoice.invoiceNumber.split('-')[1]) || 0;
       invoiceNumber = `INV-${String(lastNumber + 1).padStart(4, '0')}`;
     }
-    
-    // Calculate balanceAmount: balanceAmount = dueAmount - receivedAmount
-    const receivedAmount = invoiceData.receivedAmount || 0;
-    const balanceAmount = calculatedDueAmount - receivedAmount;
 
-    // Update invoice data with calculated values
-    invoiceData.balanceAmount = balanceAmount;
+    // Calculate total amount for invoice display
+    // Total = what was billed this month (due + arrear), NOT the balance after payment
+    const totalAmount = calculatedDueAmount + arrearAmount;
 
-    // Create new invoice in database
-    const newInvoice = new Invoice({
+    // Update items array with the billed amount (due + arrear)
+    const updatedItems = invoiceData.items?.map((item: any) => ({
+      ...item,
+      amount: totalAmount // Total billed amount (always positive)
+    })) || [{
+      description: `Payment for ${plan.planName}`,
+      amount: totalAmount,
+      type: 'installment'
+    }];
+
+    // Add enrollmentId to invoiceData (auto-found/created above)
+    const completeInvoiceData = {
       ...invoiceData,
+      enrollmentId: enrollment._id, // Add the auto-found/created enrollmentId
+      items: updatedItems, // Use updated items with balance amount
+      planDetails: {
+        ...invoiceData.planDetails,
+        monthlyAmount: calculatedDueAmount, // Required by schema
+        duration: plan.duration,
+        totalAmount: plan.totalAmount
+      }
+    };
+
+    // Auto-generate memberNumber if not provided
+    const memberNumber = completeInvoiceData.memberNumber ||
+                        enrollment.memberNumber ||
+                        `MEM${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`;
+
+    // Create new invoice in database with all calculated values
+    const newInvoice = new Invoice({
+      ...completeInvoiceData,
       invoiceNumber,
+      invoiceDate,
+      memberNumber, // Ensure memberNumber is always set
+      dueNumber: dueNumber.toString(), // Store as string per schema
+      dueAmount: calculatedDueAmount,
+      arrearAmount,
+      receivedAmount,
       balanceAmount,
+      totalAmount,
+      paymentMonth,
+      subtotal: totalAmount, // Required by schema
+      taxAmount: 0, // Explicitly set to 0 for chit fund invoices
+      penaltyAmount: 0, // Explicitly set to 0 (unless there's a penalty)
       createdAt: new Date(),
       updatedAt: new Date()
     });
 
-    console.log('Creating invoice with data:', {
+    console.log('Creating invoice with calculated values:', {
       enrollmentId: newInvoice.enrollmentId,
       customerId: newInvoice.customerId,
       planId: newInvoice.planId,
-      createdBy: newInvoice.createdBy,
-      totalAmount: newInvoice.totalAmount,
+      dueNumber,
+      dueAmount: calculatedDueAmount,
+      arrearAmount,
+      receivedAmount,
+      balanceAmount,
+      totalAmount,
+      paymentMonth,
       items: newInvoice.items,
-      balanceAmount: newInvoice.balanceAmount
+      subtotal: newInvoice.subtotal,
+      taxAmount: newInvoice.taxAmount,
+      penaltyAmount: newInvoice.penaltyAmount
     });
 
     await newInvoice.save();
     console.log('Invoice saved successfully with ID:', newInvoice._id);
+    console.log('After save - totalAmount:', newInvoice.totalAmount, 'subtotal:', newInvoice.subtotal, 'items:', newInvoice.items.map((i: any) => i.amount));
 
     // Populate references for response
     const populatedInvoice = await Invoice.findById(newInvoice._id)
       .populate('customerId', 'name email phone')
-      .populate('planId', 'planName monthlyAmount')
+      .populate('planId', 'planName monthlyAmount duration')
       .populate('enrollmentId', 'userId planId enrollmentDate');
 
     return NextResponse.json({

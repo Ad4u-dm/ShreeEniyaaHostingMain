@@ -41,22 +41,23 @@ interface Plan {
 
 interface InvoiceForm {
   customerId: string;
+  // enrollmentId: NOT needed - backend finds/creates automatically from customerId + planId
   planId: string;
   description: string;
   dueDate: string;
-  paymentTerms: string;
+  // REMOVED: paymentTerms: string;
   notes: string;
   template: number;
   receivedAmount?: number;
   receiptDetails: {
     memberNo: string;
-    dueNo: string;
-    paymentMonth: string; // Which month this payment is for (YYYY-MM)
-    dueAmount: number;
-    arrearAmount: number;
-    pendingAmount: number;
+    dueNo: string; // READ-ONLY - calculated by backend
+    paymentMonth: string; // READ-ONLY - calculated by backend
+    dueAmount: number; // READ-ONLY - calculated by backend
+    arrearAmount: number; // READ-ONLY - calculated by backend
+    pendingAmount: number; // READ-ONLY - calculated by backend
     receivedAmount: number;
-    balanceAmount: number;
+    balanceAmount: number; // READ-ONLY - calculated by backend
     issuedBy: string;
   };
 }
@@ -338,22 +339,23 @@ export default function CreateInvoicePage() {
 
   const [formData, setFormData] = useState<InvoiceForm>({
     customerId: '',
+    // enrollmentId: NOT needed - backend auto-finds/creates from customerId + planId
     planId: '',
     description: '',
     dueDate: getFixedDueDate(),
-    paymentTerms: '30 days',
+    // REMOVED: paymentTerms: '30 days',
     notes: 'Thank you for your business!',
     template: 1,
     receivedAmount: 0,
     receiptDetails: {
       memberNo: '',
-      dueNo: '1',
-      paymentMonth: new Date().toISOString().slice(0, 7), // Current month YYYY-MM
-      dueAmount: 0,
-      arrearAmount: 0,
-      pendingAmount: 0,
+      dueNo: '1', // Will be calculated by backend
+      paymentMonth: new Date().toISOString().slice(0, 7), // Will be calculated by backend
+      dueAmount: 0, // Will be calculated by backend
+      arrearAmount: 0, // Will be calculated by backend
+      pendingAmount: 0, // Will be calculated by backend
       receivedAmount: 0,
-      balanceAmount: 0,
+      balanceAmount: 0, // Will be calculated by backend
       issuedBy: 'ADMIN'
     }
   });
@@ -502,7 +504,7 @@ export default function CreateInvoicePage() {
         headers['Authorization'] = `Bearer ${token}`;
       }
       
-      const response = await fetch('/api/users?role=user&limit=1000', { headers });
+      const response = await fetch('/api/users?role=user', { headers });
       
       if (response.ok) {
         const data = await response.json();
@@ -572,6 +574,8 @@ export default function CreateInvoicePage() {
   };
 
   const fetchCustomerProfile = async (customerId: string) => {
+    // This function is now integrated into handleCustomerChange
+    // Keeping it for backward compatibility but it doesn't update form data
     setLoadingProfile(true);
     try {
       const token = localStorage.getItem('auth-token');
@@ -581,51 +585,23 @@ export default function CreateInvoicePage() {
         setLoadingProfile(false);
         return;
       }
-      
+
       const response = await fetch(`/api/customers/${customerId}/profile`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         console.log('=== CUSTOMER PROFILE DEBUG ===');
         console.log('Full API response:', data);
         console.log('Customer object:', data.customer);
-        console.log('Current enrollment:', data.customer?.currentEnrollment);
+        console.log('Active enrollment:', data.customer?.activeEnrollment);
         console.log('Payment summary:', data.customer?.paymentSummary);
         console.log('Member number:', data.customer?.memberNumber);
         console.log('Credit score:', data.customer?.creditScore);
         setSelectedCustomerProfile(data.customer);
-        
-        // Don't auto-populate plan - let handleCustomerChange handle it
-        if (data.customer.currentEnrollment) {
-          setFormData(prev => ({
-            ...prev,
-            receiptDetails: {
-              ...prev.receiptDetails,
-              memberNo: data.customer.memberNumber || data.customer.currentEnrollment.memberNumber || '2154',
-              // Don't set amounts here - let calculateChitFundAmounts handle it
-              pendingAmount: data.customer.paymentSummary?.pendingAmount || 0,
-              arrearAmount: data.customer.paymentSummary?.arrearAmount || 0
-            }
-          }));
-        } else {
-          // Reset form if no enrollment
-          setFormData(prev => ({
-            ...prev,
-            receiptDetails: {
-              ...prev.receiptDetails,
-              memberNo: '',
-              dueNo: '1',
-              dueAmount: 0,
-              receivedAmount: 0,
-              pendingAmount: 0,
-              arrearAmount: 0
-            }
-          }));
-        }
       }
     } catch (error) {
       console.error('Failed to fetch customer profile:', error);
@@ -679,46 +655,85 @@ export default function CreateInvoicePage() {
     // Find customer's active enrollment
     const selectedCustomer = customers.find(c => c._id === customerId);
     console.log('Selected customer:', selectedCustomer);
-    console.log('All customer enrollments:', customerEnrollments);
-    
+
     // Update search field to show selected customer
     if (selectedCustomer) {
       setCustomerSearch(`${selectedCustomer.name} - ${selectedCustomer.phone}`);
     }
-    
-    const customerEnrollment = customerEnrollments.find(
-      enrollment => enrollment.userId?.userId === selectedCustomer?.userId && enrollment.status === 'active'
-    );
-    console.log('Found customer enrollment:', customerEnrollment);
-    
-    // Update form data with customer first  
-    const enrollmentPlanId = customerEnrollment ? 
-      (typeof customerEnrollment.planId === 'string' ? 
-        customerEnrollment.planId : 
-        customerEnrollment.planId?._id || '') : '';
-        
+
+    // Update form data with customer ID first
     setFormData(prev => ({
       ...prev,
       customerId,
-      planId: enrollmentPlanId // Auto-select plan if customer has enrollment
+      // Don't set planId yet - wait for profile to load
     }));
-    
-    // Don't automatically set due number - let user select plan manually first
-    
+
     // Fetch comprehensive customer profile which will auto-populate more fields
-    await fetchCustomerProfile(customerId);
-    
-    // If customer has an enrollment, auto-populate plan and receipt details
-    if (customerEnrollment && Array.isArray(plans)) {
-      const enrollmentPlanIdStr = typeof customerEnrollment.planId === 'string' ? 
-        customerEnrollment.planId : 
-        customerEnrollment.planId?._id || '';
-        
-      const selectedPlan = plans.find(p => p._id === enrollmentPlanIdStr);
-      if (selectedPlan) {
-        // Don't set initial amounts here - let calculateChitFundAmounts handle it properly
-        // The useEffect will trigger calculateChitFundAmounts when planId is set
+    setLoadingProfile(true);
+    try {
+      const token = localStorage.getItem('auth-token');
+      if (!token) {
+        console.warn('No auth token found');
+        setLoadingProfile(false);
+        return;
       }
+
+      const response = await fetch(`/api/customers/${customerId}/profile`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('=== CUSTOMER PROFILE FOR AUTO-SELECT ===');
+        console.log('Active enrollment:', data.customer?.activeEnrollment);
+
+        setSelectedCustomerProfile(data.customer);
+
+        // Auto-select plan from active enrollment
+        if (data.customer?.activeEnrollment) {
+          const enrollmentPlanId = typeof data.customer.activeEnrollment.planId === 'string'
+            ? data.customer.activeEnrollment.planId
+            : data.customer.activeEnrollment.planId?._id || '';
+
+          const memberNo = data.customer.activeEnrollment.memberNumber ||
+                          data.customer.memberNumber ||
+                          '';
+
+          console.log('Auto-selecting plan:', enrollmentPlanId);
+          console.log('Auto-populating member number:', memberNo);
+
+          setFormData(prev => ({
+            ...prev,
+            planId: enrollmentPlanId, // Auto-select enrolled plan
+            receiptDetails: {
+              ...prev.receiptDetails,
+              memberNo: memberNo,
+              pendingAmount: data.customer.paymentSummary?.pendingAmount || 0,
+              arrearAmount: data.customer.paymentSummary?.arrearAmount || 0
+            }
+          }));
+        } else {
+          // No active enrollment - reset form
+          setFormData(prev => ({
+            ...prev,
+            receiptDetails: {
+              ...prev.receiptDetails,
+              memberNo: '',
+              dueNo: '1',
+              dueAmount: 0,
+              receivedAmount: 0,
+              pendingAmount: 0,
+              arrearAmount: 0
+            }
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch customer profile:', error);
+    } finally {
+      setLoadingProfile(false);
     }
   };
 
@@ -794,78 +809,9 @@ export default function CreateInvoicePage() {
         return;
       }
 
-      // Find enrollment for this customer and plan
-      console.log('Selected customer profile:', selectedCustomerProfile);
-      console.log('Looking for plan ID:', formData.planId);
-      
-      let enrollmentId = null;
-      
-      // First check if the customer has an active enrollment for this plan
-      if (selectedCustomerProfile && selectedCustomerProfile.activeEnrollment) {
-        console.log('Active enrollment:', selectedCustomerProfile.activeEnrollment);
-        const activeEnrollment = selectedCustomerProfile.activeEnrollment;
-        
-        if (getId(activeEnrollment.planId) === formData.planId) {
-          enrollmentId = activeEnrollment._id;
-          console.log('Found active enrollment ID:', enrollmentId);
-        }
-      }
-      
-      // If no active enrollment match, check enrollment history
-      if (!enrollmentId && selectedCustomerProfile && selectedCustomerProfile.enrollmentHistory) {
-        console.log('Checking enrollment history:', selectedCustomerProfile.enrollmentHistory);
-        
-        const enrollment = selectedCustomerProfile.enrollmentHistory.find((e: any) => {
-          console.log('Checking historical enrollment:', e, 'planId:', e.planId, 'planId._id:', e.planId?._id);
-          return (e.planId === formData.planId || e.planId._id === formData.planId) && e.status === 'active';
-        });
-        
-        if (enrollment) {
-          enrollmentId = enrollment._id;
-          console.log('Found historical enrollment ID:', enrollmentId);
-        }
-      }
-      
-      // Alternative: Try using the currentEnrollment.enrollmentId if it matches the plan
-      if (!enrollmentId && selectedCustomerProfile && selectedCustomerProfile.currentEnrollment) {
-        console.log('Checking currentEnrollment:', selectedCustomerProfile.currentEnrollment);
-        
-        if (selectedCustomerProfile.currentEnrollment.planId === formData.planId) {
-          enrollmentId = selectedCustomerProfile.currentEnrollment.enrollmentId;
-          console.log('Found currentEnrollment ID:', enrollmentId);
-        }
-      }
-
-      if (!enrollmentId) {
-        console.log('No enrollment found - trying API fallback');
-        
-        // Alternative: Try to find enrollment by making a direct API call
-        try {
-          const enrollmentResponse = await fetch(`/api/enrollments?userId=${selectedCustomer.userId || selectedCustomer._id}&planId=${formData.planId}`, {
-            headers: {
-              'Authorization': `Bearer ${authToken}`
-            }
-          });
-          
-          if (enrollmentResponse.ok) {
-            const enrollmentData = await enrollmentResponse.json();
-            console.log('Enrollment API response:', enrollmentData);
-            
-            if (enrollmentData.enrollments && enrollmentData.enrollments.length > 0) {
-              enrollmentId = enrollmentData.enrollments[0]._id;
-              console.log('Found enrollment via API:', enrollmentId);
-            }
-          }
-        } catch (error) {
-          console.error('Error fetching enrollment:', error);
-        }
-      }
-
-      if (!enrollmentId) {
-        alert('Customer must be enrolled in the selected plan first');
-        setLoading(false);
-        return;
-      }
+      // NOTE: enrollmentId is NO LONGER required from frontend
+      // Backend will auto-find or auto-create enrollment based on customerId + planId
+      // This simplifies the admin workflow to just: Customer + Plan selection
 
       // Get current user for createdBy field
       const userResponse = await fetch('/api/auth/me', {
@@ -913,14 +859,20 @@ export default function CreateInvoicePage() {
 
       console.log('Payment details:', { receivedAmount, total, paymentItem });
 
+      // Backend will now calculate: dueNumber, dueAmount, arrearAmount, balanceAmount, paymentMonth
+      // Backend will also auto-find/create enrollmentId from customerId + planId
       const invoiceData = {
-        // Required fields from Invoice model
-        enrollmentId,
+        // Required fields (NO enrollmentId - backend handles it!)
         customerId: formData.customerId,
         planId: formData.planId,
         createdBy: currentUserId,
-        totalAmount: total,
-        
+
+        // Invoice date for dueNumber calculation (defaults to now if not provided)
+        invoiceDate: new Date().toISOString(),
+
+        // Received amount (what customer paid)
+        receivedAmount: total,
+
         // Customer details snapshot
         customerDetails: {
           name: selectedCustomer.name,
@@ -933,45 +885,37 @@ export default function CreateInvoicePage() {
             pincode: selectedCustomer.address?.pincode || ''
           }
         },
-        
+
         // Plan details snapshot
         planDetails: {
-          planName: selectedPlan.planName,
-          monthlyAmount: selectedPlan.monthlyAmount && selectedPlan.monthlyAmount > 0
-            ? selectedPlan.monthlyAmount
-            : (selectedPlan.monthlyData?.[0]?.dueAmount || selectedPlan.monthlyData?.[0]?.installmentAmount || 0),
-          duration: selectedPlan.duration,
-          totalAmount: selectedPlan.totalAmount
+          planName: selectedPlan.planName
         },
 
-        // Single payment item
+        // Single payment item (backend will update amount if needed)
         items: [paymentItem],
 
-        // Receipt fields (individual - for backward compatibility and thermal receipt)
+        // Receipt fields (for display/printing - backend will recalculate)
         receiptNo: nextReceiptNo,
         memberNumber: formData.receiptDetails.memberNo,
-        dueNumber: formData.receiptDetails.dueNo,
         memberName: selectedCustomer.name,
-        paymentMonth: formData.receiptDetails.paymentMonth,
-        dueAmount: formData.receiptDetails.dueAmount,
-        arrearAmount: formData.receiptDetails.arrearAmount,
-        pendingAmount: Math.max(0, (formData.receiptDetails.dueAmount + formData.receiptDetails.arrearAmount) - total),
-        receivedAmount: total,
-        balanceAmount: formData.receiptDetails.balanceAmount, // Use the calculated balance from form  
-        totalReceivedAmount: total,
         issuedBy: formData.receiptDetails.issuedBy,
-        
+
         // Other fields
         status,
-        subtotal,
-        taxAmount: 0,
-        penaltyAmount: 0,
         dueDate: new Date(formData.dueDate),
-        issueDate: new Date(),
         description: formData.description || `Payment for ${selectedPlan.planName}`,
-        paymentTerms: formData.paymentTerms,
         notes: formData.notes,
         template: formData.template
+
+        // REMOVED: enrollmentId (backend auto-finds/creates from customerId + planId)
+        // REMOVED: paymentTerms (per requirements)
+        // REMOVED: dueNumber (backend calculates)
+        // REMOVED: dueAmount (backend calculates from plan.monthlyAmount[dueNumber-1])
+        // REMOVED: arrearAmount (backend calculates from previous invoice)
+        // REMOVED: balanceAmount (backend calculates)
+        // REMOVED: paymentMonth (backend calculates from invoiceDate)
+        // REMOVED: totalAmount (backend calculates)
+        // REMOVED: pendingAmount (backend calculates)
       };
 
       console.log('Sending invoice data:', invoiceData);
@@ -1143,10 +1087,15 @@ export default function CreateInvoicePage() {
                       </SelectTrigger>
                       <SelectContent>
                         {Array.isArray(plans) && plans.filter(plan => {
-                          const monthly = plan.monthlyAmount || plan.monthlyData?.[0]?.dueAmount || plan.monthlyData?.[0]?.installmentAmount || 0;
-                          return monthly > 0;
+                          // Check if plan has monthlyData or monthlyAmount array
+                          const hasMonthlyData = plan.monthlyData && plan.monthlyData.length > 0;
+                          const hasMonthlyAmount = Array.isArray(plan.monthlyAmount) && plan.monthlyAmount.length > 0;
+                          return hasMonthlyData || hasMonthlyAmount;
                         }).map((plan) => {
-                          const monthly = plan.monthlyAmount || plan.monthlyData?.[0]?.dueAmount || plan.monthlyData?.[0]?.installmentAmount || 0;
+                          // Get first month's amount for display
+                          const monthly = Array.isArray(plan.monthlyAmount)
+                            ? plan.monthlyAmount[0]
+                            : (plan.monthlyData?.[0]?.payableAmount || plan.monthlyData?.[0]?.installmentAmount || 0);
                           return (
                             <SelectItem key={plan._id} value={plan._id}>
                               {plan.planName} - ₹{formatIndianNumber(monthly)}
@@ -1187,23 +1136,7 @@ export default function CreateInvoicePage() {
                   </p>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Payment Terms
-                  </label>
-                  <Select value={formData.paymentTerms} onValueChange={(value) => setFormData({ ...formData, paymentTerms: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="15 days">15 days</SelectItem>
-                      <SelectItem value="30 days">30 days</SelectItem>
-                      <SelectItem value="45 days">45 days</SelectItem>
-                      <SelectItem value="60 days">60 days</SelectItem>
-                      <SelectItem value="Due on receipt">Due on receipt</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                {/* REMOVED: Payment Terms field per requirements */}
               </div>
             </CardContent>
           </Card>
@@ -1234,90 +1167,65 @@ export default function CreateInvoicePage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Due No
+                    Due No <span className="text-xs text-blue-600">(Auto-calculated)</span>
                   </label>
                   <Input
                     value={formData.receiptDetails.dueNo}
-                    onChange={(e) => setFormData({ 
-                      ...formData, 
-                      receiptDetails: { ...formData.receiptDetails, dueNo: e.target.value }
-                    })}
-                    placeholder="Due number"
+                    disabled
+                    className="bg-gray-50 cursor-not-allowed"
+                    placeholder="Calculated by backend"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    From enrollment date + invoice date (20th cut-off)
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Payment Month
+                    Payment Month <span className="text-xs text-blue-600">(Auto-calculated)</span>
                   </label>
                   <Input
-                    type="month"
+                    type="text"
                     value={formData.receiptDetails.paymentMonth}
-                    onChange={(e) => {
-                      setFormData({ 
-                        ...formData, 
-                        receiptDetails: { ...formData.receiptDetails, paymentMonth: e.target.value }
-                      });
-                      // Recalculate amounts when month changes
-                      calculateChitFundAmounts(e.target.value);
-                    }}
+                    disabled
+                    className="bg-gray-50 cursor-not-allowed"
+                    placeholder="Calculated by backend"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Derived from invoice date
+                  </p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Due Amount (Monthly)
+                    Due Amount (Monthly) <span className="text-xs text-blue-600">(Auto-calculated)</span>
                   </label>
                   <Input
                     type="number"
                     value={formData.receiptDetails.dueAmount}
-                    onChange={(e) => {
-                      const amount = parseFloat(e.target.value) || 0;
-                      setFormData(prev => {
-                        const newDueAmount = amount;
-                        const pendingAmount = newDueAmount + prev.receiptDetails.arrearAmount;
-                        const balanceAmount = Math.max(0, pendingAmount - prev.receiptDetails.receivedAmount);
-                        return {
-                          ...prev,
-                          receiptDetails: {
-                            ...prev.receiptDetails,
-                            dueAmount: newDueAmount,
-                            pendingAmount: pendingAmount,
-                            balanceAmount: balanceAmount
-                          }
-                        };
-                      });
-                    }}
-                    placeholder="0"
+                    disabled
+                    className="bg-gray-50 cursor-not-allowed"
+                    placeholder="Calculated by backend"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    From plan.monthlyAmount[dueNo - 1]
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Arrear Amount (Last Month Pending)
+                    Arrear Amount (Last Month Pending) <span className="text-xs text-blue-600">(Auto-calculated)</span>
                   </label>
                   <Input
                     type="number"
                     value={formData.receiptDetails.arrearAmount}
-                    onChange={(e) => {
-                      const amount = parseFloat(e.target.value) || 0;
-                      setFormData(prev => {
-                        const newArrearAmount = amount;
-                        const pendingAmount = prev.receiptDetails.dueAmount + newArrearAmount;
-                        const balanceAmount = Math.max(0, pendingAmount - prev.receiptDetails.receivedAmount);
-                        return {
-                          ...prev,
-                          receiptDetails: {
-                            ...prev.receiptDetails,
-                            arrearAmount: newArrearAmount,
-                            pendingAmount: pendingAmount,
-                            balanceAmount: balanceAmount
-                          }
-                        };
-                      });
-                    }}
-                    placeholder="0"
+                    disabled
+                    className="bg-gray-50 cursor-not-allowed"
+                    placeholder="Calculated by backend"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    From previous invoice for this enrollment
+                  </p>
                 </div>
               </div>
 

@@ -49,31 +49,48 @@ const planSchema = new mongoose.Schema({
   createdBy: { type: String, ref: 'User' }
 }, { timestamps: true });
 
-// Generate planId automatically
+// Generate planId automatically and sync monthlyAmount from monthlyData
 planSchema.pre('save', async function(next) {
   if (!this.planId) {
     const count = await mongoose.model('Plan').countDocuments();
     this.planId = `PLAN${String(count + 1).padStart(4, '0')}`;
   }
-  
-  // Build monthlyAmount array from monthlyData if not provided
+
+  // ALWAYS sync monthlyAmount from monthlyData (source of truth)
   if (this.monthlyData && this.monthlyData.length > 0) {
-    // If monthlyAmount array is not set or empty, build it from monthlyData
-    if (!this.monthlyAmount || this.monthlyAmount.length === 0) {
-      this.monthlyAmount = (this.monthlyData as any[])
-        .sort((a: any, b: any) => a.monthNumber - b.monthNumber)
-        .map((month: any) => month.payableAmount);
+    // Build monthlyAmount array from monthlyData
+    this.monthlyAmount = (this.monthlyData as any[])
+      .sort((a: any, b: any) => a.monthNumber - b.monthNumber)
+      .map((month: any) => month.payableAmount ?? month.installmentAmount ?? 0);
+
+    // Validate: monthlyAmount length must match duration
+    if (this.monthlyAmount.length !== this.duration) {
+      throw new Error(
+        `Plan monthly structure incomplete: expected ${this.duration} months, got ${this.monthlyAmount.length} in monthlyData`
+      );
     }
 
     // Calculate average for display
-    const totalPayable = (this.monthlyData as any[]).reduce((sum: number, month: any) => sum + month.payableAmount, 0);
+    const totalPayable = (this.monthlyData as any[]).reduce((sum: number, month: any) =>
+      sum + (month.payableAmount ?? month.installmentAmount ?? 0), 0);
     this.averageMonthlyAmount = Math.round(totalPayable / this.monthlyData.length);
   } else if (this.monthlyAmount && Array.isArray(this.monthlyAmount) && this.monthlyAmount.length > 0) {
-    // If only monthlyAmount array is provided, calculate average
+    // Backward compatibility: If only monthlyAmount array is provided
+    // Validate length matches duration
+    if (this.monthlyAmount.length !== this.duration) {
+      throw new Error(
+        `Plan monthly structure incomplete: expected ${this.duration} months, got ${this.monthlyAmount.length} amounts`
+      );
+    }
+
+    // Calculate average
     const total = this.monthlyAmount.reduce((sum: number, amount: number) => sum + amount, 0);
     this.averageMonthlyAmount = Math.round(total / this.monthlyAmount.length);
+  } else {
+    // No monthly data available - validation error
+    throw new Error('Plan monthly structure incomplete: monthlyData or monthlyAmount required');
   }
-  
+
   this.updatedAt = new Date();
   next();
 });
