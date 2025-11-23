@@ -18,9 +18,12 @@ const planSchema = new mongoose.Schema({
     dividend: { type: Number, default: 0, min: 0 },
     payableAmount: { type: Number, required: true, min: 0 } // Changed from payable_amount
   }],
-  
-  // For backward compatibility and quick access
-  monthlyAmount: { type: Number }, // Average monthly amount for display
+
+  // Array of monthly amounts - one per month (for direct access)
+  monthlyAmount: { type: [Number], default: [] }, // Array: monthlyAmount[0] = month 1, monthlyAmount[1] = month 2, etc.
+
+  // For backward compatibility - average monthly amount for display
+  averageMonthlyAmount: { type: Number }, // Calculated average for UI display
   totalMembers: { type: Number, default: 20 }, // Max members allowed
   
   // Commission & Charges
@@ -53,10 +56,22 @@ planSchema.pre('save', async function(next) {
     this.planId = `PLAN${String(count + 1).padStart(4, '0')}`;
   }
   
-  // Calculate average monthly amount for display
+  // Build monthlyAmount array from monthlyData if not provided
   if (this.monthlyData && this.monthlyData.length > 0) {
+    // If monthlyAmount array is not set or empty, build it from monthlyData
+    if (!this.monthlyAmount || this.monthlyAmount.length === 0) {
+      this.monthlyAmount = (this.monthlyData as any[])
+        .sort((a: any, b: any) => a.monthNumber - b.monthNumber)
+        .map((month: any) => month.payableAmount);
+    }
+
+    // Calculate average for display
     const totalPayable = (this.monthlyData as any[]).reduce((sum: number, month: any) => sum + month.payableAmount, 0);
-    this.monthlyAmount = Math.round(totalPayable / this.monthlyData.length);
+    this.averageMonthlyAmount = Math.round(totalPayable / this.monthlyData.length);
+  } else if (this.monthlyAmount && Array.isArray(this.monthlyAmount) && this.monthlyAmount.length > 0) {
+    // If only monthlyAmount array is provided, calculate average
+    const total = this.monthlyAmount.reduce((sum: number, amount: number) => sum + amount, 0);
+    this.averageMonthlyAmount = Math.round(total / this.monthlyAmount.length);
   }
   
   this.updatedAt = new Date();

@@ -95,49 +95,65 @@ export async function GET(request: NextRequest) {
     const activeUsers = users.filter(user => user.status === 'active').length;
     const inactiveUsers = users.filter(user => user.status === 'inactive').length;
 
-    // Get invoices for staff's users (only if users exist)
+    // Get enrollments and invoices for staff's users (only if users exist)
     let invoices: any[] = [];
+    let enrollments: any[] = [];
     let payments: any[] = [];
     let totalRevenue = 0;
     let pendingPayments = 0;
-    
-    if (users.length > 0) {
-      const userIds = users.map(user => user._id);
-      invoices = await Invoice.find({
-        customerId: { $in: userIds }
-      });
 
-      // Get payments for staff's invoices
+    if (users.length > 0) {
+      const userCustomIds = users.map(user => user.userId); // Use custom userId strings
+
+      // Import Enrollment model dynamically
+      const Enrollment = (await import('@/models/Enrollment')).default;
+
+      // Get all enrollments for these users
+      enrollments = await Enrollment.find({
+        userId: { $in: userCustomIds }
+      }).lean();
+
+      // Get all invoices (enrollment-based)
+      invoices = await Invoice.find({
+        customerId: { $in: userCustomIds }
+      }).lean();
+
+      // Get payments for invoices
       const invoiceIds = invoices.map(invoice => invoice._id);
       payments = await Payment.find({
         invoiceId: { $in: invoiceIds }
-      });
+      }).lean();
 
-      // Calculate financial stats
-      totalRevenue = payments.reduce((sum, payment) => sum + payment.amount, 0);
-      pendingPayments = invoices.filter(invoice => 
-        invoice.status === 'pending' || invoice.status === 'overdue'
+      // Calculate financial stats - sum of receivedAmount from all invoices
+      totalRevenue = invoices.reduce((sum, invoice) => sum + (invoice.receivedAmount || 0), 0);
+
+      // Calculate pending from invoices with balanceAmount > 0
+      pendingPayments = invoices.filter(invoice =>
+        (invoice.balanceAmount || 0) > 0
       ).length;
     }
 
-    // Format user data with additional info
+    // Format user data with additional info (enrollment-based)
     const formattedUsers = users.map(user => {
-      const userInvoices = invoices.filter(invoice => 
-        invoice.customerId.toString() === user._id.toString()
-      );
-      
-      const userPayments = payments.filter(payment => 
-        userInvoices.some(invoice => 
-          invoice._id.toString() === payment.invoiceId.toString()
-        )
+      // Get user's enrollments
+      const userEnrollments = enrollments.filter(enrollment =>
+        enrollment.userId === user.userId
       );
 
-      const totalPaid = userPayments.reduce((sum, payment) => sum + payment.amount, 0);
-      const totalInvoiced = userInvoices.reduce((sum, invoice) => sum + invoice.totalAmount, 0);
-      const pendingAmount = Math.max(0, totalInvoiced - totalPaid);
-      
-      const lastPayment = userPayments.length > 0 ? 
-        userPayments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] : null;
+      // Get invoices for this user across all their enrollments
+      const userInvoices = invoices.filter(invoice =>
+        invoice.customerId === user.userId
+      );
+
+      // Calculate totals from invoices
+      const totalPaid = userInvoices.reduce((sum, invoice) => sum + (invoice.receivedAmount || 0), 0);
+      const totalDue = userInvoices.reduce((sum, invoice) => sum + (invoice.dueAmount || 0), 0);
+      const pendingAmount = userInvoices.reduce((sum, invoice) => sum + (invoice.balanceAmount || 0), 0);
+
+      // Find last payment (most recent invoice with receivedAmount > 0)
+      const lastInvoiceWithPayment = userInvoices
+        .filter(inv => (inv.receivedAmount || 0) > 0)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
 
       return {
         _id: user._id,
@@ -145,11 +161,12 @@ export async function GET(request: NextRequest) {
         email: user.email,
         phone: user.phone,
         address: user.address || '',
-        planName: user.planName || 'Standard',
+        planName: user.planName || (userEnrollments.length > 0 ? `${userEnrollments.length} Plan(s)` : 'No Plan'),
         status: user.status,
         totalPaid,
         pendingAmount,
-        lastPayment: lastPayment ? lastPayment.createdAt : null,
+        totalEnrollments: userEnrollments.length,
+        lastPayment: lastInvoiceWithPayment ? lastInvoiceWithPayment.createdAt : null,
         nextDue: user.nextDue || null,
         joinDate: user.createdAt,
         role: user.role

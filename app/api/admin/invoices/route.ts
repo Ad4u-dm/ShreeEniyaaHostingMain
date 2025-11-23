@@ -15,10 +15,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch real invoices with populated customer and plan data
+    // Fetch real invoices with populated customer, plan, and enrollment data
     const invoices = await Invoice.find({})
       .populate('customerId', 'name email phone')
       .populate('planId', 'planName totalAmount monthlyAmount duration')
+      .populate('enrollmentId', 'enrollmentId memberNumber status')
       .sort({ createdAt: -1 })
       .lean();
 
@@ -120,18 +121,57 @@ export async function POST(request: NextRequest) {
     await connectDB();
 
     // Validate required fields
-    const requiredFields = ['enrollmentId', 'customerId', 'planId', 'createdBy', 'totalAmount', 'customerDetails', 'planDetails'];
+    const requiredFields = ['enrollmentId', 'customerId', 'planId', 'createdBy', 'totalAmount', 'customerDetails', 'planDetails', 'dueNumber'];
     for (const field of requiredFields) {
       if (!invoiceData[field]) {
         return NextResponse.json(
-          { 
-            success: false, 
-            error: `Missing required field: ${field}` 
+          {
+            success: false,
+            error: `Missing required field: ${field}`
           },
           { status: 400 }
         );
       }
     }
+
+    // Fetch the plan to get monthly amount for this dueNumber
+    const plan = await Plan.findById(invoiceData.planId);
+    if (!plan) {
+      return NextResponse.json(
+        { success: false, error: 'Plan not found' },
+        { status: 404 }
+      );
+    }
+
+    // Calculate dueAmount from plan's monthlyAmount array using dueNumber
+    const dueNumber = parseInt(invoiceData.dueNumber);
+    let calculatedDueAmount = 0;
+
+    if (plan.monthlyAmount && Array.isArray(plan.monthlyAmount) && plan.monthlyAmount.length > 0) {
+      // Use monthlyAmount array: monthlyAmount[dueNumber - 1]
+      const index = dueNumber - 1;
+      if (index >= 0 && index < plan.monthlyAmount.length) {
+        calculatedDueAmount = plan.monthlyAmount[index];
+      } else {
+        // Fallback: use last month's amount if dueNumber exceeds array length
+        calculatedDueAmount = plan.monthlyAmount[plan.monthlyAmount.length - 1];
+      }
+    } else if (plan.monthlyData && plan.monthlyData.length > 0) {
+      // Fallback: use monthlyData if monthlyAmount array not available
+      const monthData = plan.monthlyData.find((m: any) => m.monthNumber === dueNumber);
+      if (monthData) {
+        calculatedDueAmount = monthData.payableAmount;
+      } else {
+        // Use average as last resort
+        calculatedDueAmount = plan.averageMonthlyAmount || plan.totalAmount / plan.duration;
+      }
+    } else {
+      // Final fallback
+      calculatedDueAmount = invoiceData.dueAmount || 0;
+    }
+
+    // Override dueAmount with calculated value
+    invoiceData.dueAmount = calculatedDueAmount;
 
     // Validate customer details required fields
     if (!invoiceData.customerDetails.name || !invoiceData.customerDetails.phone) {
@@ -175,27 +215,12 @@ export async function POST(request: NextRequest) {
       invoiceNumber = `INV-${String(lastNumber + 1).padStart(4, '0')}`;
     }
     
-    // Calculate balanceAmount according to business rules
-    let balanceAmount = 0;
-    const today = new Date();
-    const isCycleStart = today.getDate() === 21;
-    const dueAmount = invoiceData.dueAmount || 0;
+    // Calculate balanceAmount: balanceAmount = dueAmount - receivedAmount
     const receivedAmount = invoiceData.receivedAmount || 0;
-    if (isCycleStart) {
-      balanceAmount = dueAmount - receivedAmount;
-    } else {
-      // Find previous invoice for this enrollment, customer, and plan
-      const prevInvoice = await Invoice.findOne({
-        enrollmentId: invoiceData.enrollmentId,
-        customerId: invoiceData.customerId,
-        planId: invoiceData.planId
-      }).sort({ createdAt: -1 }).lean();
-      if (prevInvoice && typeof prevInvoice.balanceAmount === 'number') {
-        balanceAmount = prevInvoice.balanceAmount - receivedAmount;
-      } else {
-        balanceAmount = dueAmount - receivedAmount;
-      }
-    }
+    const balanceAmount = calculatedDueAmount - receivedAmount;
+
+    // Update invoice data with calculated values
+    invoiceData.balanceAmount = balanceAmount;
 
     // Create new invoice in database
     const newInvoice = new Invoice({

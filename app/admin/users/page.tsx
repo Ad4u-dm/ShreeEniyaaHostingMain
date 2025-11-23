@@ -315,17 +315,14 @@ export default function UsersPage() {
     }
   };
 
-  const handleOpenEnrollmentModal = () => {
-    // Check if user already has an active enrollment
-    const activeEnrollment = userEnrollments.find(e => e.status === 'active');
-
-    if (activeEnrollment) {
+  const handleOpenEnrollmentModal = (enrollmentToEdit?: any) => {
+    if (enrollmentToEdit) {
       // Edit existing enrollment
       setIsEditingEnrollment(true);
-      setCurrentEnrollment(activeEnrollment);
+      setCurrentEnrollment(enrollmentToEdit);
       setEnrollmentFormData({
-        planId: typeof activeEnrollment.planId === "object" && activeEnrollment.planId ? (activeEnrollment.planId as any)._id : activeEnrollment.planId,
-        startDate: new Date(activeEnrollment.startDate).toISOString().split('T')[0]
+        planId: typeof enrollmentToEdit.planId === "object" && enrollmentToEdit.planId ? (enrollmentToEdit.planId as any)._id : enrollmentToEdit.planId,
+        startDate: new Date(enrollmentToEdit.startDate).toISOString().split('T')[0]
       });
     } else {
       // Create new enrollment
@@ -408,6 +405,35 @@ export default function UsersPage() {
     } catch (error) {
       console.error('Failed to save enrollment:', error);
       alert('Failed to save enrollment');
+    }
+  };
+
+  const handleDeleteEnrollment = async (enrollmentId: string) => {
+    if (!confirm('Are you sure you want to delete this enrollment? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/enrollments/${enrollmentId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        }
+      });
+
+      if (response.ok) {
+        alert('Enrollment deleted successfully!');
+        if (selectedCustomer) {
+          fetchUserEnrollments(selectedCustomer.userId || selectedCustomer._id);
+          fetchCustomers();
+        }
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to delete enrollment');
+      }
+    } catch (error) {
+      console.error('Failed to delete enrollment:', error);
+      alert('Failed to delete enrollment');
     }
   };
 
@@ -755,20 +781,11 @@ export default function UsersPage() {
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
                       <Users className="h-5 w-5 text-blue-600" />
-                      Plan Enrollment
+                      Plan Enrollments ({userEnrollments.filter(e => e.status === 'active').length})
                     </h3>
-                    <Button size="sm" onClick={handleOpenEnrollmentModal}>
-                      {userEnrollments.some(e => e.status === 'active') ? (
-                        <>
-                          <Edit2 className="h-4 w-4 mr-1" />
-                          Edit Enrollment
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="h-4 w-4 mr-1" />
-                          Add Enrollment
-                        </>
-                      )}
+                    <Button size="sm" onClick={() => handleOpenEnrollmentModal()}>
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add New Enrollment
                     </Button>
                   </div>
 
@@ -783,6 +800,26 @@ export default function UsersPage() {
                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                   Active
                                 </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleOpenEnrollmentModal(enrollment)}
+                                  className="flex items-center gap-1"
+                                >
+                                  <Edit2 className="h-3 w-3" />
+                                  Edit
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleDeleteEnrollment(enrollment._id)}
+                                  className="flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                  Delete
+                                </Button>
                               </div>
                             </div>
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -881,17 +918,42 @@ export default function UsersPage() {
                       {availablePlans.length === 0 ? (
                         <div className="p-2 text-sm text-slate-500">No active plans found</div>
                       ) : (
-                        availablePlans.map((plan) => (
-                          <SelectItem key={plan._id} value={plan._id}>
-                            {plan.planName} - ₹{formatIndianNumber(plan.totalAmount)}
-                          </SelectItem>
-                        ))
+                        availablePlans
+                          .filter((plan) => {
+                            // When adding new enrollment, exclude plans user is already enrolled in
+                            if (!isEditingEnrollment) {
+                              const enrolledPlanIds = userEnrollments
+                                .filter(e => e.status === 'active')
+                                .map(e => typeof e.planId === 'object' ? (e.planId as any)._id : e.planId);
+                              return !enrolledPlanIds.includes(plan._id);
+                            }
+                            return true;
+                          })
+                          .map((plan) => (
+                            <SelectItem key={plan._id} value={plan._id}>
+                              {plan.planName} - ₹{formatIndianNumber(plan.totalAmount)}
+                            </SelectItem>
+                          ))
                       )}
                     </SelectContent>
                   </Select>
                   {availablePlans.length > 0 && (
                     <p className="text-xs text-slate-500 mt-1">
-                      {availablePlans.length} plan(s) available
+                      {!isEditingEnrollment ? (
+                        <>
+                          {(() => {
+                            const enrolledPlanIds = userEnrollments
+                              .filter(e => e.status === 'active')
+                              .map(e => typeof e.planId === 'object' ? (e.planId as any)._id : e.planId);
+                            const availableCount = availablePlans.filter(p => !enrolledPlanIds.includes(p._id)).length;
+                            return availableCount > 0
+                              ? `${availableCount} plan(s) available for enrollment`
+                              : 'All plans already enrolled';
+                          })()}
+                        </>
+                      ) : (
+                        `${availablePlans.length} plan(s) available`
+                      )}
                     </p>
                   )}
                 </div>

@@ -2,6 +2,12 @@ const { app, BrowserWindow, Menu, ipcMain, dialog, shell } = require('electron')
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
+const envHandler = require('./env-handler');
+const dbHelper = require('./database-helper');
+
+// Load environment variables FIRST
+envHandler.loadEnv();
+
 const isDev = process.env.NODE_ENV === 'development';
 
 let mainWindow;
@@ -11,6 +17,10 @@ console.log('Invoify Desktop App Starting...');
 console.log('Is Dev:', isDev);
 console.log('App Path:', app.getAppPath());
 console.log('Resources Path:', process.resourcesPath);
+console.log('User Data Path:', app.getPath('userData'));
+
+// Initialize database paths BEFORE anything else
+dbHelper.setPrismaEnvironment();
 
 async function startServer() {
   if (isDev) return;
@@ -21,8 +31,20 @@ async function startServer() {
       const resourcesPath = process.resourcesPath;
       const appPath = app.getAppPath();
 
-      // Path to the standalone server.js
-      const serverPath = path.join(resourcesPath, 'app.asar.unpacked', '.next', 'standalone', 'server.js');
+      // Try multiple possible paths for the server.js
+      const possibleServerPaths = [
+        path.join(resourcesPath, 'app.asar.unpacked', '.next', 'standalone', 'server.js'),
+        path.join(appPath, '.next', 'standalone', 'server.js'),
+        path.join(appPath.replace('app.asar', 'app.asar.unpacked'), '.next', 'standalone', 'server.js'),
+      ];
+
+      let serverPath = null;
+      for (const testPath of possibleServerPaths) {
+        if (fs.existsSync(testPath)) {
+          serverPath = testPath;
+          break;
+        }
+      }
 
       console.log('Starting Next.js standalone server...');
       console.log('Resources Path:', resourcesPath);
@@ -30,9 +52,10 @@ async function startServer() {
       console.log('Server Path:', serverPath);
 
       // Check if server.js exists
-      if (!fs.existsSync(serverPath)) {
-        console.error('Server.js not found at:', serverPath);
-        reject(new Error(`Server file not found at: ${serverPath}`));
+      if (!serverPath || !fs.existsSync(serverPath)) {
+        const triedPaths = possibleServerPaths.join('\n  - ');
+        console.error('Server.js not found. Tried:\n  -', triedPaths);
+        reject(new Error(`Server file not found. Tried multiple paths.`));
         return;
       }
 
@@ -59,7 +82,7 @@ async function startServer() {
         return;
       }
 
-      // Start the server
+      // Start the server with proper environment
       serverProcess = spawn(nodePath, [serverPath], {
         cwd: path.dirname(serverPath), // Set cwd to the standalone directory
         stdio: ['pipe', 'pipe', 'pipe'],
@@ -67,7 +90,8 @@ async function startServer() {
           ...process.env,
           NODE_ENV: 'production',
           PORT: '3000',
-          HOSTNAME: 'localhost'
+          HOSTNAME: 'localhost',
+          DATABASE_URL: dbHelper.getDatabaseUrl(), // Use dynamic database path
         }
       });
 

@@ -16,11 +16,11 @@
         "add-admin": "tsx scripts/add-admin.ts",
         "electron": "electron .",
         "electron:dev": "concurrently \"npm run dev\" \"cross-env NODE_ENV=development electron .\"",
-        "electron:build": "npm run build:standalone && electron-builder --win --x64 --publish=never",
-        "electron:build:all": "npm run build:standalone && electron-builder -mwl --publish=never",
-        "build:windows": "npm run build:standalone && electron-builder --win --x64",
-        "build:windows:portable": "npm run build:standalone && electron-builder --win portable",
-        "build:app": "npm run build:standalone && electron-builder --publish=never",
+        "electron:build": "node scripts/prebuild-electron.js && electron-builder --win --x64 --publish=never",
+        "electron:build:all": "node scripts/prebuild-electron.js && electron-builder -mwl --publish=never",
+        "build:windows": "node scripts/prebuild-electron.js && electron-builder --win --x64",
+        "build:app": "node scripts/prebuild-electron.js && electron-builder --publish=never",
+        "prebuild": "npm run build:standalone",
         "bridge": "node scripts/bridge-simple.js",
         "bridge:dev": "nodemon scripts/bridge-simple.js",
         "dev:all": "concurrently \"npm run dev\" \"npm run bridge\""
@@ -100,17 +100,24 @@
         "files": [
             "electron/main-simple.js",
             "electron/preload.js",
+            "electron/database-helper.js",
+            "electron/env-handler.js",
             ".next/standalone/**/*",
             "public/**/*",
+            "prisma/schema.prisma",
             "!src",
             "!scripts",
             "!*.md",
             "!release",
+            "!.git",
+            "!.github",
             "!node_modules/serialport/**/*",
             "!node_modules/@serialport/**/*",
             "!node_modules/electron/**/*",
             "!node_modules/electron-builder/**/*",
-            "!node_modules/electron-reload/**/*"
+            "!node_modules/electron-reload/**/*",
+            "!node_modules/puppeteer/**/*",
+            "!node_modules/firebase/**/*"
         ],
         "win": {
             "target": [
@@ -132,10 +139,21 @@
                 "**/*.node",
                 "**/*.dll",
                 ".next/standalone/**/*",
-                "node_modules/**/*"
+                "node_modules/.prisma/**/*",
+                "node_modules/@prisma/client/**/*",
+                "prisma/**/*"
             ],
             "compression": "maximum"
         },
+        "asarUnpack": [
+            "**/*.node",
+            "**/*.dll",
+            ".next/standalone/**/*",
+            "node_modules/.prisma/**/*",
+            "node_modules/@prisma/client/**/*",
+            "electron/database-helper.js",
+            "prisma/**/*"
+        ],
         "nsis": {
             "oneClick": false,
             "allowElevation": true,
