@@ -1455,54 +1455,17 @@ export default function CreateInvoicePage() {
                       {loading ? 'Sending...' : 'Save & Send'}
                     </Button>
                   </div>
-                  <Button 
+                  <Button
                     onClick={() => {
-                      // Create a preview print of the receipt using current form data
-                      const printContent = `
-                        <div style="width: 80mm; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.4; padding: 8px;">
-                          <div style="text-align: center; font-size: 14px; font-weight: bold; margin-bottom: 3px;">SHREE ENIYAA CHITFUNDS (P) LTD.</div>
-                          <div style="text-align: center; font-size: 11px; margin-bottom: 4px;">Shop no. 2, Mahadhana Street,<br/>Mayiladuthurai – 609 001.</div>
-                          <div style="border-top: 1px dashed #000; margin: 4px 0;"></div>
-                          <div style="font-size: 11px; margin: 3px 0; display: flex; justify-content: space-between;"><span>Receipt No:</span><span>${nextReceiptNo || '0001'}</span></div>
-                          <div style="font-size: 11px; margin: 3px 0; display: flex; justify-content: space-between;"><span>Date:</span><span>${new Date().toLocaleDateString('en-IN')}</span></div>
-                          <div style="font-size: 11px; margin: 3px 0; display: flex; justify-content: space-between;"><span>Member No:</span><span>${formData.receiptDetails.memberNo}</span></div>
-                          <div style="font-size: 11px; margin: 3px 0; display: flex; justify-content: space-between;"><span>Member Name:</span><span>${selectedCustomer?.name || 'Select Customer'}</span></div>
-                          <div style="font-size: 11px; margin: 3px 0; display: flex; justify-content: space-between;"><span>Due No:</span><span>${formData.receiptDetails.dueNo}</span></div>
-                          <div style="border-top: 1px dashed #000; margin: 4px 0;"></div>
-                          <div style="font-size: 11px; margin: 2px 0; display: flex; justify-content: space-between;"><span>Due Amount:</span><span>₹${formData.receiptDetails.dueAmount.toLocaleString('en-IN')}</span></div>
-                          <div style="font-size: 11px; margin: 2px 0; display: flex; justify-content: space-between;"><span>Arrear Amount:</span><span>₹${formData.receiptDetails.arrearAmount.toLocaleString('en-IN')}</span></div>
-                          <div style="font-size: 11px; margin: 2px 0; display: flex; justify-content: space-between;"><span>Received Amount:</span><span>₹${formData.receiptDetails.receivedAmount.toLocaleString('en-IN')}</span></div>
-                          <div style="font-size: 11px; margin: 2px 0; display: flex; justify-content: space-between;"><span>Balance Amount:</span><span>₹${formData.receiptDetails.balanceAmount.toLocaleString('en-IN')}</span></div>
-                          <div style="border-top: 1px dashed #000; margin: 4px 0;"></div>
-                          <div style="font-size: 11px; margin: 2px 0; display: flex; justify-content: space-between; font-weight: 600;"><span>Total Received:</span><span>₹${formData.receiptDetails.receivedAmount.toLocaleString('en-IN')}</span></div>
-                          <div style="font-size: 11px; margin: 3px 0;">By: ${formData.receiptDetails.issuedBy}</div>
-                          <div style="font-size: 9px; margin: 3px 0; text-align: center;">For Any Enquiry: **</div>
-                        </div>
-                      `;
-                      
-                      const printWindow = window.open('', '_blank', 'width=400,height=600');
-                      if (printWindow) {
-                        printWindow.document.write(`
-                          <html>
-                            <head>
-                              <title>Thermal Receipt Preview</title>
-                              <style>
-                                @media print {
-                                  @page { size: 80mm auto; margin: 0; }
-                                  body { margin: 0; padding: 0; }
-                                }
-                              </style>
-                            </head>
-                            <body onload="window.print(); window.close();">
-                              ${printContent}
-                            </body>
-                          </html>
-                        `);
-                        printWindow.document.close();
+                      // After saving, get the last saved invoice ID from state or API response
+                      // For demo, prompt for invoice ID (replace with your logic)
+                      const invoiceId = window.prompt('Enter Invoice ID to print:');
+                      if (invoiceId) {
+                        window.open(`/receipt/thermal/${invoiceId}`, '_blank');
                       }
                     }}
-                    variant="outline" 
-                    size="sm" 
+                    variant="outline"
+                    size="sm"
                     className="w-full text-xs"
                     disabled={!formData.customerId || !selectedCustomer}
                   >

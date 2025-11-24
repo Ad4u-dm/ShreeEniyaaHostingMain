@@ -361,10 +361,8 @@ export async function POST(request: NextRequest) {
       }
     };
 
-    // Auto-generate memberNumber if not provided
-    const memberNumber = completeInvoiceData.memberNumber ||
-                        enrollment.memberNumber ||
-                        `MEM${String(Math.floor(Math.random() * 10000)).padStart(4, '0')}`;
+    // Always use memberNumber from enrollment (created during user creation)
+    const memberNumber = enrollment.memberNumber;
 
     // Create new invoice in database with all calculated values
     const newInvoice = new Invoice({
