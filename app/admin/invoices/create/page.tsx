@@ -184,9 +184,10 @@ export default function CreateInvoicePage() {
         console.log(`On other days: Arrears carried over ₹${arrearAmount}`);
       }
 
-      // Current month's due (if we're past the 20th, this is for next month)
-      const currentMonthData = selectedPlan.monthlyData[currentDay > 20 ? nextMonthIndex : currentMonthIndex];
-      const currentDueAmount = currentMonthData ? (currentMonthData.dueAmount || currentMonthData.installmentAmount || 0) : 0;
+  // Current month's due (if we're past the 20th, this is for next month)
+  const currentMonthData = selectedPlan.monthlyData[currentDay > 20 ? nextMonthIndex : currentMonthIndex];
+  // Always use installmentAmount for due
+  const currentDueAmount = currentMonthData ? (currentMonthData.installmentAmount ?? 0) : 0;
 
       // Total amount due = Arrears + current month's due
       const totalAmountDue = arrearAmount + currentDueAmount;
@@ -260,10 +261,21 @@ export default function CreateInvoicePage() {
           // Don't overwrite user's manual input
           const shouldUpdateReceived = dailyDue > 0 && prev.receiptDetails.receivedAmount === 0;
 
-          // Calculate balance based on current or new received amount
+          // Calculate balance using correct logic
           const receivedAmount = shouldUpdateReceived ? dailyDue : prev.receiptDetails.receivedAmount;
           const totalDue = paymentDetails.currentDueAmount + paymentDetails.arrearAmount;
-          const balanceAmount = Math.max(0, totalDue - receivedAmount);
+          let balanceAmount = 0;
+          const today = new Date();
+          if (!previousBalance || previousBalance === 0) {
+            // First invoice: (Due + Arrear) - Received
+            balanceAmount = Math.max(0, totalDue - receivedAmount);
+          } else if (today.getDate() === 21) {
+            // On 21st: (Due + Arrear) - Received
+            balanceAmount = Math.max(0, totalDue - receivedAmount);
+          } else {
+            // On other days: Previous Balance - Received
+            balanceAmount = Math.max(0, previousBalance - receivedAmount);
+          }
 
           return {
             ...prev,
@@ -1422,6 +1434,27 @@ export default function CreateInvoicePage() {
                 </div>
                 
                 <div className="pt-2 border-t border-slate-200">
+                  <div className="flex gap-2 mb-3">
+                    <Button 
+                      onClick={() => handleSave('draft')}
+                      disabled={loading || !formData.customerId || !formData.planId}
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                    >
+                      <Save className="h-3 w-3 mr-1" />
+                      {loading ? 'Saving...' : 'Save as Draft'}
+                    </Button>
+                    <Button 
+                      onClick={() => handleSave('sent')}
+                      disabled={loading || !formData.customerId || !formData.planId}
+                      size="sm"
+                      className="flex-1"
+                    >
+                      <Send className="h-3 w-3 mr-1" />
+                      {loading ? 'Sending...' : 'Save & Send'}
+                    </Button>
+                  </div>
                   <Button 
                     onClick={() => {
                       // Create a preview print of the receipt using current form data

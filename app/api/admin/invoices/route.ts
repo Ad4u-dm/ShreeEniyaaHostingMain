@@ -224,17 +224,14 @@ export async function POST(request: NextRequest) {
     }
 
     // STEP 2: Calculate dueAmount from monthlyData based on dueNumber
-    // Due amount ALWAYS comes from plan.monthlyData[dueNumber - 1], regardless of date
+    // Due amount should come from installmentAmount (the 'Due' column)
     const index = dueNumber - 1;
     let calculatedDueAmount = 0;
 
-    // Primary: Use monthlyData (source of truth)
+    // Use monthlyData.installmentAmount for due
     const monthInfo = plan.monthlyData?.[index];
     if (monthInfo) {
-      calculatedDueAmount =
-        monthInfo.payableAmount ??
-        monthInfo.installmentAmount ??
-        0;
+      calculatedDueAmount = monthInfo.installmentAmount ?? 0;
     }
     // Fallback: Use monthlyAmount array
     else if (plan.monthlyAmount && Array.isArray(plan.monthlyAmount) && index < plan.monthlyAmount.length) {
