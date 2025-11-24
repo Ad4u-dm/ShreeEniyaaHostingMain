@@ -570,8 +570,6 @@ export default function InvoicesPage() {
                       <thead>
                         <tr className="bg-slate-50">
                           <th className="border border-slate-200 px-4 py-2 text-left">Description</th>
-                          <th className="border border-slate-200 px-4 py-2 text-right">Qty</th>
-                          <th className="border border-slate-200 px-4 py-2 text-right">Rate</th>
                           <th className="border border-slate-200 px-4 py-2 text-right">Amount</th>
                         </tr>
                       </thead>
@@ -579,8 +577,6 @@ export default function InvoicesPage() {
                         {selectedInvoice.items.map((item, index) => (
                           <tr key={index}>
                             <td className="border border-slate-200 px-4 py-2">{item.description}</td>
-                            <td className="border border-slate-200 px-4 py-2 text-right">{item.quantity}</td>
-                            <td className="border border-slate-200 px-4 py-2 text-right">₹{formatIndianNumber(item.rate)}</td>
                             <td className="border border-slate-200 px-4 py-2 text-right">₹{formatIndianNumber(item.amount)}</td>
                           </tr>
                         ))}

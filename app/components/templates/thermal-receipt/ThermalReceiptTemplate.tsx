@@ -20,18 +20,7 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
   
   // Use saved receiptData if available, otherwise fallback to field mapping
   const useReceiptData = invoice?.receiptData;
-  console.log('Using receiptData:', useReceiptData);
-  
-  if (!useReceiptData) {
-    console.log('No receiptData found, using field mapping fallback');
-    console.log('Invoice customer:', invoice?.customerId);
-    console.log('Invoice plan:', invoice?.planId);
-    console.log('Invoice amount:', invoice?.amount);
-    console.log('Invoice total:', invoice?.total);
-    console.log('Invoice receiptNo:', invoice?.receiptNo);
-    console.log('Invoice memberNumber:', invoice?.memberNumber);
-    console.log('Invoice dueNumber:', invoice?.dueNumber);
-  }
+  // Remove quantity and rate columns from print view
 
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('en-IN', {
@@ -93,6 +82,21 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
         <div style={{margin: '1px 0'}}>Received Amount: ₹ {(invoice.receivedAmount || 0).toLocaleString('en-IN')}</div>
         <div style={{margin: '1px 0'}}>Balance Amount : ₹ {(invoice.balanceAmount || 0).toLocaleString('en-IN')}</div>
       </div>
+      {/* Items Table - Only Description and Amount */}
+      {invoice.items && invoice.items.length > 0 && (
+        <div style={{margin: '6px 0'}}>
+          <div style={{display: 'flex', fontWeight: 'bold', borderBottom: '1px dashed #000', fontSize: '10px'}}>
+            <div style={{flex: 2, textAlign: 'left'}}>Description</div>
+            <div style={{flex: 1, textAlign: 'right'}}>Amount</div>
+          </div>
+          {invoice.items.map((item: any, idx: number) => (
+            <div key={idx} style={{display: 'flex', fontSize: '10px'}}>
+              <div style={{flex: 2, textAlign: 'left'}}>{item.description}</div>
+              <div style={{flex: 1, textAlign: 'right'}}>₹ {(item.amount || 0).toLocaleString('en-IN')}</div>
+            </div>
+          ))}
+        </div>
+      )}
       
       <div style={{borderTop: '1px dashed #000', margin: '3px 0', width: '100%'}}></div>
       
