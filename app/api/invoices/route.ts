@@ -32,11 +32,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Chit fund logic for balance and arrear calculation
+    // Fetch previous invoice for this customer/plan
+    const previousInvoice = await Invoice.findOne({
+      customerId: payment.userId._id,
+      planId: payment.planId._id
+    }).sort({ createdAt: -1 });
+
+    const today = new Date();
+    const is21st = today.getDate() === 21;
+    let arrearAmount = 0;
+    let balanceAmount = 0;
+    let dueAmount = payment.planId.monthlyAmount;
+    let receivedAmount = payment.amount;
+    if (!previousInvoice) {
+      // First invoice logic
+      arrearAmount = 0;
+      balanceAmount = Math.max(0, dueAmount - receivedAmount);
+    } else if (is21st) {
+      arrearAmount = previousInvoice.balanceAmount || 0;
+      balanceAmount = Math.max(0, (dueAmount + arrearAmount) - receivedAmount);
+    } else {
+      arrearAmount = previousInvoice.arrearAmount || 0;
+      balanceAmount = Math.max(0, previousInvoice.balanceAmount - receivedAmount);
+    }
+
     // Generate invoice data
     const invoiceData = {
       invoiceNumber: `INV-${Date.now()}`,
       invoiceDate: new Date().toISOString().split('T')[0],
-      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
+      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       type,
       customer: {
         name: payment.userId.name,
@@ -67,7 +92,11 @@ export async function POST(request: NextRequest) {
         phone: '96266 66527, 90035 62126',
         email: 'shreeniyaachitfunds@gmail.com',
         website: 'www.shreeniyaachitfunds.com'
-      }
+      },
+      arrearAmount,
+      balanceAmount,
+      dueAmount,
+      receivedAmount
     };
 
     // Calculate totals
@@ -123,14 +152,36 @@ export async function GET(request: NextRequest) {
         latestInvoice
       });
 
-      if (latestInvoice) {
-        return NextResponse.json({
-          success: true,
-          invoice: {
-            balanceAmount: latestInvoice.balanceAmount || 0,
-            arrearAmount: latestInvoice.arrearAmount || 0
+      if (latestInvoice && (latestInvoice.balanceAmount !== undefined || latestInvoice.arrearAmount !== undefined)) {
+        // If both are zero, check if there are any invoices at all for this customer/plan
+        const isZeroInvoice = (latestInvoice.balanceAmount === 0 && latestInvoice.arrearAmount === 0);
+        if (isZeroInvoice) {
+          const invoiceCount = await Invoice.countDocuments({ customerId, planId });
+          if (invoiceCount === 0) {
+            // Truly first invoice
+            return NextResponse.json({
+              success: true,
+              invoice: null // No previous invoice found
+            });
+          } else {
+            // There are invoices, but last one is zero
+            return NextResponse.json({
+              success: true,
+              invoice: {
+                balanceAmount: latestInvoice.balanceAmount || 0,
+                arrearAmount: latestInvoice.arrearAmount || 0
+              }
+            });
           }
-        });
+        } else {
+          return NextResponse.json({
+            success: true,
+            invoice: {
+              balanceAmount: latestInvoice.balanceAmount || 0,
+              arrearAmount: latestInvoice.arrearAmount || 0
+            }
+          });
+        }
       } else {
         return NextResponse.json({
           success: true,

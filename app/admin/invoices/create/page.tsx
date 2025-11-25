@@ -232,65 +232,50 @@ export default function CreateInvoicePage() {
 
       console.log('Automated payment details:', paymentDetails);
 
-      // Get previous balance from latest invoice
+      // Get previous balance and arrear from latest invoice
       const previousData = await getPreviousBalance(formData.customerId, formData.planId);
-      const previousBalance = previousData.balance || 0;
+  // Fix: Use previousData.invoice == null for first invoice detection
+  const hasPreviousInvoice = !!previousData.invoice;
+  const previousBalance = hasPreviousInvoice ? previousData.balance || 0 : 0;
+  const previousArrear = hasPreviousInvoice ? previousData.arrear || 0 : 0;
 
       // Calculate daily due amount (for users who pay daily)
       const [year, month] = formData.receiptDetails.paymentMonth.split('-');
       const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
       const dailyDue = Math.round(paymentDetails.currentDueAmount / daysInMonth);
 
-      console.log('Balance calculation debug:', {
-        paymentMonth: formData.receiptDetails.paymentMonth,
-        currentDueAmount: paymentDetails.currentDueAmount,
-        arrearAmount: paymentDetails.arrearAmount,
-        daysInMonth,
-        dailyDue,
-        previousBalance
-      });
-
-        // Update form with calculated values (received amount defaults to daily due)
-        setFormData(prev => {
-          console.log('=== PRESERVING DUE NO IN CALCULATE AMOUNTS ===', {
-            currentDueNo: prev.receiptDetails.dueNo,
-            preservingDueNo: 'Not changing due number here - handled separately'
-          });
-
-          // Only update receivedAmount if it's currently 0 (initial load)
-          // Don't overwrite user's manual input
-          const shouldUpdateReceived = dailyDue > 0 && prev.receiptDetails.receivedAmount === 0;
-
-          // Calculate balance using correct logic
-          const receivedAmount = shouldUpdateReceived ? dailyDue : prev.receiptDetails.receivedAmount;
-          const totalDue = paymentDetails.currentDueAmount + paymentDetails.arrearAmount;
-          let balanceAmount = 0;
-          const today = new Date();
-          if (!previousBalance || previousBalance === 0) {
-            // First invoice: (Due + Arrear) - Received
-            balanceAmount = Math.max(0, totalDue - receivedAmount);
-          } else if (today.getDate() === 21) {
-            // On 21st: (Due + Arrear) - Received
-            balanceAmount = Math.max(0, totalDue - receivedAmount);
-          } else {
-            // On other days: Previous Balance - Received
-            balanceAmount = Math.max(0, previousBalance - receivedAmount);
-          }
-
-          return {
-            ...prev,
-            receiptDetails: {
-              ...prev.receiptDetails,
-              // DON'T change dueNo here - it's handled separately by getNextDueNumber
-              dueAmount: paymentDetails.currentDueAmount,
-              arrearAmount: paymentDetails.arrearAmount,
-              balanceAmount: balanceAmount,
-              receivedAmount: receivedAmount,
-              pendingAmount: balanceAmount
-            },
-            receivedAmount: receivedAmount
-          };
-        });
+      const today = new Date();
+      const is21st = today.getDate() === 21;
+      let arrearAmount = 0;
+      let balanceAmount = 0;
+      let pendingAmount = 0;
+      const receivedAmount = dailyDue;
+      if (!hasPreviousInvoice) {
+  // First invoice logic
+  arrearAmount = 0;
+  pendingAmount = paymentDetails.currentDueAmount;
+  balanceAmount = Math.max(0, paymentDetails.currentDueAmount - receivedAmount);
+      } else if (is21st) {
+        arrearAmount = previousBalance;
+        pendingAmount = paymentDetails.currentDueAmount + arrearAmount;
+        balanceAmount = Math.max(0, pendingAmount - receivedAmount);
+      } else {
+        arrearAmount = previousArrear;
+        pendingAmount = previousBalance;
+        balanceAmount = Math.max(0, previousBalance - receivedAmount);
+      }
+      setFormData(prev => ({
+        ...prev,
+        receiptDetails: {
+          ...prev.receiptDetails,
+          dueAmount: paymentDetails.currentDueAmount,
+          arrearAmount: arrearAmount,
+          balanceAmount: balanceAmount,
+          receivedAmount: receivedAmount,
+          pendingAmount: pendingAmount
+        },
+        receivedAmount: receivedAmount
+      }));
       } catch (error) {
         console.error('Error calculating chit fund amounts:', error);
       }
@@ -298,28 +283,40 @@ export default function CreateInvoicePage() {
 
   // Function to recalculate balance when received amount changes
   const handleReceivedAmountChange = async (newReceivedAmount: number) => {
+    // Fetch previous balance and arrear from latest invoice
+    const previousData = await getPreviousBalance(formData.customerId, formData.planId);
+    const previousBalance = previousData.balance || 0;
+    const previousArrear = previousData.arrear || 0;
+    const today = new Date();
+    const is21st = today.getDate() === 21;
+  // Fix: Use previousData.invoice == null for first invoice detection
+  const hasPreviousInvoice = !!previousData.invoice;
     setFormData(prev => {
-      // Pending Amount = Due Amount + Arrear Amount
-      const pendingAmount = prev.receiptDetails.dueAmount + prev.receiptDetails.arrearAmount;
-
-      // Balance Amount = Pending Amount - Received Amount
-      const balanceAmount = Math.max(0, pendingAmount - newReceivedAmount);
-
-      console.log('Balance recalculation:', {
-        dueAmount: prev.receiptDetails.dueAmount,
-        arrearAmount: prev.receiptDetails.arrearAmount,
-        pendingAmount: pendingAmount,
-        receivedAmount: newReceivedAmount,
-        balanceAmount: balanceAmount
-      });
-
+      let arrearAmount = 0;
+      let balanceAmount = 0;
+      let pendingAmount = 0;
+      if (!hasPreviousInvoice) {
+        // First invoice logic
+        arrearAmount = 0;
+        pendingAmount = prev.receiptDetails.dueAmount;
+        balanceAmount = Math.max(0, prev.receiptDetails.dueAmount - newReceivedAmount);
+      } else if (is21st) {
+        arrearAmount = previousBalance;
+        pendingAmount = prev.receiptDetails.dueAmount + arrearAmount;
+        balanceAmount = Math.max(0, pendingAmount - newReceivedAmount);
+      } else {
+        arrearAmount = previousArrear;
+        pendingAmount = previousBalance;
+        balanceAmount = Math.max(0, previousBalance - newReceivedAmount);
+      }
       return {
         ...prev,
         receiptDetails: {
           ...prev.receiptDetails,
           receivedAmount: newReceivedAmount,
-          pendingAmount: pendingAmount,
-          balanceAmount: balanceAmount
+          arrearAmount: arrearAmount,
+          balanceAmount: balanceAmount,
+          pendingAmount: pendingAmount
         },
         receivedAmount: newReceivedAmount
       };
@@ -1233,12 +1230,9 @@ export default function CreateInvoicePage() {
                   <Input
                     type="number"
                     value={formData.receiptDetails.receivedAmount}
-                    onChange={(e) => {
+                    onChange={async (e) => {
                       const amount = parseFloat(e.target.value) || 0;
-                      setFormData({
-                        ...formData,
-                        receiptDetails: { ...formData.receiptDetails, receivedAmount: amount }
-                      });
+                      await handleReceivedAmountChange(amount);
                     }}
                     placeholder="Enter received amount"
                   />
