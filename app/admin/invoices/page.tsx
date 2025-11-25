@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Search, Filter, Eye, Download, Send, Edit, Plus, FileText, Calendar, IndianRupee, User, Printer, Trash2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowLeft, Search, Filter, Eye, Download, Send, Edit, Plus, FileText, Calendar, IndianRupee, User, Printer, Trash2, X } from 'lucide-react';
 import { formatIndianNumber } from '@/lib/helpers';
 import { isDesktopApp } from '@/lib/isDesktopApp';
 
@@ -24,6 +25,11 @@ interface Invoice {
     name: string;
     monthlyAmount: number;
   };
+  createdBy?: {
+    _id: string;
+    name: string;
+    email: string;
+  } | null;
   amount: number;
   dueDate: string;
   issueDate: string;
@@ -74,6 +80,19 @@ export default function InvoicesPage() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [offlineMode, setOfflineMode] = useState(false);
 
+  // Advanced Filters
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [customerFilter, setCustomerFilter] = useState('all');
+  const [planFilter, setPlanFilter] = useState('all');
+  const [staffFilter, setStaffFilter] = useState('all');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+
+  // For filter dropdowns
+  const [customers, setCustomers] = useState<{_id: string; name: string}[]>([]);
+  const [plans, setPlans] = useState<{_id: string; name: string}[]>([]);
+  const [staffMembers, setStaffMembers] = useState<{_id: string; name: string}[]>([]);
+
   // Helper function to decode JWT and get user role
   const getUserRoleFromToken = () => {
     try {
@@ -97,13 +116,14 @@ export default function InvoicesPage() {
     // Get user role from token
     const role = getUserRoleFromToken();
     setUserRole(role);
-    
+
     fetchInvoices();
+    fetchFilterOptions();
   }, []);
 
   useEffect(() => {
     filterInvoices();
-  }, [invoices, searchTerm, statusFilter]);
+  }, [invoices, searchTerm, statusFilter, dateFrom, dateTo, customerFilter, planFilter, staffFilter]);
 
   const fetchInvoices = async () => {
     try {
@@ -138,24 +158,101 @@ export default function InvoicesPage() {
     }
   };
 
+  const fetchFilterOptions = async () => {
+    try {
+      // Fetch customers
+      const customersRes = await fetch('/api/users?role=user&limit=1000', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('auth-token')}` }
+      });
+      if (customersRes.ok) {
+        const customersData = await customersRes.json();
+        setCustomers(customersData.users || []);
+      }
+
+      // Fetch plans
+      const plansRes = await fetch('/api/plans', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('auth-token')}` }
+      });
+      if (plansRes.ok) {
+        const plansData = await plansRes.json();
+        setPlans(plansData.plans || []);
+      }
+
+      // Fetch staff members
+      const staffRes = await fetch('/api/users?role=staff&limit=1000', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('auth-token')}` }
+      });
+      if (staffRes.ok) {
+        const staffData = await staffRes.json();
+        setStaffMembers(staffData.users || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch filter options:', error);
+    }
+  };
+
   const filterInvoices = () => {
     let filtered = invoices;
 
+    // Text search
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(invoice =>
-        invoice.invoiceNumber.toLowerCase().includes(term) ||
-        invoice.customerId.name.toLowerCase().includes(term) ||
-        invoice.customerId.email.toLowerCase().includes(term) ||
-        invoice.description.toLowerCase().includes(term)
+        invoice.invoiceNumber?.toLowerCase().includes(term) ||
+        invoice.receiptNo?.toLowerCase().includes(term) ||
+        invoice.customerId?.name?.toLowerCase().includes(term) ||
+        invoice.customerId?.email?.toLowerCase().includes(term) ||
+        invoice.description?.toLowerCase().includes(term)
       );
     }
 
+    // Status filter
     if (statusFilter !== 'all') {
       filtered = filtered.filter(invoice => invoice.status === statusFilter);
     }
 
+    // Date range filter
+    if (dateFrom) {
+      const fromDate = new Date(dateFrom);
+      filtered = filtered.filter(invoice => new Date(invoice.issueDate) >= fromDate);
+    }
+    if (dateTo) {
+      const toDate = new Date(dateTo);
+      toDate.setHours(23, 59, 59, 999); // Include the entire day
+      filtered = filtered.filter(invoice => new Date(invoice.issueDate) <= toDate);
+    }
+
+    // Customer filter
+    if (customerFilter !== 'all') {
+      filtered = filtered.filter(invoice => invoice.customerId?._id === customerFilter);
+    }
+
+    // Plan filter
+    if (planFilter !== 'all') {
+      filtered = filtered.filter(invoice => invoice.planId?._id === planFilter);
+    }
+
+    // Staff filter (created by)
+    if (staffFilter !== 'all') {
+      filtered = filtered.filter(invoice => invoice.createdBy?._id === staffFilter);
+    }
+
     setFilteredInvoices(filtered);
+  };
+
+  const clearAllFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+    setDateFrom('');
+    setDateTo('');
+    setCustomerFilter('all');
+    setPlanFilter('all');
+    setStaffFilter('all');
+  };
+
+  const hasActiveFilters = () => {
+    return searchTerm || statusFilter !== 'all' || dateFrom || dateTo ||
+           customerFilter !== 'all' || planFilter !== 'all' || staffFilter !== 'all';
   };
 
   const getStatusColor = (status: string) => {
@@ -357,20 +454,46 @@ export default function InvoicesPage() {
         {/* Filters */}
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>Filter Invoices</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Filter Invoices</CardTitle>
+              <div className="flex items-center gap-2">
+                {hasActiveFilters() && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearAllFilters}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Clear All Filters
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                >
+                  <Filter className="h-4 w-4 mr-1" />
+                  {showAdvancedFilters ? 'Hide' : 'Show'} Advanced Filters
+                </Button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col md:flex-row gap-4">
+            {/* Basic Filters */}
+            <div className="flex flex-col gap-4 mb-4">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
-                  placeholder="Search by invoice number, customer name..."
+                  placeholder="Search by invoice number, receipt number, customer name..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
                 />
               </div>
-              <div className="flex gap-2">
+
+              {/* Status Filter Buttons */}
+              <div className="flex flex-wrap gap-2">
                 {(['all', 'draft', 'sent', 'paid', 'overdue', 'cancelled'] as const).map((status) => (
                   <Button
                     key={status}
@@ -384,6 +507,102 @@ export default function InvoicesPage() {
                 ))}
               </div>
             </div>
+
+            {/* Advanced Filters */}
+            {showAdvancedFilters && (
+              <div className="border-t pt-4 mt-4">
+                <h3 className="text-sm font-semibold text-slate-700 mb-3">Advanced Filters</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Date Range */}
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 block mb-2">
+                      <Calendar className="h-4 w-4 inline mr-1" />
+                      Date From
+                    </label>
+                    <Input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 block mb-2">
+                      <Calendar className="h-4 w-4 inline mr-1" />
+                      Date To
+                    </label>
+                    <Input
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Customer Filter */}
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 block mb-2">
+                      <User className="h-4 w-4 inline mr-1" />
+                      Customer
+                    </label>
+                    <Select value={customerFilter} onValueChange={setCustomerFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Customers" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Customers</SelectItem>
+                        {customers.map((customer) => (
+                          <SelectItem key={customer._id} value={customer._id}>
+                            {customer.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Plan Filter */}
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 block mb-2">
+                      <FileText className="h-4 w-4 inline mr-1" />
+                      Plan
+                    </label>
+                    <Select value={planFilter} onValueChange={setPlanFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Plans" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Plans</SelectItem>
+                        {plans.map((plan) => (
+                          <SelectItem key={plan._id} value={plan._id}>
+                            {plan.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Staff Filter */}
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 block mb-2">
+                      <User className="h-4 w-4 inline mr-1" />
+                      Created By (Staff)
+                    </label>
+                    <Select value={staffFilter} onValueChange={setStaffFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Staff" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Staff</SelectItem>
+                        {staffMembers.map((staff) => (
+                          <SelectItem key={staff._id} value={staff._id}>
+                            {staff.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -407,6 +626,7 @@ export default function InvoicesPage() {
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Date</th>
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Customer</th>
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Amount</th>
+                    <th className="text-left py-3 px-4 font-medium text-slate-600">Issued By</th>
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Actions</th>
                   </tr>
                 </thead>
@@ -429,6 +649,11 @@ export default function InvoicesPage() {
                       <td className="py-3 px-4">
                         <div className="font-medium text-slate-800">
                           ₹{formatIndianNumber(invoice.total)}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="text-sm text-slate-600">
+                          {invoice.createdBy?.name || 'N/A'}
                         </div>
                       </td>
                       <td className="py-3 px-4">

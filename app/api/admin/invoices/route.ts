@@ -21,11 +21,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch real invoices with populated customer, plan, and enrollment data
+    // Fetch real invoices with populated customer, plan, enrollment, and creator data
     const invoices = await Invoice.find({})
       .populate('customerId', 'name email phone')
       .populate('planId', 'planName totalAmount monthlyAmount duration')
       .populate('enrollmentId', 'enrollmentId memberNumber status')
+      .populate('createdBy', 'name email')
       .sort({ createdAt: -1 })
       .lean();
 
@@ -59,6 +60,11 @@ export async function GET(request: NextRequest) {
           name: invoice.planId?.planName || 'No Plan',
           monthlyAmount: invoice.planId?.monthlyAmount || 0
         },
+        createdBy: invoice.createdBy ? {
+          _id: invoice.createdBy._id,
+          name: invoice.createdBy.name || 'Unknown',
+          email: invoice.createdBy.email || ''
+        } : null,
         // Use receivedAmount for display (what customer actually paid)
         amount: invoice.receivedAmount || 0,
         dueDate: invoice.dueDate,
@@ -149,34 +155,14 @@ export async function POST(request: NextRequest) {
     }).lean();
 
     if (!enrollment) {
-      // Auto-create enrollment if it doesn't exist
-      const invoiceDate = invoiceData.invoiceDate ? new Date(invoiceData.invoiceDate) : new Date();
-
-      // Fetch plan to calculate end date
-      const tempPlan = await Plan.findById(invoiceData.planId);
-      const endDate = new Date(invoiceDate);
-      if (tempPlan) {
-        endDate.setMonth(endDate.getMonth() + tempPlan.duration);
-      }
-
-      const newEnrollment = new Enrollment({
-        userId: invoiceData.customerId,
-        planId: invoiceData.planId,
-        enrollmentDate: invoiceDate,
-        startDate: invoiceDate,
-        endDate: endDate,
-        status: 'active'
-      });
-
-      await newEnrollment.save();
-      enrollment = newEnrollment.toObject();
-
-      console.log('Auto-created enrollment for invoice:', {
-        enrollmentId: enrollment._id,
-        userId: enrollment.userId,
-        planId: enrollment.planId,
-        enrollmentDate: enrollment.enrollmentDate
-      });
+      // Cannot auto-create enrollment without memberNumber
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'No enrollment found for this user and plan. Please create an enrollment first with a member number.'
+        },
+        { status: 404 }
+      );
     }
 
     // Fetch the plan to get monthly amount array and duration

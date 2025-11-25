@@ -223,23 +223,6 @@ export async function POST(request: NextRequest) {
       memberNumber
     } = await request.json();
 
-    // Validate memberNumber is provided
-    if (!memberNumber || memberNumber.trim() === '') {
-      return NextResponse.json(
-        { error: 'Member number is required' },
-        { status: 400 }
-      );
-    }
-
-    // Check if memberNumber already exists
-    const existingMemberNumber = await Enrollment.findOne({ memberNumber: memberNumber.trim() });
-    if (existingMemberNumber) {
-      return NextResponse.json(
-        { error: `Member number '${memberNumber}' is already in use. Please choose a different number.` },
-        { status: 400 }
-      );
-    }
-
     // Debug logging
     console.log('Enrollment request data:', { userId, planId, startDate, nominee, assignedStaff, memberNumber });
     console.log('Plan ID type:', typeof planId, 'Plan ID value:', planId);
@@ -281,21 +264,52 @@ export async function POST(request: NextRequest) {
     }
     
     console.log('Found user:', { _id: targetUser._id, userId: targetUser.userId, name: targetUser.name });
-    
+
     // Check if user is already actively enrolled in this plan
     console.log('Checking for existing active enrollment with userId:', targetUser.userId, 'planId:', planId);
-    const existingActiveEnrollment = await Enrollment.findOne({ 
-      userId: targetUser.userId, 
+    const existingActiveEnrollment = await Enrollment.findOne({
+      userId: targetUser.userId,
       planId,
       status: 'active'
     });
     console.log('Existing active enrollment found:', existingActiveEnrollment ? 'Yes' : 'No');
-    
+
     if (existingActiveEnrollment) {
       return NextResponse.json(
         { error: 'User already has an active enrollment in this plan' },
         { status: 400 }
       );
+    }
+
+    // MEMBER NUMBER LOGIC:
+    // Check if this user has any existing enrollments (to get their member number)
+    const existingEnrollment = await Enrollment.findOne({ userId: targetUser.userId });
+    let finalMemberNumber: string;
+
+    if (existingEnrollment) {
+      // User has existing enrollments - reuse their member number
+      finalMemberNumber = existingEnrollment.memberNumber;
+      console.log('Reusing existing member number:', finalMemberNumber);
+    } else {
+      // This is the user's first enrollment - use provided member number
+      if (!memberNumber || memberNumber.trim() === '') {
+        return NextResponse.json(
+          { error: 'Member number is required for first enrollment' },
+          { status: 400 }
+        );
+      }
+
+      // Check if this member number is already in use by another user
+      const memberNumberInUse = await Enrollment.findOne({ memberNumber: memberNumber.trim() });
+      if (memberNumberInUse) {
+        return NextResponse.json(
+          { error: `Member number '${memberNumber}' is already in use by another user. Please choose a different number.` },
+          { status: 400 }
+        );
+      }
+
+      finalMemberNumber = memberNumber.trim();
+      console.log('Using new member number:', finalMemberNumber);
     }
     
     // Count existing enrollments for member number
@@ -330,7 +344,7 @@ export async function POST(request: NextRequest) {
       nextDueDate: start,
       nominee,
       assignedStaff: assignedStaff || user.userId,
-      memberNumber: memberNumber.trim() // Set member number from user input (trimmed)
+      memberNumber: finalMemberNumber // Use the determined member number (reused or new)
     });
 
     // Retry logic for duplicate enrollmentId (race condition)

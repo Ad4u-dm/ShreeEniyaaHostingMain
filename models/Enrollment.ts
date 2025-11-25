@@ -30,7 +30,7 @@ const EnrollmentSchema = new mongoose.Schema({
   nextDueDate: { type: Date },
   
   // Member Position
-  memberNumber: { type: String, required: true, unique: true }, // Customer's choice - must be unique
+  memberNumber: { type: String, required: true }, // Copied from User.memberNumber - unique per user across all plans
   
   // Nominee Details
   nominee: {

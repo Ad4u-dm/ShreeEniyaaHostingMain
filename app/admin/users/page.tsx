@@ -18,6 +18,8 @@ interface Customer {
   email: string;
   phone: string;
   address: string;
+  dob?: string; // Date of Birth (ISO string)
+  weddingDate?: string; // Wedding Date (ISO string)
   planId: string;
   planName: string;
   joinDate: string;
@@ -112,6 +114,8 @@ export default function UsersPage() {
     startDate: new Date().toISOString().split('T')[0],
     memberNumber: ''
   });
+  const [isEditingMemberNumber, setIsEditingMemberNumber] = useState(false);
+  const [newMemberNumber, setNewMemberNumber] = useState('');
 
   useEffect(() => {
     fetchCustomers();
@@ -168,10 +172,13 @@ export default function UsersPage() {
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(customer =>
-        customer.name.toLowerCase().includes(term) ||
-        customer.email.toLowerCase().includes(term) ||
-        customer.phone.includes(term) ||
-        customer.planName.toLowerCase().includes(term)
+        customer.name?.toLowerCase().includes(term) ||
+        customer.email?.toLowerCase().includes(term) ||
+        customer.phone?.includes(term) ||
+        customer.planName?.toLowerCase().includes(term) ||
+        (customer.address && customer.address.toLowerCase().includes(term)) ||
+        (customer.dob && customer.dob.toLowerCase().includes(term)) ||
+        (customer.weddingDate && customer.weddingDate.toLowerCase().includes(term))
       );
     }
 
@@ -232,7 +239,9 @@ export default function UsersPage() {
     setEditFormData({
       name: customer.name,
       phone: customer.phone,
-      address: customer.address
+      address: customer.address,
+      dob: customer.dob || '',
+      weddingDate: customer.weddingDate || ''
     });
     setIsEditing(true);
   };
@@ -316,7 +325,7 @@ export default function UsersPage() {
     }
   };
 
-  const handleOpenEnrollmentModal = (enrollmentToEdit?: any) => {
+  const handleOpenEnrollmentModal = async (enrollmentToEdit?: any) => {
     if (enrollmentToEdit) {
       // Edit existing enrollment
       setIsEditingEnrollment(true);
@@ -327,13 +336,20 @@ export default function UsersPage() {
         memberNumber: enrollmentToEdit.memberNumber || ''
       });
     } else {
-      // Create new enrollment
+      // Create new enrollment - check if user has existing enrollments
       setIsEditingEnrollment(false);
       setCurrentEnrollment(null);
+
+      // Fetch user's existing enrollments to check if they have a member number
+      let existingMemberNumber = '';
+      if (selectedCustomer && userEnrollments.length > 0) {
+        existingMemberNumber = userEnrollments[0].memberNumber || '';
+      }
+
       setEnrollmentFormData({
         planId: '',
         startDate: new Date().toISOString().split('T')[0],
-        memberNumber: ''
+        memberNumber: existingMemberNumber // Pre-fill if user has existing enrollments
       });
     }
 
@@ -343,12 +359,6 @@ export default function UsersPage() {
   const handleSaveEnrollment = async () => {
     if (!selectedCustomer || !enrollmentFormData.planId) {
       alert('Please select a plan');
-      return;
-    }
-
-    // Only validate memberNumber for new enrollments
-    if (!isEditingEnrollment && !enrollmentFormData.memberNumber) {
-      alert('Please enter a member number');
       return;
     }
 
@@ -364,7 +374,6 @@ export default function UsersPage() {
           body: JSON.stringify({
             planId: enrollmentFormData.planId,
             startDate: enrollmentFormData.startDate
-            // memberNumber is not included - it cannot be changed after creation
           })
         });
 
@@ -375,8 +384,7 @@ export default function UsersPage() {
           setCurrentEnrollment(null);
           setEnrollmentFormData({
             planId: '',
-            startDate: new Date().toISOString().split('T')[0],
-            memberNumber: ''
+            startDate: new Date().toISOString().split('T')[0]
           });
           fetchUserEnrollments(selectedCustomer.userId || selectedCustomer._id);
           fetchCustomers();
@@ -385,7 +393,7 @@ export default function UsersPage() {
           alert(error.error || 'Failed to update enrollment');
         }
       } else {
-        // Create new enrollment
+        // Create new enrollment - include memberNumber (required for first enrollment, reused for subsequent)
         const response = await fetch('/api/enrollments', {
           method: 'POST',
           headers: {
@@ -457,6 +465,47 @@ export default function UsersPage() {
     // Use customer.userId if available, otherwise fall back to _id
     fetchUserEnrollments(customer.userId || customer._id);
     fetchAvailablePlans();
+  };
+
+  const handleUpdateMemberNumber = async () => {
+    if (!selectedCustomer || !newMemberNumber.trim()) {
+      alert('Please enter a valid member number');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/enrollments/update-member-number', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        },
+        body: JSON.stringify({
+          userId: selectedCustomer.userId || selectedCustomer._id,
+          newMemberNumber: newMemberNumber.trim()
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert(`Member number updated successfully!\n\n` +
+          `Enrollments updated: ${result.enrollmentsUpdated}\n` +
+          `Invoices updated: ${result.invoicesUpdated}`);
+
+        setIsEditingMemberNumber(false);
+        setNewMemberNumber('');
+
+        // Refresh the enrollments to show updated member number
+        fetchUserEnrollments(selectedCustomer.userId || selectedCustomer._id);
+        fetchCustomers();
+      } else {
+        alert(result.error || 'Failed to update member number');
+      }
+    } catch (error) {
+      console.error('Failed to update member number:', error);
+      alert('Failed to update member number');
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -767,6 +816,93 @@ export default function UsersPage() {
                         <p className="font-semibold text-slate-800">{selectedCustomer.phone}</p>
                       )}
                     </div>
+                    <div>
+                      <p className="text-sm text-slate-600 mb-1">Address</p>
+                      {isEditing ? (
+                        <Input
+                          value={editFormData.address || ''}
+                          onChange={(e) => setEditFormData({...editFormData, address: e.target.value})}
+                          className="bg-white"
+                        />
+                      ) : (
+                        <p className="font-semibold text-slate-800">{selectedCustomer.address}</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm text-slate-600 mb-1">Date of Birth</p>
+                      {isEditing ? (
+                        <Input
+                          type="date"
+                          value={editFormData.dob || ''}
+                          onChange={(e) => setEditFormData({...editFormData, dob: e.target.value})}
+                          className="bg-white"
+                        />
+                      ) : (
+                        <p className="font-semibold text-slate-800">{selectedCustomer.dob ? new Date(selectedCustomer.dob).toLocaleDateString('en-IN') : '-'}</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm text-slate-600 mb-1">Wedding Date</p>
+                      {isEditing ? (
+                        <Input
+                          type="date"
+                          value={editFormData.weddingDate || ''}
+                          onChange={(e) => setEditFormData({...editFormData, weddingDate: e.target.value})}
+                          className="bg-white"
+                        />
+                      ) : (
+                        <p className="font-semibold text-slate-800">{selectedCustomer.weddingDate ? new Date(selectedCustomer.weddingDate).toLocaleDateString('en-IN') : '-'}</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-sm text-slate-600 mb-1">Member Number</p>
+                      {isEditingMemberNumber ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={newMemberNumber}
+                            onChange={(e) => setNewMemberNumber(e.target.value)}
+                            placeholder="Enter new member number"
+                            className="bg-white"
+                          />
+                          <Button
+                            size="sm"
+                            onClick={handleUpdateMemberNumber}
+                            className="bg-green-600 hover:bg-green-700"
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setIsEditingMemberNumber(false);
+                              setNewMemberNumber('');
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-slate-800">
+                            {userEnrollments.length > 0 ? userEnrollments[0].memberNumber : 'No enrollments yet'}
+                          </p>
+                          {userEnrollments.length > 0 && !isEditing && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setIsEditingMemberNumber(true);
+                                setNewMemberNumber(userEnrollments[0].memberNumber);
+                              }}
+                              className="h-6 px-2"
+                            >
+                              <Edit2 className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div className="mt-4 flex gap-2">
                     {!isEditing ? (
@@ -973,18 +1109,22 @@ export default function UsersPage() {
 
                 <div>
                   <label className="text-sm font-medium text-slate-700 block mb-2">
-                    Member Number
+                    Member Number {userEnrollments.length === 0 && !isEditingEnrollment && <span className="text-red-500">*</span>}
                   </label>
                   <Input
                     type="text"
-                    placeholder="Enter member number (e.g., SEMA2501)"
+                    placeholder={userEnrollments.length > 0 ? "Will use existing member number" : "Enter member number (e.g., 1001)"}
                     value={enrollmentFormData.memberNumber}
                     onChange={(e) => setEnrollmentFormData({...enrollmentFormData, memberNumber: e.target.value})}
-                    disabled={isEditingEnrollment}
-                    required
+                    disabled={isEditingEnrollment || userEnrollments.length > 0}
+                    required={userEnrollments.length === 0 && !isEditingEnrollment}
                   />
                   <p className="text-xs text-slate-500 mt-1">
-                    {isEditingEnrollment ? 'Member number cannot be changed after creation' : 'Customer\'s choice - must be unique'}
+                    {isEditingEnrollment
+                      ? 'Member number cannot be changed after creation'
+                      : userEnrollments.length > 0
+                        ? 'This user already has a member number - it will be reused automatically'
+                        : 'Required for first enrollment - must be unique per user'}
                   </p>
                 </div>
 
