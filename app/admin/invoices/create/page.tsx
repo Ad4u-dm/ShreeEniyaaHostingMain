@@ -680,70 +680,24 @@ export default function CreateInvoicePage() {
       // Don't set planId yet - wait for profile to load
     }));
 
-    // Fetch comprehensive customer profile which will auto-populate more fields
+    // Fetch user profile from User API to get memberNumber
     setLoadingProfile(true);
     try {
-      const token = localStorage.getItem('auth-token');
-      if (!token) {
-        console.warn('No auth token found');
-        setLoadingProfile(false);
-        return;
-      }
-
-      const response = await fetch(`/api/customers/${customerId}/profile`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
+      const response = await fetch(`/api/users/${customerId}`);
       if (response.ok) {
         const data = await response.json();
-        console.log('=== CUSTOMER PROFILE FOR AUTO-SELECT ===');
-        console.log('Active enrollment:', data.customer?.activeEnrollment);
-
-        setSelectedCustomerProfile(data.customer);
-
-        // Auto-select plan from active enrollment
-        if (data.customer?.activeEnrollment) {
-          const enrollmentPlanId = typeof data.customer.activeEnrollment.planId === 'string'
-            ? data.customer.activeEnrollment.planId
-            : data.customer.activeEnrollment.planId?._id || '';
-
-          const memberNo = data.customer.activeEnrollment.memberNumber ||
-                          data.customer.memberNumber ||
-                          '';
-
-          console.log('Auto-selecting plan:', enrollmentPlanId);
-          console.log('Auto-populating member number:', memberNo);
-
-          setFormData(prev => ({
-            ...prev,
-            planId: enrollmentPlanId, // Auto-select enrolled plan
-            receiptDetails: {
-              ...prev.receiptDetails,
-              memberNo: memberNo,
-              pendingAmount: data.customer.paymentSummary?.pendingAmount || 0,
-              arrearAmount: data.customer.paymentSummary?.arrearAmount || 0
-            }
-          }));
-        } else {
-          // No active enrollment - reset form
-          setFormData(prev => ({
-            ...prev,
-            receiptDetails: {
-              ...prev.receiptDetails,
-              memberNo: '',
-              dueNo: '1',
-              dueAmount: 0,
-              receivedAmount: 0,
-              pendingAmount: 0,
-              arrearAmount: 0
-            }
-          }));
-        }
+        setSelectedCustomerProfile(data.user);
+        // Set member number from user profile
+        setFormData(prev => ({
+          ...prev,
+          receiptDetails: {
+            ...prev.receiptDetails,
+            memberNo: data.user.memberNumber || ''
+          }
+        }));
       }
     } catch (error) {
-      console.error('Failed to fetch customer profile:', error);
+      console.error('Failed to fetch user profile:', error);
     } finally {
       setLoadingProfile(false);
     }
@@ -1073,25 +1027,59 @@ export default function CreateInvoicePage() {
                   </label>
                   <div className="flex gap-2">
                     <Select value={formData.planId} onValueChange={async (value) => {
-                      const newFormData = { ...formData, planId: value };
-                      setFormData(newFormData);
-                      
-                      // Update due number when plan changes
+                      // Update plan ID first
+                      setFormData(prev => ({ ...prev, planId: value }));
+
+                      // Fetch member number and due number when both customer and plan are selected
                       if (formData.customerId && value) {
-                        const nextDueNumber = await getNextDueNumber(formData.customerId, value);
-                        setFormData(prev => ({
-                          ...prev,
-                          planId: value,
-                          receiptDetails: {
-                            ...prev.receiptDetails,
-                            dueNo: nextDueNumber.toString()
+                        try {
+                          // Find enrollment for this customer and plan
+                          const response = await fetch(`/api/enrollments?userId=${formData.customerId}&planId=${value}`, {
+                            headers: {
+                              'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+                            }
+                          });
+
+                          let memberNumber = formData.receiptDetails.memberNo;
+                          if (response.ok) {
+                            const data = await response.json();
+                            console.log('=== FETCHING MEMBER NUMBER FROM ENROLLMENT ===');
+                            console.log('Enrollment API response:', data);
+
+                            if (data.enrollments && data.enrollments.length > 0) {
+                              const enrollment = data.enrollments[0];
+                              if (enrollment.memberNumber) {
+                                memberNumber = enrollment.memberNumber;
+                                console.log('Found member number from enrollment:', memberNumber);
+                              }
+                            } else {
+                              console.log('No enrollments found for this customer and plan, preserving member number from user profile');
+                            }
                           }
-                        }));
+
+                          // Get next due number
+                          const nextDueNumber = await getNextDueNumber(formData.customerId, value);
+                          console.log('Next due number:', nextDueNumber);
+
+                          // Update form with both member number and due number
+                          setFormData(prev => ({
+                            ...prev,
+                            planId: value,
+                            receiptDetails: {
+                              ...prev.receiptDetails,
+                              memberNo: memberNumber,
+                              dueNo: nextDueNumber.toString()
+                            }
+                          }));
+                        } catch (error) {
+                          console.error('Failed to fetch enrollment data:', error);
+                        }
                       }
-                      
+
                       // Trigger calculation when plan changes
                       setTimeout(() => {
-                        calculateChitFundAmounts(newFormData.receiptDetails.paymentMonth || new Date().toISOString().slice(0, 7));
+                        const paymentMonth = formData.receiptDetails.paymentMonth || new Date().toISOString().slice(0, 7);
+                        calculateChitFundAmounts(paymentMonth);
                       }, 100);
                     }}>
                       <SelectTrigger>
@@ -1164,17 +1152,13 @@ export default function CreateInvoicePage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Member No {selectedCustomerProfile?.memberNumber && <span className="text-xs text-green-600">(Auto-generated)</span>}
+                    Member No <span className="text-xs text-green-600">(Fetched from enrollment)</span>
                   </label>
                   <Input
                     value={formData.receiptDetails.memberNo}
-                    onChange={(e) => setFormData({ 
-                      ...formData, 
-                      receiptDetails: { ...formData.receiptDetails, memberNo: e.target.value }
-                    })}
-                    placeholder="Auto-generated from customer profile"
-                    disabled={!!selectedCustomerProfile?.memberNumber}
-                    className={selectedCustomerProfile?.memberNumber ? "bg-green-50 border-green-200" : ""}
+                    disabled
+                    placeholder="Auto-fetched from enrollment"
+                    className="bg-gray-50 cursor-not-allowed"
                   />
                 </div>
                 <div>
@@ -1251,24 +1235,30 @@ export default function CreateInvoicePage() {
                     value={formData.receiptDetails.receivedAmount}
                     onChange={(e) => {
                       const amount = parseFloat(e.target.value) || 0;
-                      console.log('Receipt Details receivedAmount changed to:', amount);
-                      handleReceivedAmountChange(amount);
+                      setFormData({
+                        ...formData,
+                        receiptDetails: { ...formData.receiptDetails, receivedAmount: amount }
+                      });
                     }}
                     placeholder="Enter received amount"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Balance Amount (Auto-calculated)
+                    Balance Amount
                   </label>
                   <Input
                     type="number"
                     value={formData.receiptDetails.balanceAmount}
-                    readOnly
-                    className="bg-green-50 border-green-200 cursor-not-allowed font-semibold"
-                    placeholder="0"
+                    onChange={(e) => {
+                      const amount = parseFloat(e.target.value) || 0;
+                      setFormData({
+                        ...formData,
+                        receiptDetails: { ...formData.receiptDetails, balanceAmount: amount }
+                      });
+                    }}
+                    placeholder="Enter balance amount"
                   />
-                  <p className="text-xs text-slate-500 mt-1">(Due + Arrear) - Received</p>
                 </div>
               </div>
 

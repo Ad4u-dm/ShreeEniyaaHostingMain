@@ -4,11 +4,11 @@ import User from '@/models/User';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     await connectDB();
 
-  const { id } = await params;
+    const { id } = params;
     const user = await User.findById(id).select('-password');
     
     if (!user) {

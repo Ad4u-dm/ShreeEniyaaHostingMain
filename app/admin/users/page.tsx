@@ -373,7 +373,8 @@ export default function UsersPage() {
           },
           body: JSON.stringify({
             planId: enrollmentFormData.planId,
-            startDate: enrollmentFormData.startDate
+            startDate: enrollmentFormData.startDate,
+            memberNumber: enrollmentFormData.memberNumber
           })
         });
 
@@ -1113,15 +1114,15 @@ export default function UsersPage() {
                   </label>
                   <Input
                     type="text"
-                    placeholder={userEnrollments.length > 0 ? "Will use existing member number" : "Enter member number (e.g., 1001)"}
+                    placeholder={userEnrollments.length > 0 && !isEditingEnrollment ? "Will use existing member number" : "Enter member number (e.g., 1001)"}
                     value={enrollmentFormData.memberNumber}
                     onChange={(e) => setEnrollmentFormData({...enrollmentFormData, memberNumber: e.target.value})}
-                    disabled={isEditingEnrollment || userEnrollments.length > 0}
+                    disabled={userEnrollments.length > 0 && !isEditingEnrollment}
                     required={userEnrollments.length === 0 && !isEditingEnrollment}
                   />
                   <p className="text-xs text-slate-500 mt-1">
                     {isEditingEnrollment
-                      ? 'Member number cannot be changed after creation'
+                      ? 'You can update the member number if needed'
                       : userEnrollments.length > 0
                         ? 'This user already has a member number - it will be reused automatically'
                         : 'Required for first enrollment - must be unique per user'}
