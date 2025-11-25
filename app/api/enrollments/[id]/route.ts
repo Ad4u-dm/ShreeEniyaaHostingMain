@@ -17,7 +17,7 @@ export async function PUT(
     }
 
   const { id } = await params;
-    const { planId, startDate } = await req.json();
+    const { planId, startDate, memberNumber } = await req.json();
 
     console.log('Updating enrollment:', id);
     console.log('New plan ID:', planId);
@@ -33,6 +33,28 @@ export async function PUT(
     }
 
     console.log('Existing enrollment found:', existingEnrollment);
+
+    // Validate memberNumber if provided
+    if (memberNumber !== undefined) {
+      if (!memberNumber || memberNumber.trim() === '') {
+        return NextResponse.json(
+          { error: 'Member number cannot be empty' },
+          { status: 400 }
+        );
+      }
+
+      // Check if memberNumber already exists (excluding current enrollment)
+      const existingMemberNumber = await Enrollment.findOne({
+        memberNumber: memberNumber.trim(),
+        _id: { $ne: id }
+      });
+      if (existingMemberNumber) {
+        return NextResponse.json(
+          { error: `Member number '${memberNumber}' is already in use. Please choose a different number.` },
+          { status: 400 }
+        );
+      }
+    }
 
     // Verify new plan exists
     const plan = await Plan.findById(planId);
@@ -62,6 +84,9 @@ export async function PUT(
     existingEnrollment.startDate = start;
     existingEnrollment.endDate = end;
     existingEnrollment.totalDue = plan.totalAmount;
+    if (memberNumber !== undefined) {
+      existingEnrollment.memberNumber = memberNumber.trim();
+    }
     existingEnrollment.updatedAt = new Date();
 
     await existingEnrollment.save();

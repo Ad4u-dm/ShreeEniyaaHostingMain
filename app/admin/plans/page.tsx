@@ -681,7 +681,7 @@ export default function PlansPage() {
                           <tr className="border-b">
                             <th className="text-left py-2 px-3 font-semibold text-slate-700">Month</th>
                             <th className="text-left py-2 px-3 font-semibold text-slate-700">Due (₹)</th>
-                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Dividend (₹)</th>
+                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Dividend (₹, auto)</th>
                             <th className="text-left py-2 px-3 font-semibold text-slate-700">Auction Amount (₹)</th>
                           </tr>
                         </thead>
@@ -702,9 +702,9 @@ export default function PlansPage() {
                               <td className="py-2 px-3">
                                 <Input
                                   type="number"
-                                  value={month.dividend}
-                                  onChange={(e) => updateManualMonthlyData(index, 'dividend', Number(e.target.value))}
-                                  className="w-28 text-sm"
+                                  value={manualMonthlyData.length > 0 ? ((manualMonthlyData[0]?.dueAmount ?? manualMonthlyData[0]?.installmentAmount ?? 0) - (month?.dueAmount ?? month?.installmentAmount ?? 0)) : 0}
+                                  readOnly
+                                  className="w-28 text-sm bg-gray-100"
                                 />
                               </td>
                               <td className="py-2 px-3">
@@ -891,9 +891,9 @@ export default function PlansPage() {
                             <td className="py-2 px-3">
                               <Input
                                 type="number"
-                                value={month.dividend}
-                                onChange={(e) => updateMonthlyData(index, 'dividend', Number(e.target.value))}
-                                className="w-28 text-sm"
+                                value={editingPlan.monthlyData.length > 0 ? ((editingPlan.monthlyData[0]?.dueAmount ?? editingPlan.monthlyData[0]?.installmentAmount ?? 0) - (month?.dueAmount ?? month?.installmentAmount ?? 0)) : 0}
+                                readOnly
+                                className="w-28 text-sm bg-gray-100"
                               />
                             </td>
                             <td className="py-2 px-3">

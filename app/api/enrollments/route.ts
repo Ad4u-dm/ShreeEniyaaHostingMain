@@ -219,11 +219,29 @@ export async function POST(request: NextRequest) {
       planId,
       startDate,
       nominee,
-      assignedStaff
+      assignedStaff,
+      memberNumber
     } = await request.json();
-    
+
+    // Validate memberNumber is provided
+    if (!memberNumber || memberNumber.trim() === '') {
+      return NextResponse.json(
+        { error: 'Member number is required' },
+        { status: 400 }
+      );
+    }
+
+    // Check if memberNumber already exists
+    const existingMemberNumber = await Enrollment.findOne({ memberNumber: memberNumber.trim() });
+    if (existingMemberNumber) {
+      return NextResponse.json(
+        { error: `Member number '${memberNumber}' is already in use. Please choose a different number.` },
+        { status: 400 }
+      );
+    }
+
     // Debug logging
-    console.log('Enrollment request data:', { userId, planId, startDate, nominee, assignedStaff });
+    console.log('Enrollment request data:', { userId, planId, startDate, nominee, assignedStaff, memberNumber });
     console.log('Plan ID type:', typeof planId, 'Plan ID value:', planId);
     
     // Verify plan exists (using Plan model for consistency with /api/plans)
@@ -311,10 +329,38 @@ export async function POST(request: NextRequest) {
       totalDue: plan.totalAmount,
       nextDueDate: start,
       nominee,
-      assignedStaff: assignedStaff || user.userId
+      assignedStaff: assignedStaff || user.userId,
+      memberNumber: memberNumber.trim() // Set member number from user input (trimmed)
     });
-    
-    await enrollment.save();
+
+    // Retry logic for duplicate enrollmentId (race condition)
+    let saveAttempts = 0;
+    const maxAttempts = 3;
+
+    while (saveAttempts < maxAttempts) {
+      try {
+        await enrollment.save();
+        break; // Success, exit the loop
+      } catch (error: any) {
+        saveAttempts++;
+
+        // Check if it's a duplicate key error for enrollmentId
+        if (error.code === 11000 && error.keyPattern?.enrollmentId) {
+          if (saveAttempts >= maxAttempts) {
+            // Final attempt failed, use timestamp-based ID
+            enrollment.enrollmentId = `ENR${Date.now()}`;
+            await enrollment.save();
+            break;
+          }
+          // Retry with a new ID
+          enrollment.enrollmentId = undefined;
+          await new Promise(resolve => setTimeout(resolve, 100 * saveAttempts)); // Exponential backoff
+        } else {
+          // Different error, rethrow
+          throw error;
+        }
+      }
+    }
     
     // Manually populate user data since userId and assignedStaff are now strings, not ObjectId references
     const populatedEnrollment = await Enrollment.findById(enrollment._id)

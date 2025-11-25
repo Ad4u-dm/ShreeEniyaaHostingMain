@@ -190,6 +190,15 @@ export default function PrintInvoicePage() {
     additionalNotes: invoice.notes || ""
   };
 
+  // Detect download mode
+  const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const isDownload = urlParams?.get('download') === 'true';
+
+  // Dynamically import A4InvoiceTemplate only if needed
+  const InvoiceComponent = isDownload
+    ? require('@/app/components/templates/a4-invoice/A4InvoiceTemplate').A4InvoiceTemplate
+    : ThermalReceiptTemplate;
+
   return (
     <>
       <style jsx global>{`
@@ -210,13 +219,11 @@ export default function PrintInvoicePage() {
             display: none !important;
           }
         }
-        
         @page {
           margin: 0.5in;
           size: A4;
         }
       `}</style>
-      
       <div className="min-h-screen bg-white">
         {/* Print Controls - Hidden during print */}
         <div className="no-print p-4 bg-slate-100 border-b">
@@ -238,10 +245,9 @@ export default function PrintInvoicePage() {
             </div>
           </div>
         </div>
-
         {/* Invoice Content - This will be printed */}
         <div className="print-area p-8 max-w-4xl mx-auto">
-          <ThermalReceiptTemplate invoice={invoice} />
+          <InvoiceComponent invoice={invoice} />
         </div>
       </div>
     </>

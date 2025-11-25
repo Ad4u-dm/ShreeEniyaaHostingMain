@@ -22,28 +22,30 @@ interface User {
 interface EnrollmentFormProps {
   users: User[];
   plans: Plan[];
-  onEnroll: (userId: string, planId: string) => void;
+  onEnroll: (userId: string, planId: string, memberNumber: string) => void;
 }
 
 const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ users, plans, onEnroll }) => {
   const [selectedUser, setSelectedUser] = useState<string>('');
   const [selectedPlan, setSelectedPlan] = useState<string>('');
+  const [memberNumber, setMemberNumber] = useState<string>('');
 
   const handleEnroll = async () => {
-    if (!selectedUser || !selectedPlan) {
-      alert('Please select both user and plan before enrolling.');
+    if (!selectedUser || !selectedPlan || !memberNumber) {
+      alert('Please select user, plan, and enter member number.');
       return;
     }
     if (!navigator.onLine) {
       await db.enrollments.add({
         userId: selectedUser,
         planId: selectedPlan,
+        memberNumber,
         synced: false,
       });
       alert('You are offline. Enrollment saved locally and will sync when online.');
       return;
     }
-    onEnroll(selectedUser, selectedPlan);
+    onEnroll(selectedUser, selectedPlan, memberNumber);
   };
 
   // Sync logic (run when online)
@@ -52,7 +54,7 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ users, plans, onEnroll 
       if (navigator.onLine) {
         const unsynced = await db.enrollments.filter(e => e.synced === false).toArray();
         for (const enrollment of unsynced) {
-          await onEnroll(enrollment.userId, enrollment.planId);
+          await onEnroll(enrollment.userId, enrollment.planId, enrollment.memberNumber);
           if (typeof enrollment.id === 'number') {
             await db.enrollments.update(enrollment.id, { synced: true });
           }
@@ -96,6 +98,12 @@ const EnrollmentForm: React.FC<EnrollmentFormProps> = ({ users, plans, onEnroll 
           ))}
         </SelectContent>
       </Select>
+      <Input
+        type="text"
+        placeholder="Enter member number (customer's choice)"
+        value={memberNumber}
+        onChange={e => setMemberNumber(e.target.value)}
+      />
       <Button onClick={handleEnroll}>
         Enroll Customer
       </Button>

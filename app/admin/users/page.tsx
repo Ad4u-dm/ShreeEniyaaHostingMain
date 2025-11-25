@@ -109,7 +109,8 @@ export default function UsersPage() {
   const [currentEnrollment, setCurrentEnrollment] = useState<Enrollment | null>(null);
   const [enrollmentFormData, setEnrollmentFormData] = useState<any>({
     planId: '',
-    startDate: new Date().toISOString().split('T')[0]
+    startDate: new Date().toISOString().split('T')[0],
+    memberNumber: ''
   });
 
   useEffect(() => {
@@ -322,7 +323,8 @@ export default function UsersPage() {
       setCurrentEnrollment(enrollmentToEdit);
       setEnrollmentFormData({
         planId: typeof enrollmentToEdit.planId === "object" && enrollmentToEdit.planId ? (enrollmentToEdit.planId as any)._id : enrollmentToEdit.planId,
-        startDate: new Date(enrollmentToEdit.startDate).toISOString().split('T')[0]
+        startDate: new Date(enrollmentToEdit.startDate).toISOString().split('T')[0],
+        memberNumber: enrollmentToEdit.memberNumber || ''
       });
     } else {
       // Create new enrollment
@@ -330,7 +332,8 @@ export default function UsersPage() {
       setCurrentEnrollment(null);
       setEnrollmentFormData({
         planId: '',
-        startDate: new Date().toISOString().split('T')[0]
+        startDate: new Date().toISOString().split('T')[0],
+        memberNumber: ''
       });
     }
 
@@ -340,6 +343,12 @@ export default function UsersPage() {
   const handleSaveEnrollment = async () => {
     if (!selectedCustomer || !enrollmentFormData.planId) {
       alert('Please select a plan');
+      return;
+    }
+
+    // Only validate memberNumber for new enrollments
+    if (!isEditingEnrollment && !enrollmentFormData.memberNumber) {
+      alert('Please enter a member number');
       return;
     }
 
@@ -355,6 +364,7 @@ export default function UsersPage() {
           body: JSON.stringify({
             planId: enrollmentFormData.planId,
             startDate: enrollmentFormData.startDate
+            // memberNumber is not included - it cannot be changed after creation
           })
         });
 
@@ -365,7 +375,8 @@ export default function UsersPage() {
           setCurrentEnrollment(null);
           setEnrollmentFormData({
             planId: '',
-            startDate: new Date().toISOString().split('T')[0]
+            startDate: new Date().toISOString().split('T')[0],
+            memberNumber: ''
           });
           fetchUserEnrollments(selectedCustomer.userId || selectedCustomer._id);
           fetchCustomers();
@@ -384,7 +395,8 @@ export default function UsersPage() {
           body: JSON.stringify({
             userId: selectedCustomer.userId || selectedCustomer._id,
             planId: enrollmentFormData.planId,
-            startDate: enrollmentFormData.startDate
+            startDate: enrollmentFormData.startDate,
+            memberNumber: enrollmentFormData.memberNumber
           })
         });
 
@@ -393,7 +405,8 @@ export default function UsersPage() {
           setShowEnrollmentModal(false);
           setEnrollmentFormData({
             planId: '',
-            startDate: new Date().toISOString().split('T')[0]
+            startDate: new Date().toISOString().split('T')[0],
+            memberNumber: ''
           });
           fetchUserEnrollments(selectedCustomer.userId || selectedCustomer._id);
           fetchCustomers();
@@ -956,6 +969,23 @@ export default function UsersPage() {
                       )}
                     </p>
                   )}
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-slate-700 block mb-2">
+                    Member Number
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="Enter member number (e.g., SEMA2501)"
+                    value={enrollmentFormData.memberNumber}
+                    onChange={(e) => setEnrollmentFormData({...enrollmentFormData, memberNumber: e.target.value})}
+                    disabled={isEditingEnrollment}
+                    required
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    {isEditingEnrollment ? 'Member number cannot be changed after creation' : 'Customer\'s choice - must be unique'}
+                  </p>
                 </div>
 
                 <div>

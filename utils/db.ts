@@ -4,6 +4,7 @@ export interface Enrollment {
   id?: number;
   userId: string;
   planId: string;
+  memberNumber: string;
   synced: boolean;
 }
 
@@ -12,7 +13,7 @@ class InvoifyDB extends Dexie {
   constructor() {
     super('InvoifyDB');
     this.version(1).stores({
-      enrollments: '++id,userId,planId,synced',
+      enrollments: '++id,userId,planId,memberNumber,synced',
     });
     this.enrollments = this.table('enrollments');
   }

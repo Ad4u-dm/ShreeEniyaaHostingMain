@@ -82,21 +82,6 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
         <div style={{margin: '1px 0'}}>Received Amount: ₹ {(invoice.receivedAmount || 0).toLocaleString('en-IN')}</div>
         <div style={{margin: '1px 0'}}>Balance Amount : ₹ {(invoice.balanceAmount || 0).toLocaleString('en-IN')}</div>
       </div>
-      {/* Items Table - Only Description and Amount */}
-      {invoice.items && invoice.items.length > 0 && (
-        <div style={{margin: '6px 0'}}>
-          <div style={{display: 'flex', fontWeight: 'bold', borderBottom: '1px dashed #000', fontSize: '10px'}}>
-            <div style={{flex: 2, textAlign: 'left'}}>Description</div>
-            <div style={{flex: 1, textAlign: 'right'}}>Amount</div>
-          </div>
-          {invoice.items.map((item: any, idx: number) => (
-            <div key={idx} style={{display: 'flex', fontSize: '10px'}}>
-              <div style={{flex: 2, textAlign: 'left'}}>{item.description}</div>
-              <div style={{flex: 1, textAlign: 'right'}}>₹ {(item.amount || 0).toLocaleString('en-IN')}</div>
-            </div>
-          ))}
-        </div>
-      )}
       
       <div style={{borderTop: '1px dashed #000', margin: '3px 0', width: '100%'}}></div>
       
