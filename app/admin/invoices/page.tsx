@@ -494,21 +494,6 @@ export default function InvoicesPage() {
                   className="pl-10"
                 />
               </div>
-
-              {/* Status Filter Buttons */}
-              <div className="flex flex-wrap gap-2">
-                {(['all', 'draft', 'sent', 'paid', 'overdue', 'cancelled'] as const).map((status) => (
-                  <Button
-                    key={status}
-                    variant={statusFilter === status ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setStatusFilter(status)}
-                    className="capitalize"
-                  >
-                    {status === 'all' ? 'All' : status}
-                  </Button>
-                ))}
-              </div>
             </div>
 
             {/* Advanced Filters */}

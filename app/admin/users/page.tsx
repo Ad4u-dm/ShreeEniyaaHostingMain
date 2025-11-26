@@ -1011,6 +1011,33 @@ export default function UsersPage() {
                       <p className="text-sm text-slate-500 mt-1">Click "Add Enrollment" to assign this user to a plan</p>
                     </div>
                   )}
+
+                  {/* Staff Report Button Section - always render below enrollments */}
+                  <div className="mt-8">
+                    {filteredCustomers.map((staff) => (
+                      <Card key={staff._id} className="mb-4">
+                        <CardContent className="flex items-center justify-between">
+                          <div>
+                            <div className="font-bold text-lg">{staff.name}</div>
+                            <div className="text-sm text-slate-600">{staff.email}</div>
+                            <div className="text-sm text-slate-600">{staff.phone}</div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const today = new Date().toISOString().slice(0, 10);
+                                window.open(`/api/reports/daily-invoices/pdf?date=${today}&staffId=${staff.userId || staff._id}`);
+                              }}
+                            >
+                              Download Today's Report (PDF)
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>

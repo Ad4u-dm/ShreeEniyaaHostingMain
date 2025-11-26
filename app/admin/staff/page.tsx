@@ -232,7 +232,6 @@ export default function StaffPage() {
                         <p className="text-slate-500 text-xs">{staffMember.phone}</p>
                       </div>
                     </div>
-                    
                     <div className="flex items-center gap-3">
                       <Badge className="bg-blue-100 text-blue-800">
                         Staff
@@ -248,11 +247,20 @@ export default function StaffPage() {
                           <Edit className="h-4 w-4" />
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => handleOpenPasswordModal(staffMember)}>
-                          {/* simple text to indicate password action */}
                           Change
                         </Button>
                         <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => handleDeleteStaff(staffMember)}>
                           <Trash2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const today = new Date().toISOString().slice(0, 10);
+                            window.open(`/api/reports/daily-invoices/pdf?date=${today}&staffId=${staffMember.userId || staffMember._id}`);
+                          }}
+                        >
+                          Download Today's Report (PDF)
                         </Button>
                       </div>
                     </div>

@@ -1,16 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { fetchWithCache } from '@/lib/fetchWithCache';
-import { OfflineDB } from '@/lib/offlineDb';
-import { isDesktopApp } from '@/lib/isDesktopApp';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Search, Filter, Eye, Download, Send, Edit, Plus, FileText, Calendar, IndianRupee, User, Printer, LogOut, Trash2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowLeft, Search, Filter, Eye, Download, Send, Edit, Plus, FileText, Calendar, IndianRupee, User, Printer, Trash2, X } from 'lucide-react';
 import { formatIndianNumber } from '@/lib/helpers';
-import Link from 'next/link';
+import { isDesktopApp } from '@/lib/isDesktopApp';
 
 interface Invoice {
   _id: string;
@@ -27,10 +25,15 @@ interface Invoice {
     name: string;
     monthlyAmount: number;
   };
+  createdBy?: {
+    _id: string;
+    name: string;
+    email: string;
+  } | null;
   amount: number;
   dueDate: string;
   issueDate: string;
-  status: 'draft' | 'sent' | 'overdue' | 'cancelled';
+  status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
   description: string;
   items: {
     description: string;
@@ -50,127 +53,277 @@ interface InvoiceStats {
   totalInvoices: number;
   draftInvoices: number;
   sentInvoices: number;
+  paidInvoices: number;
   overdueInvoices: number;
   totalAmount: number;
-  pendingAmount: number;
+  paidAmount: number;
+  overdueAmount: number;
 }
 
-export default function StaffInvoicesPage() {
-  // Helper functions to safely extract data from potentially populated fields
-  const getCustomerName = (customerId: any) => typeof customerId === "object" && customerId ? customerId.name : 'Unknown Customer';
-  const getCustomerEmail = (customerId: any) => typeof customerId === "object" && customerId ? customerId.email : 'No email';
-  const getCustomerPhone = (customerId: any) => typeof customerId === "object" && customerId ? customerId.phone : 'No phone';
-  const getPlanName = (planId: any) => typeof planId === "object" && planId ? planId.name : 'Unknown Plan';
-  const getPlanMonthlyAmount = (planId: any) => typeof planId === "object" && planId ? planId.monthlyAmount : 0;
-
+export default function InvoicesPage() {
+  // Banner for offline mode (Electron only)
+  const OfflineBanner = () => (
+    isDesktopApp() && offlineMode ? (
+      <div style={{ background: '#f59e42', color: '#fff', padding: '8px', textAlign: 'center', fontWeight: 'bold' }}>
+        Offline Mode: Data may be outdated. Write actions are disabled.
+      </div>
+    ) : null
+  );
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [stats, setStats] = useState<InvoiceStats>({
-    totalInvoices: 0,
-    draftInvoices: 0,
-    sentInvoices: 0,
-    overdueInvoices: 0,
-    totalAmount: 0,
-    pendingAmount: 0
-  });
+  const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>([]);
+  const [stats, setStats] = useState<InvoiceStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedCustomer, setSelectedCustomer] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled'>('all');
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [offlineMode, setOfflineMode] = useState(false);
 
-  const fetchInvoices = async (page: number = 1) => {
-    setLoading(true);
+  // Advanced Filters
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [customerFilter, setCustomerFilter] = useState('all');
+  const [planFilter, setPlanFilter] = useState('all');
+  const [staffFilter, setStaffFilter] = useState('all');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+
+  // For filter dropdowns
+  const [customers, setCustomers] = useState<{_id: string; name: string}[]>([]);
+  const [plans, setPlans] = useState<{_id: string; name: string}[]>([]);
+  const [staffMembers, setStaffMembers] = useState<{_id: string; name: string}[]>([]);
+
+  // Helper function to decode JWT and get user role
+  const getUserRoleFromToken = () => {
     try {
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: '10',
-        ...(searchTerm && { search: searchTerm }),
-        ...(statusFilter !== 'all' && { status: statusFilter }),
-        ...(selectedCustomer && { customerId: selectedCustomer }),
-      });
-      let data;
-      if (isDesktopApp()) {
-  const result = await fetchWithCache<Invoice>(`/api/staff/invoices?${params}`, 'invoices' as keyof OfflineDB);
-        setInvoices(result.data || []);
-        // In offline mode, stats/pagination may not be available, so keep previous values
-      } else {
-        const response = await fetch(`/api/staff/invoices?${params}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
-          }
-        });
-        if (response.ok) {
-          data = await response.json();
-          setInvoices(data.invoices || []);
-          setStats(data.stats || stats);
-          setCurrentPage(data.pagination?.page || 1);
-          setTotalPages(data.pagination?.pages || 1);
-        } else {
-          console.error('Failed to fetch invoices');
+      const token = localStorage.getItem('auth-token');
+      if (!token) return null;
+
+      // Decode JWT token (base64 decode the payload)
+      const payloadBase64 = token.split('.')[1];
+      const payload = JSON.parse(atob(payloadBase64));
+      return payload.role;
+    } catch (error) {
+      console.error('Error decoding token:', error);
+      return null;
+    }
+  };
+
+  // Check if user is admin
+  const isAdmin = () => userRole === 'admin';
+
+  useEffect(() => {
+    // Get user role from token
+    const role = getUserRoleFromToken();
+    setUserRole(role);
+
+    fetchInvoices();
+    fetchFilterOptions();
+  }, []);
+
+  useEffect(() => {
+    filterInvoices();
+  }, [invoices, searchTerm, statusFilter, dateFrom, dateTo, customerFilter, planFilter, staffFilter]);
+
+  const fetchInvoices = async () => {
+    try {
+      const response = await fetch('/api/staff/invoices', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
         }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setInvoices(data.invoices || []);
+        setStats(data.stats);
       }
     } catch (error) {
-      console.error('Invoice fetch error:', error);
+      console.error('Failed to fetch invoices:', error);
+
+      // Set empty state on error
+      setInvoices([]);
+      setStats({
+        totalInvoices: 0,
+        draftInvoices: 0,
+        sentInvoices: 0,
+        paidInvoices: 0,
+        overdueInvoices: 0,
+        totalAmount: 0,
+        paidAmount: 0,
+        overdueAmount: 0
+      });
     } finally {
       setLoading(false);
     }
   };
-  // Electron-only offline banner
-  const OfflineBanner = () => (
-    isDesktopApp() ? (
-      <div className="bg-yellow-100 text-yellow-800 p-2 rounded mb-4 text-center text-sm">
-        Offline mode enabled (Electron desktop app). Write actions are disabled.
-      </div>
-    ) : null
-  );
 
-  useEffect(() => {
-    fetchInvoices(currentPage);
-  }, [currentPage, searchTerm, statusFilter, selectedCustomer]);
-
-  const handleStatusChange = async (invoiceId: string, newStatus: string) => {
+  const fetchFilterOptions = async () => {
     try {
-      const response = await fetch(`/api/invoices/${invoiceId}/status`, {
-        method: 'PATCH',
+      // Fetch customers
+      const customersRes = await fetch('/api/users?role=user&limit=1000', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('auth-token')}` }
+      });
+      if (customersRes.ok) {
+        const customersData = await customersRes.json();
+        setCustomers(customersData.users || []);
+      }
+
+      // Fetch plans
+      const plansRes = await fetch('/api/plans', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('auth-token')}` }
+      });
+      if (plansRes.ok) {
+        const plansData = await plansRes.json();
+        setPlans(plansData.plans || []);
+      }
+
+      // Fetch staff members
+      const staffRes = await fetch('/api/users?role=staff&limit=1000', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('auth-token')}` }
+      });
+      if (staffRes.ok) {
+        const staffData = await staffRes.json();
+        setStaffMembers(staffData.users || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch filter options:', error);
+    }
+  };
+
+  const filterInvoices = () => {
+    let filtered = invoices;
+
+    // Text search
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(invoice =>
+        invoice.invoiceNumber?.toLowerCase().includes(term) ||
+        invoice.receiptNo?.toLowerCase().includes(term) ||
+        invoice.customerId?.name?.toLowerCase().includes(term) ||
+        invoice.customerId?.email?.toLowerCase().includes(term) ||
+        invoice.description?.toLowerCase().includes(term)
+      );
+    }
+
+    // Status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(invoice => invoice.status === statusFilter);
+    }
+
+    // Date range filter
+    if (dateFrom) {
+      const fromDate = new Date(dateFrom);
+      filtered = filtered.filter(invoice => new Date(invoice.issueDate) >= fromDate);
+    }
+    if (dateTo) {
+      const toDate = new Date(dateTo);
+      toDate.setHours(23, 59, 59, 999); // Include the entire day
+      filtered = filtered.filter(invoice => new Date(invoice.issueDate) <= toDate);
+    }
+
+    // Customer filter
+    if (customerFilter !== 'all') {
+      filtered = filtered.filter(invoice => {
+        // Support both _id and userId for customerId
+        return invoice.customerId?._id === customerFilter || invoice.customerId?.userId === customerFilter;
+      });
+    }
+
+    // Plan filter
+    if (planFilter !== 'all') {
+      filtered = filtered.filter(invoice => invoice.planId?._id === planFilter);
+    }
+
+    // Staff filter (created by)
+    if (staffFilter !== 'all') {
+      filtered = filtered.filter(invoice => invoice.createdBy?._id === staffFilter);
+    }
+
+    setFilteredInvoices(filtered);
+  };
+
+  const clearAllFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+    setDateFrom('');
+    setDateTo('');
+    setCustomerFilter('all');
+    setPlanFilter('all');
+    setStaffFilter('all');
+  };
+
+  const hasActiveFilters = () => {
+    return searchTerm || statusFilter !== 'all' || dateFrom || dateTo ||
+           customerFilter !== 'all' || planFilter !== 'all' || staffFilter !== 'all';
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'draft': return 'bg-gray-100 text-gray-800';
+      case 'sent': return 'bg-blue-100 text-blue-800';
+      case 'paid': return 'bg-green-100 text-green-800';
+      case 'overdue': return 'bg-red-100 text-red-800';
+      case 'cancelled': return 'bg-orange-100 text-orange-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const handleViewInvoice = (invoice: Invoice) => {
+    setSelectedInvoice(invoice);
+    setShowViewModal(true);
+  };
+
+  const handlePrintInvoice = (invoice: Invoice) => {
+    console.log('Printing invoice:', invoice);
+    console.log('Invoice ID:', invoice._id);
+
+    // Add cache buster to force fresh data
+    const cacheBuster = Date.now();
+    const printUrl = `/receipt/thermal/${invoice._id}?t=${cacheBuster}`;
+    console.log('Print URL:', printUrl);
+
+    // Open thermal receipt in new window for printing
+    const printWindow = window.open(printUrl, '_blank');
+    if (printWindow) {
+      printWindow.focus();
+    }
+  };
+
+  const handleDownloadInvoice = async (invoice: Invoice) => {
+    // Open regular print page in new window with download intent (for PDF)
+    const printWindow = window.open(`/invoice/print/${invoice._id}?download=true`, '_blank');
+    if (printWindow) {
+      printWindow.focus();
+      // Give user instruction via alert
+      setTimeout(() => {
+        alert('Use Ctrl+P (or Cmd+P on Mac) and select "Save as PDF" to download the invoice.');
+      }, 1000);
+    } else {
+      alert('Please allow pop-ups to download the invoice PDF');
+    }
+  };
+
+  const handleSendInvoice = async (invoice: Invoice) => {
+    try {
+      const response = await fetch(`/api/invoice/send`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
         },
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify({ invoiceId: invoice._id })
       });
 
       if (response.ok) {
-        fetchInvoices(currentPage);
-        alert('Invoice status updated successfully!');
-      } else {
-        alert('Failed to update invoice status');
-      }
-    } catch (error) {
-      console.error('Status change error:', error);
-      alert('Failed to update invoice status');
-    }
-  };
-
-  const handleSendInvoice = async (invoiceId: string) => {
-    try {
-      const response = await fetch(`/api/invoices/${invoiceId}/send`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
-        }
-      });
-
-      if (response.ok) {
-        fetchInvoices(currentPage);
+        // Update invoice status to sent
+        setInvoices(invoices.map(inv =>
+          inv._id === invoice._id ? { ...inv, status: 'sent' as any } : inv
+        ));
         alert('Invoice sent successfully!');
-      } else {
-        alert('Failed to send invoice');
       }
     } catch (error) {
-      console.error('Send invoice error:', error);
+      console.error('Failed to send invoice:', error);
       alert('Failed to send invoice');
     }
   };
@@ -179,7 +332,7 @@ export default function StaffInvoicesPage() {
     // Confirm deletion
     const confirmDelete = window.confirm(
       `Are you sure you want to delete invoice ${invoice.invoiceNumber}?\n\n` +
-      `Customer: ${getCustomerName(invoice.customerId)}\n` +
+      `Customer: ${invoice.customerId.name}\n` +
       `Amount: ₹${formatIndianNumber(invoice.total)}\n` +
       `Status: ${invoice.status}\n\n` +
       `This action cannot be undone.`
@@ -198,12 +351,15 @@ export default function StaffInvoicesPage() {
       const result = await response.json();
 
       if (response.ok && result.success) {
-        // Refresh invoices list
-        fetchInvoices(currentPage);
-        
+        // Remove invoice from local state
+        setInvoices(invoices.filter(inv => inv._id !== invoice._id));
+
         // Show success message
         alert(`Invoice ${invoice.invoiceNumber} has been deleted successfully.`);
-        
+
+        // Refresh invoice data to update stats
+        fetchInvoices();
+
       } else {
         throw new Error(result.error || 'Failed to delete invoice');
       }
@@ -213,340 +369,345 @@ export default function StaffInvoicesPage() {
     }
   };
 
-  const handleViewInvoice = (invoice: Invoice) => {
-    setSelectedInvoice(invoice);
-    setShowViewModal(true);
-  };
-
-  const handlePrintInvoice = (invoice: Invoice) => {
-    window.open(`/invoice/print/${invoice._id}`, '_blank');
-  };
-
-  const handleDownloadInvoice = (invoice: Invoice) => {
-    window.open(`/api/invoices/${invoice._id}/pdf`, '_blank');
-  };
-
-  const handlePrintReceipt = (invoiceId: string) => {
-    window.location.href = `/receipt/thermal/${invoiceId}`;
-  };
-
-  const handleLogout = () => {
-    // Clear authentication token
-    localStorage.removeItem('auth-token');
-    // Redirect to login page
-    window.location.href = '/login';
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'paid':
-        return 'bg-green-100 text-green-800';
-      case 'sent':
-        return 'bg-blue-100 text-blue-800';
-      case 'draft':
-        return 'bg-gray-100 text-gray-800';
-      case 'overdue':
-        return 'bg-red-100 text-red-800';
-      case 'cancelled':
-        return 'bg-orange-100 text-orange-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusBadgeClass = (status: string) => {
-    switch (status) {
-      case 'sent': return 'bg-blue-100 text-blue-800';
-      case 'overdue': return 'bg-red-100 text-red-800';
-      case 'draft': return 'bg-gray-100 text-gray-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const statCards = [
-    {
-      title: 'Total Invoices',
-      value: stats.totalInvoices,
-      icon: FileText,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50',
-    },
-    {
-      title: 'Draft Invoices',
-      value: stats.draftInvoices,
-      icon: Edit,
-      color: 'text-gray-600',
-      bgColor: 'bg-gray-50',
-    },
-    {
-      title: 'Sent Invoices',
-      value: stats.sentInvoices,
-      icon: Send,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50',
-    },
-    {
-      title: 'Overdue',
-      value: stats.overdueInvoices,
-      icon: Calendar,
-      color: 'text-red-600',
-      bgColor: 'bg-red-50',
-    }
-  ];
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="animate-pulse space-y-6">
+            <div className="h-8 bg-gray-200 rounded w-64"></div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-32 bg-gray-200 rounded"></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-2 sm:p-4 md:p-6 mobile-spacing">
-      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
-
-        {/* Navigation - Only Invoices */}
-        <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-2 sm:mb-4 text-sm sm:text-base mobile-nav">
-          <Link href="/staff/invoices" className="text-blue-600 hover:text-blue-800 font-medium">
-            Invoices
-          </Link>
-        </div>
-
-  {/* Header */}
-  <OfflineBanner />
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mobile-flex-col">
-          <div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-800">Invoice Management</h1>
-            <p className="text-slate-600 mt-1 text-sm sm:text-base">Manage invoices for your customers</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+      <OfflineBanner />
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="outline"
+              onClick={() => window.history.back()}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Dashboard
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold text-slate-800">Invoice Management</h1>
+              <p className="text-slate-600">Create, view, and manage all invoices</p>
+            </div>
           </div>
 
-          <div className="flex gap-2 mobile-btn-group">
-            <Link href="/staff/invoices/create">
-              <Button className="bg-blue-600 hover:bg-blue-700 text-xs sm:text-sm px-2 sm:px-4 py-2" size="sm">
-                <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                <span className="hidden xs:inline">Create Invoice</span>
-                <span className="xs:hidden">Create</span>
-              </Button>
-            </Link>
-            {/* SMS Button - Temporarily commented until DLT approval
-            <Link href="/staff/sms">
-              <Button variant="outline" className="bg-green-50 border-green-300 text-green-600 hover:bg-green-100 hover:border-green-400 text-xs sm:text-sm px-2 sm:px-4 py-2" size="sm">
-                <Send className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                <span className="hidden xs:inline">SMS</span>
-                <span className="xs:hidden">SMS</span>
-              </Button>
-            </Link>
-            */}
-            <Button 
-              onClick={handleLogout} 
-              variant="outline" 
-              className="border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 text-xs sm:text-sm px-2 sm:px-4 py-2" 
-              size="sm"
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={() => window.location.href = '/staff/invoices/create'}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
             >
-              <LogOut className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-              <span className="hidden xs:inline">Logout</span>
-              <span className="xs:hidden">Exit</span>
+              <Plus className="h-4 w-4" />
+              Create Invoice
+            </Button>
+            <Button onClick={fetchInvoices} variant="outline">
+              Refresh
             </Button>
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mobile-stats">
-          {statCards.map((stat, index) => {
-            const Icon = stat.icon;
-            return (
-              <Card key={index} className="bg-white/60 backdrop-blur-sm border-0 shadow-lg mobile-card">
-                <CardContent className="p-3 sm:p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs sm:text-sm font-medium text-slate-600 mb-1 truncate">{stat.title}</p>
-                      <p className="text-lg sm:text-2xl font-bold text-slate-800 truncate">{stat.value}</p>
-                    </div>
-                    <div className={`p-2 sm:p-3 rounded-full ${stat.bgColor} ml-2 flex-shrink-0`}>
-                      <Icon className={`h-4 w-4 sm:h-6 sm:w-6 ${stat.color}`} />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+        {/* Stats Cards */}
+        {stats && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-600">Total Invoices</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-blue-500" />
+                  <span className="text-2xl font-bold text-slate-800">{stats.totalInvoices}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-600">Total Amount</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2">
+                  <IndianRupee className="h-5 w-5 text-green-500" />
+                  <span className="text-2xl font-bold text-slate-800">
+                    ₹{formatIndianNumber(stats.totalAmount)}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+
+
+          </div>
+        )}
 
         {/* Filters */}
-        <Card className="bg-white/60 backdrop-blur-sm border-0 shadow-lg">
-          <CardContent className="p-4 sm:p-6">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
-                  <Input
-                    placeholder="Search invoices..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
+        <Card className="mb-6">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Filter Invoices</CardTitle>
+              <div className="flex items-center gap-2">
+                {hasActiveFilters() && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearAllFilters}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Clear All Filters
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                >
+                  <Filter className="h-4 w-4 mr-1" />
+                  {showAdvancedFilters ? 'Hide' : 'Show'} Advanced Filters
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {/* Basic Filters */}
+            <div className="flex flex-col gap-4 mb-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Search by invoice number, receipt number, customer name..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            {/* Advanced Filters */}
+            {showAdvancedFilters && (
+              <div className="border-t pt-4 mt-4">
+                <h3 className="text-sm font-semibold text-slate-700 mb-3">Advanced Filters</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Date Range */}
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 block mb-2">
+                      <Calendar className="h-4 w-4 inline mr-1" />
+                      Date From
+                    </label>
+                    <Input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 block mb-2">
+                      <Calendar className="h-4 w-4 inline mr-1" />
+                      Date To
+                    </label>
+                    <Input
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Customer Filter */}
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 block mb-2">
+                      <User className="h-4 w-4 inline mr-1" />
+                      Customer
+                    </label>
+                    <Select value={customerFilter} onValueChange={setCustomerFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Customers" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Customers</SelectItem>
+                        {customers.map((customer) => (
+                          <SelectItem key={customer._id} value={customer._id}>
+                            {customer.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Plan Filter */}
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 block mb-2">
+                      <FileText className="h-4 w-4 inline mr-1" />
+                      Plan
+                    </label>
+                    <Select value={planFilter} onValueChange={setPlanFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Plans" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Plans</SelectItem>
+                        {plans.map((plan) => (
+                          <SelectItem key={plan._id} value={plan._id}>
+                            {plan.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Staff Filter */}
+                  <div>
+                    <label className="text-sm font-medium text-slate-700 block mb-2">
+                      <User className="h-4 w-4 inline mr-1" />
+                      Created By (Staff)
+                    </label>
+                    <Select value={staffFilter} onValueChange={setStaffFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Staff" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Staff</SelectItem>
+                        {staffMembers.map((staff) => (
+                          <SelectItem key={staff._id} value={staff._id}>
+                            {staff.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">All Status</option>
-                <option value="draft">Draft</option>
-                <option value="sent">Sent</option>
-                <option value="overdue">Overdue</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-            </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Invoices List */}
-        <Card className="bg-white/60 backdrop-blur-sm border-0 shadow-lg">
+        {/* Invoices Table */}
+        <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Invoices
-            </CardTitle>
-            <CardDescription>Your created invoices</CardDescription>
+            <div className="flex items-center justify-between">
+              <CardTitle>Invoices ({filteredInvoices.length})</CardTitle>
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <Filter className="h-4 w-4" />
+                Showing {filteredInvoices.length} of {invoices.length} invoices
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="text-slate-600 mt-4">Loading invoices...</p>
-              </div>
-            ) : invoices.length === 0 ? (
-              <div className="text-center py-12">
-                <FileText className="h-16 w-16 mx-auto text-slate-300 mb-4" />
-                <h3 className="text-xl font-semibold text-slate-600 mb-2">No invoices found</h3>
-                <p className="text-slate-500 mb-6">Create your first invoice to get started</p>
-                <Link href="/staff/invoices/create">
-                  <Button className="bg-blue-600 hover:bg-blue-700">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Invoice
-                  </Button>
-                </Link>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {invoices.map((invoice) => (
-                  <div key={invoice._id} className="border rounded-lg p-4 bg-white shadow-sm hover:shadow-md transition-shadow mobile-card">
-                    <div className="flex flex-col gap-4 mobile-user-card">
-                      <div className="flex-1 mobile-user-info">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h4 className="font-semibold text-slate-800">#{invoice.invoiceNumber}</h4>
-                          <Badge className={getStatusBadgeClass(invoice.status)}>
-                            {invoice.status}
-                          </Badge>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-200">
+                    <th className="text-left py-3 px-4 font-medium text-slate-600">Invoice Number</th>
+                    <th className="text-left py-3 px-4 font-medium text-slate-600">Date</th>
+                    <th className="text-left py-3 px-4 font-medium text-slate-600">Customer</th>
+                    <th className="text-left py-3 px-4 font-medium text-slate-600">Amount</th>
+                    <th className="text-left py-3 px-4 font-medium text-slate-600">Issued By</th>
+                    <th className="text-left py-3 px-4 font-medium text-slate-600">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredInvoices.map((invoice) => (
+                    <tr key={invoice._id} className="border-b border-slate-100 hover:bg-slate-50">
+                      <td className="py-3 px-4">
+                        <div className="font-medium text-slate-800">
+                          {invoice.receiptNo ? `INV${invoice.receiptNo}` : invoice.invoiceNumber || 'N/A'}
                         </div>
-                        <p className="text-sm text-slate-600 mb-1">
-                          <User className="h-4 w-4 inline mr-1" />
-                          {getCustomerName(invoice.customerId)}
-                        </p>
-                        <p className="text-sm text-slate-600 mb-1">
-                          <Calendar className="h-4 w-4 inline mr-1" />
-                          Due: {new Date(invoice.dueDate).toLocaleDateString()}
-                        </p>
-                        <p className="text-sm text-slate-600">
-                          <IndianRupee className="h-4 w-4 inline mr-1" />
-                          {formatIndianNumber(invoice.total)}
-                        </p>
-                      </div>
-
-                      <div className="flex gap-2 mobile-user-actions">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleViewInvoice(invoice)}
-                          className="mobile-btn flex-1"
-                        >
-                          <Eye className="h-4 w-4" />
-                          <span className="ml-1 hidden sm:inline">View</span>
-                        </Button>
-
-                        {invoice.status === 'draft' && (
-                          <>
-                            {isDesktopApp() ? (
-                              <Button
-                                size="sm"
-                                className="bg-blue-300 text-blue-700 cursor-not-allowed mobile-btn flex-1"
-                                disabled
-                              >
-                                <Send className="h-4 w-4" />
-                                <span className="ml-1 hidden sm:inline">Send (Offline)</span>
-                              </Button>
-                            ) : null}
-                            {!isDesktopApp() ? (
-                              <Button
-                                size="sm"
-                                className="bg-blue-600 hover:bg-blue-700 mobile-btn flex-1"
-                                onClick={() => handleSendInvoice(invoice._id)}
-                              >
-                                <Send className="h-4 w-4" />
-                                <span className="ml-1 hidden sm:inline">Send</span>
-                              </Button>
-                            ) : null}
-                          </>
-                        )}
-
-                        <Button
-                          size="sm"
-                          className="bg-purple-600 hover:bg-purple-700 mobile-btn flex-1"
-                          onClick={() => handlePrintReceipt(invoice._id)}
-                        >
-                          <Printer className="h-4 w-4" />
-                          <span className="ml-1 hidden sm:inline">Print</span>
-                        </Button>
-
-                        {isDesktopApp() ? (
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="text-sm text-slate-600">
+                          {new Date(invoice.issueDate).toLocaleDateString('en-IN')}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="font-medium text-slate-800">{invoice.customerId.name}</div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="font-medium text-slate-800">
+                          ₹{formatIndianNumber(invoice.total)}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="text-sm text-slate-600">
+                          {invoice.createdBy?.name || 'N/A'}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
                           <Button
                             size="sm"
                             variant="outline"
-                            className="border-red-200 text-red-600 bg-gray-100 cursor-not-allowed mobile-btn flex-1"
-                            disabled
+                            onClick={() => handleViewInvoice(invoice)}
+                            className="flex items-center gap-1"
                           >
-                            <Trash2 className="h-4 w-4" />
-                            <span className="ml-1 hidden sm:inline">Delete (Offline)</span>
+                            <Eye className="h-3 w-3" />
+                            View
                           </Button>
-                        ) : null}
-                        {!isDesktopApp() ? (
                           <Button
                             size="sm"
                             variant="outline"
-                            className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 mobile-btn flex-1"
-                            onClick={() => handleDeleteInvoice(invoice)}
+                            onClick={() => handlePrintInvoice(invoice)}
+                            className="flex items-center gap-1"
                           >
-                            <Trash2 className="h-4 w-4" />
-                            <span className="ml-1 hidden sm:inline">Delete</span>
+                            <Printer className="h-3 w-3" />
+                            Print
                           </Button>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDownloadInvoice(invoice)}
+                            className="flex items-center gap-1"
+                          >
+                            <Download className="h-3 w-3" />
+                            PDF
+                          </Button>
+                          {invoice.status === 'draft' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleSendInvoice(invoice)}
+                              className="flex items-center gap-1"
+                            >
+                              <Send className="h-3 w-3" />
+                              Send
+                            </Button>
+                          )}
+                          {isAdmin() && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDeleteInvoice(invoice)}
+                              className="flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                              Delete
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
 
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <div className="flex justify-center gap-2 mt-6">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                      disabled={currentPage === 1}
-                    >
-                      Previous
-                    </Button>
-                    <span className="px-3 py-2 text-sm text-slate-600">
-                      Page {currentPage} of {totalPages}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                      disabled={currentPage === totalPages}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
+              {filteredInvoices.length === 0 && (
+                <div className="text-center py-8 text-slate-600">
+                  No invoices found matching your criteria.
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
 
@@ -589,9 +750,6 @@ export default function StaffInvoicesPage() {
                     <div>
                       <h1 className="text-3xl font-bold text-slate-800">INVOICE</h1>
                       <p className="text-slate-600 mt-2">{selectedInvoice.invoiceNumber}</p>
-                      {selectedInvoice.receiptNo && (
-                        <p className="text-slate-600 text-sm">Receipt No: {selectedInvoice.receiptNo}</p>
-                      )}
                     </div>
                     <div className="text-right">
                       <Badge className={getStatusColor(selectedInvoice.status)}>
@@ -604,9 +762,9 @@ export default function StaffInvoicesPage() {
                     <div>
                       <h3 className="font-semibold text-slate-800 mb-3">Bill To:</h3>
                       <div className="space-y-1">
-                        <p className="font-medium">{getCustomerName(selectedInvoice.customerId)}</p>
-                        <p className="text-slate-600">{getCustomerEmail(selectedInvoice.customerId)}</p>
-                        <p className="text-slate-600">{getCustomerPhone(selectedInvoice.customerId)}</p>
+                        <p className="font-medium">{selectedInvoice.customerId.name}</p>
+                        <p className="text-slate-600">{selectedInvoice.customerId.email}</p>
+                        <p className="text-slate-600">{selectedInvoice.customerId.phone}</p>
                       </div>
                     </div>
                     <div>
@@ -625,8 +783,6 @@ export default function StaffInvoicesPage() {
                       <thead>
                         <tr className="bg-slate-50">
                           <th className="border border-slate-200 px-4 py-2 text-left">Description</th>
-                          <th className="border border-slate-200 px-4 py-2 text-right">Qty</th>
-                          <th className="border border-slate-200 px-4 py-2 text-right">Rate</th>
                           <th className="border border-slate-200 px-4 py-2 text-right">Amount</th>
                         </tr>
                       </thead>
@@ -634,8 +790,6 @@ export default function StaffInvoicesPage() {
                         {selectedInvoice.items.map((item, index) => (
                           <tr key={index}>
                             <td className="border border-slate-200 px-4 py-2">{item.description}</td>
-                            <td className="border border-slate-200 px-4 py-2 text-right">{item.quantity}</td>
-                            <td className="border border-slate-200 px-4 py-2 text-right">₹{formatIndianNumber(item.rate)}</td>
                             <td className="border border-slate-200 px-4 py-2 text-right">₹{formatIndianNumber(item.amount)}</td>
                           </tr>
                         ))}
