@@ -312,8 +312,8 @@ export async function POST(request: NextRequest) {
       console.log('Using new member number:', finalMemberNumber);
     }
     
-    // Count existing enrollments for member number
-    const memberCount = await Enrollment.countDocuments({ planId });
+    // Count existing ACTIVE enrollments only
+    const memberCount = await Enrollment.countDocuments({ planId, status: 'active' });
     if (memberCount >= plan.totalMembers) {
       return NextResponse.json(
         { error: 'Plan is full' },
