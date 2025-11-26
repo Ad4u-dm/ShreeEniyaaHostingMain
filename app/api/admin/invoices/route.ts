@@ -21,51 +21,44 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch real invoices with populated customer, plan, enrollment, and creator data
+    // Fetch invoices without populating customerId
     const invoices = await Invoice.find({})
-      .populate('customerId', 'name email phone')
       .populate('planId', 'planName totalAmount monthlyAmount duration')
       .populate('enrollmentId', 'enrollmentId memberNumber status')
-      .populate('createdBy', 'name email')
       .sort({ createdAt: -1 })
       .lean();
 
-    // Process invoices to match expected format
-    const processedInvoices = invoices.map(invoice => {
-      console.log('Processing invoice:', {
-        _id: invoice._id,
-        invoiceNumber: invoice.invoiceNumber,
-        receiptNo: invoice.receiptNo,
-        invoiceId: invoice.invoiceId
-      });
-      
+    // Manually fetch user details for each invoice
+    const processedInvoices = await Promise.all(invoices.map(async invoice => {
+  // Fetch user by custom userId
+  let customer = await User.findOne({ userId: invoice.customerId }).select('userId name email phone');
+  // Fetch createdBy user by custom userId
+  let creator = invoice.createdBy ? await User.findOne({ userId: invoice.createdBy }).select('_id name email') : null;
       // Determine status based on due date and payment status
       let status = invoice.status || 'draft';
       if (invoice.dueDate && new Date(invoice.dueDate) < new Date() && status !== 'paid') {
         status = 'overdue';
       }
-
       return {
         _id: invoice._id,
         invoiceNumber: invoice.invoiceNumber,
         receiptNo: invoice.receiptNo,
-        customerId: {
-          _id: invoice.customerId?._id,
-          name: invoice.customerId?.name || 'Unknown Customer',
-          email: invoice.customerId?.email || 'No email',
-          phone: invoice.customerId?.phone || 'No phone'
-        },
-        planId: {
-          _id: invoice.planId?._id,
-          name: invoice.planId?.planName || 'No Plan',
-          monthlyAmount: invoice.planId?.monthlyAmount || 0
-        },
-        createdBy: invoice.createdBy ? {
-          _id: invoice.createdBy._id,
-          name: invoice.createdBy.name || 'Unknown',
-          email: invoice.createdBy.email || ''
+        customerId: customer ? {
+          userId: customer.userId,
+          name: customer.name,
+          email: customer.email,
+          phone: customer.phone
+        } : { userId: invoice.customerId, name: 'Unknown Customer', email: '', phone: '' },
+        planId: invoice.planId ? {
+          _id: invoice.planId._id,
+          name: invoice.planId.planName || 'No Plan',
+          monthlyAmount: invoice.planId.monthlyAmount || 0
+        } : invoice.planId,
+        createdBy: creator ? {
+          _id: creator._id,
+          name: creator.name || 'Unknown',
+          email: creator.email || ''
         } : null,
-        // Use receivedAmount for display (what customer actually paid)
         amount: invoice.receivedAmount || 0,
         dueDate: invoice.dueDate,
         issueDate: invoice.issueDate || invoice.createdAt,
@@ -79,7 +72,6 @@ export async function GET(request: NextRequest) {
         }],
         subtotal: invoice.receivedAmount || 0,
         tax: invoice.tax || 0,
-        // Use receivedAmount as total for display (what customer paid)
         total: invoice.receivedAmount || 0,
         paymentTerms: invoice.paymentTerms || '30 days',
         notes: invoice.notes || 'Thank you for your business!',
@@ -87,7 +79,7 @@ export async function GET(request: NextRequest) {
         createdAt: invoice.createdAt,
         updatedAt: invoice.updatedAt
       };
-    });
+    }));
 
     // Calculate statistics from real data
     const currentDate = new Date();
@@ -392,14 +384,36 @@ export async function POST(request: NextRequest) {
     console.log('After save - totalAmount:', newInvoice.totalAmount, 'subtotal:', newInvoice.subtotal, 'items:', newInvoice.items.map((i: any) => i.amount));
 
     // Populate references for response
-    const populatedInvoice = await Invoice.findById(newInvoice._id)
-      .populate('customerId', 'name email phone')
-      .populate('planId', 'planName monthlyAmount duration')
-      .populate('enrollmentId', 'userId planId enrollmentDate');
+    // Manually fetch user details for string customerId
+  const customerUser = await User.findOne({ userId: newInvoice.customerId }).select('name email phone');
+  const invoicePlan = await Plan.findById(newInvoice.planId).select('planName monthlyAmount duration');
+  const invoiceEnrollment = await Enrollment.findById(newInvoice.enrollmentId).select('userId planId enrollmentDate');
+
+    const invoiceResponse = {
+      ...newInvoice.toObject(),
+      customerId: customerUser ? {
+        userId: customerUser.userId,
+        name: customerUser.name,
+        email: customerUser.email,
+        phone: customerUser.phone
+      } : { userId: newInvoice.customerId, name: 'Unknown', email: '', phone: '' },
+      planId: invoicePlan ? {
+        _id: invoicePlan._id,
+        planName: invoicePlan.planName,
+        monthlyAmount: invoicePlan.monthlyAmount,
+        duration: invoicePlan.duration
+      } : newInvoice.planId,
+      enrollmentId: invoiceEnrollment ? {
+        _id: invoiceEnrollment._id,
+        userId: invoiceEnrollment.userId,
+        planId: invoiceEnrollment.planId,
+        enrollmentDate: invoiceEnrollment.enrollmentDate
+      } : newInvoice.enrollmentId
+    };
 
     return NextResponse.json({
       success: true,
-      invoice: populatedInvoice,
+      invoice: invoiceResponse,
       message: 'Invoice created successfully'
     });
 

@@ -224,7 +224,10 @@ export default function InvoicesPage() {
 
     // Customer filter
     if (customerFilter !== 'all') {
-      filtered = filtered.filter(invoice => invoice.customerId?._id === customerFilter);
+      filtered = filtered.filter(invoice => {
+        // Support both _id and userId for customerId
+        return invoice.customerId?._id === customerFilter || invoice.customerId?.userId === customerFilter;
+      });
     }
 
     // Plan filter

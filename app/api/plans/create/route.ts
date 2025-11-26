@@ -55,21 +55,12 @@ export async function POST(req: Request) {
     }
 
     // Normalize monthly data field names (handle both frontend and backend formats)
-      // Auto-calculate dividend: Dividend = First due - Current Due
-      let firstDue = 0;
-      if (monthlyData.length > 0) {
-        firstDue = monthlyData[0].installmentAmount || monthlyData[0].dueAmount || 0;
-      }
-      const normalizedMonthlyData = monthlyData.map((month: any) => {
-        const currentDue = month.installmentAmount || month.dueAmount || 0;
-        const dividend = firstDue - currentDue;
-        return {
-          monthNumber: month.monthNumber,
-          installmentAmount: currentDue,
-          dividend,
-          payableAmount: month.payableAmount || month.auctionAmount || 0
-        };
-      });
+    const normalizedMonthlyData = monthlyData.map((month: any) => ({
+      monthNumber: month.monthNumber,
+      installmentAmount: month.installmentAmount || month.dueAmount || 0,
+      dividend: month.dividend || 0,
+      payableAmount: month.payableAmount || month.auctionAmount || 0
+    }));
 
     // Create new plan with the new schema
     const newPlan = new Plan({

@@ -9,8 +9,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     await connectDB();
 
     const { id } = params;
-    const user = await User.findById(id).select('-password');
-    
+    let user = null;
+    // Check if id is a valid ObjectId
+    if (/^[0-9a-fA-F]{24}$/.test(id)) {
+      user = await User.findById(id).select('-password');
+    } else {
+      user = await User.findOne({ userId: id }).select('-password');
+    }
+
     if (!user) {
       return NextResponse.json({ success: false, message: 'User not found' }, { status: 404 });
     }

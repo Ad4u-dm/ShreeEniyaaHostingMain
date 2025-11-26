@@ -757,7 +757,9 @@ export default function CreateInvoicePage() {
     const authToken = localStorage.getItem('auth-token');
     try {
       // Get selected customer and plan data
-      const selectedCustomer = customers.find(c => c._id === formData.customerId);
+  // Always use custom userId for backend queries
+  const selectedCustomer = customers.find(c => c._id === formData.customerId);
+  const customerIdToSend = selectedCustomer?.userId || formData.customerId;
       const selectedPlan = plans.find(p => p._id === formData.planId);
 
       if (!selectedCustomer) {
@@ -826,7 +828,7 @@ export default function CreateInvoicePage() {
       // Backend will also auto-find/create enrollmentId from customerId + planId
       const invoiceData = {
         // Required fields (NO enrollmentId - backend handles it!)
-        customerId: formData.customerId,
+        customerId: customerIdToSend,
         planId: formData.planId,
         createdBy: currentUserId,
 
