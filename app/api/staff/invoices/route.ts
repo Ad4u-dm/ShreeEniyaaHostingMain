@@ -243,6 +243,16 @@ export async function POST(request: NextRequest) {
       .limit(1)
       .lean();
 
+    console.log('=== PREVIOUS INVOICE DEBUG ===', {
+      enrollmentId: enrollment._id,
+      currentDay,
+      hasPreviousInvoice: !!previousInvoice,
+      previousInvoiceId: previousInvoice?._id,
+      previousInvoiceDate: previousInvoice?.invoiceDate,
+      previousBalanceAmount: previousInvoice?.balanceAmount,
+      previousArrearAmount: previousInvoice?.arrearAmount
+    });
+
     // STEP 4: Calculate arrear amount from previous invoice for same enrollment
     const arrearAmount = await calculateArrearAmount(enrollment._id, Invoice, invoiceDate);
 
@@ -256,6 +266,15 @@ export async function POST(request: NextRequest) {
     } else {
       previousBalance = previousInvoice ? (previousInvoice.balanceAmount || 0) : 0;
     }
+
+    console.log('=== BALANCE CALCULATION INPUT ===', {
+      currentDay,
+      calculatedDueAmount,
+      arrearAmount,
+      receivedAmount: invoiceData.receivedAmount || 0,
+      previousBalance,
+      willUse21stRule: currentDay === 21
+    });
 
     // STEP 5: Calculate balance amount using the 21st rule
     const receivedAmount = invoiceData.receivedAmount || 0;

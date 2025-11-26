@@ -15,10 +15,10 @@ export async function GET(request: NextRequest) {
     const startDate = new Date(date + 'T00:00:00.000Z');
     const endDate = new Date(date + 'T23:59:59.999Z');
 
-    // Find all invoices created on this date
+    // Find all invoices created on this date and populate planId
     const invoices = await Invoice.find({
       createdAt: { $gte: startDate, $lte: endDate }
-    }).lean();
+    }).populate('planId', 'planName').lean();
 
     // Collect all userIds and staffIds
     const userIds = invoices.map(inv => inv.customerId);
@@ -34,7 +34,11 @@ export async function GET(request: NextRequest) {
     const report = invoices.map(inv => ({
       userName: userMap.get(inv.customerId) || inv.customerDetails?.name || 'Unknown',
       paymentMade: inv.receivedAmount || inv.totalAmount || 0,
-      staffName: staffMap.get(inv.createdBy) || 'Unknown'
+      staffName: staffMap.get(inv.createdBy) || 'Unknown',
+      invoiceNumber: inv.invoiceNumber || inv.receiptNo || 'N/A',
+      groupName: (inv.planId && typeof inv.planId === 'object' && inv.planId.planName)
+        ? inv.planId.planName
+        : (inv.planDetails?.planName || 'N/A')
     }));
 
     return NextResponse.json({ success: true, date, report });

@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, IndianRupee, Calendar, TrendingUp, Users, FileText, Plus, Edit, Eye, X, Save, Trash2 } from 'lucide-react';
+import { ArrowLeft, IndianRupee, Calendar, TrendingUp, Users, FileText, Plus, Edit, Eye, X, Save, Trash2, Download } from 'lucide-react';
 import { formatIndianNumber } from '@/lib/helpers';
 import { fetchWithCache } from '@/lib/fetchWithCache';
 import { OfflineDB } from '@/lib/offlineDb';
@@ -64,6 +64,8 @@ export default function PlansPage() {
   });
   const [createMode, setCreateMode] = useState<'auto' | 'manual'>('auto');
   const [manualMonthlyData, setManualMonthlyData] = useState<MonthlyData[]>([]);
+  const [showDatePicker, setShowDatePicker] = useState<string | null>(null); // Plan ID for which to show date picker
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
   useEffect(() => {
     fetchPlans();
@@ -328,6 +330,45 @@ export default function PlansPage() {
     return 'bg-gray-100 text-gray-800';
   };
 
+  const handleDownloadPlanReport = async (plan: Plan, date?: string) => {
+    try {
+      const dateParam = date ? `&date=${date}` : '';
+      const response = await fetch(`/api/reports/plan-invoices/pdf?planId=${plan._id}${dateParam}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        }
+      });
+
+      if (!response.ok) {
+        const result = await response.json();
+        alert('Failed to generate report: ' + (result.error || 'Unknown error'));
+        return;
+      }
+
+      // Create a blob from the response
+      const blob = await response.blob();
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const filename = date
+        ? `plan-report-${plan.planName}-${date}.pdf`
+        : `plan-report-${plan.planName}-all-time.pdf`;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+
+      // Cleanup
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      setShowDatePicker(null);
+    } catch (error) {
+      console.error('Download plan report error:', error);
+      alert('Failed to download report');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
       <OfflineBanner />
@@ -413,30 +454,73 @@ export default function PlansPage() {
                         </span>
                       </div>
                       
-                      <div className="pt-2 border-t flex gap-2">
-                        <Button 
-                          className="flex-1 text-sm" 
-                          variant="outline"
-                          onClick={() => setSelectedPlan(plan)}
-                        >
-                          <Eye className="h-3 w-3 mr-1" />
-                          View
-                        </Button>
-                        <Button 
-                          className="flex-1 text-sm" 
-                          variant="outline"
-                          onClick={() => handleEditPlan(plan)}
-                        >
-                          <Edit className="h-3 w-3 mr-1" />
-                          Edit
-                        </Button>
-                        <Button 
-                          className="text-sm text-red-600 hover:text-red-700" 
-                          variant="outline"
-                          onClick={() => handleDeletePlan(plan._id)}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
+                      <div className="pt-2 border-t flex flex-col gap-2">
+                        <div className="flex gap-2">
+                          <Button
+                            className="flex-1 text-sm"
+                            variant="outline"
+                            onClick={() => setSelectedPlan(plan)}
+                          >
+                            <Eye className="h-3 w-3 mr-1" />
+                            View
+                          </Button>
+                          <Button
+                            className="flex-1 text-sm"
+                            variant="outline"
+                            onClick={() => handleEditPlan(plan)}
+                          >
+                            <Edit className="h-3 w-3 mr-1" />
+                            Edit
+                          </Button>
+                          <Button
+                            className="text-sm text-red-600 hover:text-red-700"
+                            variant="outline"
+                            onClick={() => handleDeletePlan(plan._id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+
+                        {showDatePicker === plan._id ? (
+                          <div className="flex flex-col gap-2 p-2 bg-slate-50 rounded">
+                            <Input
+                              type="date"
+                              value={selectedDate}
+                              onChange={(e) => setSelectedDate(e.target.value)}
+                              className="text-sm"
+                            />
+                            <div className="flex gap-2">
+                              <Button
+                                className="flex-1 text-sm bg-green-600 hover:bg-green-700 text-white"
+                                onClick={() => handleDownloadPlanReport(plan, selectedDate)}
+                              >
+                                Download
+                              </Button>
+                              <Button
+                                className="flex-1 text-sm"
+                                variant="outline"
+                                onClick={() => handleDownloadPlanReport(plan)}
+                              >
+                                All Time
+                              </Button>
+                              <Button
+                                className="text-sm"
+                                variant="ghost"
+                                onClick={() => setShowDatePicker(null)}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <Button
+                            className="w-full text-sm bg-green-600 hover:bg-green-700 text-white"
+                            onClick={() => setShowDatePicker(plan._id)}
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            Download Report
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </CardContent>

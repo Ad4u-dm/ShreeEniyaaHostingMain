@@ -75,6 +75,8 @@ export default function CreateInvoicePage() {
   const [selectedCustomerProfile, setSelectedCustomerProfile] = useState<any>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [createdInvoice, setCreatedInvoice] = useState<any>(null);
 
   // Get previous balance from the latest invoice for the customer
   const getPreviousBalance = async (customerId: string, planId: string) => {
@@ -82,16 +84,28 @@ export default function CreateInvoicePage() {
       const response = await fetch(`/api/invoices?customerId=${customerId}&planId=${planId}&latest=true`);
       if (response.ok) {
         const data = await response.json();
-        // Return the balance and arrear amounts from the latest invoice
+        // Robustly detect first invoice and handle zero balance/arrear edge case
+        if (!data.invoice) {
+          // No previous invoice found
+          return { balance: null, arrear: null, isFirstInvoice: true };
+        }
+        // If both are zero, check if this is truly the first invoice
+        const isZeroInvoice = (data.invoice.balanceAmount === 0 && data.invoice.arrearAmount === 0);
+        if (isZeroInvoice) {
+          // Treat as first invoice if both are zero and no other invoices exist
+          // (Backend already checks this, but we add a flag for clarity)
+          return { balance: 0, arrear: 0, isFirstInvoice: true };
+        }
         return {
-          balance: data.invoice?.balanceAmount || null,
-          arrear: data.invoice?.arrearAmount || null
+          balance: data.invoice.balanceAmount ?? null,
+          arrear: data.invoice.arrearAmount ?? null,
+          isFirstInvoice: false
         };
       }
     } catch (error) {
       console.error('Error fetching previous balance:', error);
     }
-    return { balance: null, arrear: null };
+    return { balance: null, arrear: null, isFirstInvoice: true };
   };
 
   // Calculate balance amount: Previous balance - today's payment (or monthly due if no previous invoice)
@@ -232,12 +246,11 @@ export default function CreateInvoicePage() {
 
       console.log('Automated payment details:', paymentDetails);
 
-      // Get previous balance and arrear from latest invoice
-      const previousData = await getPreviousBalance(formData.customerId, formData.planId);
-  // Fix: Use previousData.invoice == null for first invoice detection
-  const hasPreviousInvoice = !!previousData.invoice;
-  const previousBalance = hasPreviousInvoice ? previousData.balance || 0 : 0;
-  const previousArrear = hasPreviousInvoice ? previousData.arrear || 0 : 0;
+    // Get previous balance and arrear from latest invoice
+    const previousData = await getPreviousBalance(formData.customerId, formData.planId);
+    const isFirstInvoice = previousData.isFirstInvoice;
+    const previousBalance = !isFirstInvoice ? previousData.balance || 0 : 0;
+    const previousArrear = !isFirstInvoice ? previousData.arrear || 0 : 0;
 
       // Calculate daily due amount (for users who pay daily)
       const [year, month] = formData.receiptDetails.paymentMonth.split('-');
@@ -250,11 +263,11 @@ export default function CreateInvoicePage() {
       let balanceAmount = 0;
       let pendingAmount = 0;
       const receivedAmount = dailyDue;
-      if (!hasPreviousInvoice) {
-  // First invoice logic
-  arrearAmount = 0;
-  pendingAmount = paymentDetails.currentDueAmount;
-  balanceAmount = Math.max(0, paymentDetails.currentDueAmount - receivedAmount);
+      if (isFirstInvoice) {
+        // First invoice logic
+        arrearAmount = 0;
+        pendingAmount = paymentDetails.currentDueAmount;
+        balanceAmount = Math.max(0, paymentDetails.currentDueAmount - receivedAmount);
       } else if (is21st) {
         arrearAmount = previousBalance;
         pendingAmount = paymentDetails.currentDueAmount + arrearAmount;
@@ -283,44 +296,35 @@ export default function CreateInvoicePage() {
 
   // Function to recalculate balance when received amount changes
   const handleReceivedAmountChange = async (newReceivedAmount: number) => {
-    // Fetch previous balance and arrear from latest invoice
-    const previousData = await getPreviousBalance(formData.customerId, formData.planId);
-    const previousBalance = previousData.balance || 0;
-    const previousArrear = previousData.arrear || 0;
-    const today = new Date();
-    const is21st = today.getDate() === 21;
-  // Fix: Use previousData.invoice == null for first invoice detection
-  const hasPreviousInvoice = !!previousData.invoice;
-    setFormData(prev => {
-      let arrearAmount = 0;
-      let balanceAmount = 0;
-      let pendingAmount = 0;
-      if (!hasPreviousInvoice) {
-        // First invoice logic
-        arrearAmount = 0;
-        pendingAmount = prev.receiptDetails.dueAmount;
-        balanceAmount = Math.max(0, prev.receiptDetails.dueAmount - newReceivedAmount);
-      } else if (is21st) {
-        arrearAmount = previousBalance;
-        pendingAmount = prev.receiptDetails.dueAmount + arrearAmount;
-        balanceAmount = Math.max(0, pendingAmount - newReceivedAmount);
-      } else {
-        arrearAmount = previousArrear;
-        pendingAmount = previousBalance;
-        balanceAmount = Math.max(0, previousBalance - newReceivedAmount);
-      }
-      return {
-        ...prev,
-        receiptDetails: {
-          ...prev.receiptDetails,
-          receivedAmount: newReceivedAmount,
-          arrearAmount: arrearAmount,
-          balanceAmount: balanceAmount,
-          pendingAmount: pendingAmount
-        },
+    // Always use backend response for calculation
+    const response = await fetch('/api/invoices/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customerId: formData.customerId,
+        planId: formData.planId,
         receivedAmount: newReceivedAmount
-      };
+      })
     });
+    if (response.ok) {
+      const data = await response.json();
+      if (data.invoice) {
+        setFormData(prev => ({
+          ...prev,
+          receiptDetails: {
+            ...prev.receiptDetails,
+            dueAmount: data.invoice.dueAmount ?? prev.receiptDetails.dueAmount,
+            arrearAmount: data.invoice.arrearAmount ?? prev.receiptDetails.arrearAmount,
+            balanceAmount: data.invoice.balanceAmount ?? prev.receiptDetails.balanceAmount,
+            receivedAmount: newReceivedAmount,
+            pendingAmount: data.invoice.pendingAmount ?? prev.receiptDetails.pendingAmount,
+            dueNo: data.invoice.dueNumber ?? prev.receiptDetails.dueNo,
+            paymentMonth: data.invoice.paymentMonth ?? prev.receiptDetails.paymentMonth
+          },
+          receivedAmount: newReceivedAmount
+        }));
+      }
+    }
   };
 
   // Calculate fixed due date (20th of current month, or next month if past 20th)
@@ -898,10 +902,22 @@ export default function CreateInvoicePage() {
       console.log('Invoice creation response:', result);
 
       if (response.ok) {
-        alert(`Invoice ${status === 'draft' ? 'saved as draft' : 'created and sent'} successfully!`);
-        // Generate next receipt number for future invoices
+        const backendInvoice = result.invoice;
+        setFormData(prev => ({
+          ...prev,
+          receiptDetails: {
+            ...prev.receiptDetails,
+            balanceAmount: backendInvoice.balanceAmount,
+            dueAmount: backendInvoice.dueAmount,
+            arrearAmount: backendInvoice.arrearAmount,
+            receivedAmount: backendInvoice.receivedAmount,
+            pendingAmount: backendInvoice.pendingAmount,
+          }
+        }));
+        // Store the created invoice and show success modal
+        setCreatedInvoice(backendInvoice);
+        setShowSuccessModal(true);
         generateNextReceiptNumber();
-        window.location.href = '/staff/invoices';
       } else {
         console.error('Invoice creation failed:', result);
         alert(`Failed to create invoice: ${result.error || 'Unknown error'}`);
@@ -1241,7 +1257,7 @@ export default function CreateInvoicePage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Balance Amount
+                    Balance Amount <span className="text-xs text-blue-600">(Calculated by backend, can override)</span>
                   </label>
                   <Input
                     type="number"
@@ -1255,6 +1271,9 @@ export default function CreateInvoicePage() {
                     }}
                     placeholder="Enter balance amount"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    You can manually override the backend value if needed
+                  </p>
                 </div>
               </div>
 
@@ -1464,6 +1483,98 @@ export default function CreateInvoicePage() {
           </Card>
         </div>
       </div>
+
+      {/* Success Modal */}
+      {showSuccessModal && createdInvoice && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+                <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Invoice Created Successfully!
+              </h3>
+              <p className="text-sm text-gray-500">
+                Invoice #{createdInvoice.invoiceNumber} has been created.<br />
+                <span className="text-xs text-blue-600">(Fetched latest backend-calculated values)</span>
+              </p>
+            </div>
+
+            <div className="border-t border-b border-gray-200 py-4 space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="font-medium text-gray-700">Due Amount:</span>
+                <span className="text-gray-900">₹{formatIndianNumber(createdInvoice.dueAmount ?? 0)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="font-medium text-gray-700">Arrear Amount:</span>
+                <span className="text-gray-900">₹{formatIndianNumber(createdInvoice.arrearAmount ?? 0)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="font-medium text-gray-700">Received Amount:</span>
+                <span className="text-green-600 font-semibold">₹{formatIndianNumber(createdInvoice.receivedAmount ?? 0)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="font-medium text-gray-700">Balance Amount:</span>
+                <span className="text-blue-600 font-semibold">₹{createdInvoice.balanceAmount !== undefined ? formatIndianNumber(createdInvoice.balanceAmount) : 'Error fetching balance'}</span>
+              </div>
+              {createdInvoice.pendingAmount !== undefined && (
+                <div className="flex justify-between text-sm">
+                  <span className="font-medium text-gray-700">Pending Amount:</span>
+                  <span className="text-orange-600 font-semibold">₹{formatIndianNumber(createdInvoice.pendingAmount ?? 0)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm pt-2 border-t">
+                <span className="font-medium text-gray-700">Due Number:</span>
+                <span className="text-gray-900">{createdInvoice.dueNumber ?? 'N/A'}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="font-medium text-gray-700">Payment Month:</span>
+                <span className="text-gray-900">{createdInvoice.paymentMonth ?? 'N/A'}</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                onClick={async () => {
+                  setShowSuccessModal(false);
+                  setCreatedInvoice(null);
+                  // Update receipt details and live preview with backend-calculated values
+                  if (createdInvoice) {
+                    setFormData(prev => ({
+                      ...prev,
+                      receiptDetails: {
+                        ...prev.receiptDetails,
+                        dueAmount: createdInvoice.dueAmount ?? prev.receiptDetails.dueAmount,
+                        arrearAmount: createdInvoice.arrearAmount ?? prev.receiptDetails.arrearAmount,
+                        balanceAmount: createdInvoice.balanceAmount ?? prev.receiptDetails.balanceAmount,
+                        receivedAmount: createdInvoice.receivedAmount ?? prev.receiptDetails.receivedAmount,
+                        pendingAmount: createdInvoice.pendingAmount ?? prev.receiptDetails.pendingAmount,
+                        dueNo: createdInvoice.dueNumber ?? prev.receiptDetails.dueNo,
+                        paymentMonth: createdInvoice.paymentMonth ?? prev.receiptDetails.paymentMonth
+                      }
+                    }));
+                  }
+                }}
+                variant="outline"
+                className="flex-1"
+              >
+                Create Another
+              </Button>
+              <Button
+                onClick={() => {
+                  window.location.href = '/staff/invoices';
+                }}
+                className="flex-1 bg-blue-600 hover:bg-blue-700"
+              >
+                View Invoices
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -61,6 +61,7 @@ interface Enrollment {
   _id: string;
   userId: string;
   planId: string;
+  memberNumber?: string;
   status: string;
   enrollmentDate: string;
   startDate: string;
@@ -894,7 +895,7 @@ export default function UsersPage() {
                               variant="ghost"
                               onClick={() => {
                                 setIsEditingMemberNumber(true);
-                                setNewMemberNumber(userEnrollments[0].memberNumber);
+                                setNewMemberNumber(userEnrollments[0].memberNumber || '');
                               }}
                               className="h-6 px-2"
                             >

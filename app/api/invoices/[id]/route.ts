@@ -79,13 +79,13 @@ export async function GET(
       issuedBy: invoice.issuedBy,
       
       customerId: {
-        _id: customerData?._id || invoice.customerId,
-        name: customerData?.name || invoice.memberName || 'Unknown Customer',
-        email: customerData?.email || 'No email',
-        phone: customerData?.phone || 'No phone',
-        address: typeof customerData?.address === 'object'
-          ? `${customerData.address.street || ''}, ${customerData.address.city || ''}, ${customerData.address.state || ''} - ${customerData.address.pincode || ''}`.replace(/,\s*,/g, ',').replace(/^,\s*|,\s*$/g, '')
-          : customerData?.address || 'Address not provided'
+        _id: (customerData as any)?._id || invoice.customerId,
+        name: (customerData as any)?.name || invoice.memberName || 'Unknown Customer',
+        email: (customerData as any)?.email || 'No email',
+        phone: (customerData as any)?.phone || 'No phone',
+        address: typeof (customerData as any)?.address === 'object'
+          ? `${(customerData as any).address.street || ''}, ${(customerData as any).address.city || ''}, ${(customerData as any).address.state || ''} - ${(customerData as any).address.pincode || ''}`.replace(/,\s*,/g, ',').replace(/^,\s*|,\s*$/g, '')
+          : (customerData as any)?.address || 'Address not provided'
       },
       planId: {
         _id: planData?._id || invoice.planId,

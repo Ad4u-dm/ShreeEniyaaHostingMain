@@ -75,6 +75,8 @@ export default function CreateInvoicePage() {
   const [selectedCustomerProfile, setSelectedCustomerProfile] = useState<any>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [createdInvoice, setCreatedInvoice] = useState<any>(null);
 
   // Get previous balance from the latest invoice for the customer
   const getPreviousBalance = async (customerId: string, planId: string) => {
@@ -84,6 +86,7 @@ export default function CreateInvoicePage() {
         const data = await response.json();
         // Return the balance and arrear amounts from the latest invoice
         return {
+          invoice: data.invoice || null,
           balance: data.invoice?.balanceAmount || null,
           arrear: data.invoice?.arrearAmount || null
         };
@@ -91,7 +94,7 @@ export default function CreateInvoicePage() {
     } catch (error) {
       console.error('Error fetching previous balance:', error);
     }
-    return { balance: null, arrear: null };
+    return { invoice: null, balance: null, arrear: null };
   };
 
   // Calculate balance amount: Previous balance - today's payment (or monthly due if no previous invoice)
@@ -898,10 +901,22 @@ export default function CreateInvoicePage() {
       console.log('Invoice creation response:', result);
 
       if (response.ok) {
-        alert(`Invoice ${status === 'draft' ? 'saved as draft' : 'created and sent'} successfully!`);
-        // Generate next receipt number for future invoices
+        const backendInvoice = result.invoice;
+        setFormData(prev => ({
+          ...prev,
+          receiptDetails: {
+            ...prev.receiptDetails,
+            balanceAmount: backendInvoice.balanceAmount,
+            dueAmount: backendInvoice.dueAmount,
+            arrearAmount: backendInvoice.arrearAmount,
+            receivedAmount: backendInvoice.receivedAmount,
+            pendingAmount: backendInvoice.pendingAmount,
+          }
+        }));
+        // Store the created invoice and show success modal
+        setCreatedInvoice(backendInvoice);
+        setShowSuccessModal(true);
         generateNextReceiptNumber();
-        window.location.href = '/admin/invoices';
       } else {
         console.error('Invoice creation failed:', result);
         alert(`Failed to create invoice: ${result.error || 'Unknown error'}`);
@@ -1464,6 +1479,81 @@ export default function CreateInvoicePage() {
           </Card>
         </div>
       </div>
+
+      {/* Success Modal */}
+      {showSuccessModal && createdInvoice && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+                <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Invoice Created Successfully!
+              </h3>
+              <p className="text-sm text-gray-500">
+                Invoice #{createdInvoice.invoiceNumber} has been created with the following backend-calculated values:
+              </p>
+            </div>
+
+            <div className="border-t border-b border-gray-200 py-4 space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="font-medium text-gray-700">Due Amount:</span>
+                <span className="text-gray-900">₹{formatIndianNumber(createdInvoice.dueAmount || 0)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="font-medium text-gray-700">Arrear Amount:</span>
+                <span className="text-gray-900">₹{formatIndianNumber(createdInvoice.arrearAmount || 0)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="font-medium text-gray-700">Received Amount:</span>
+                <span className="text-green-600 font-semibold">₹{formatIndianNumber(createdInvoice.receivedAmount || 0)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="font-medium text-gray-700">Balance Amount:</span>
+                <span className="text-blue-600 font-semibold">₹{formatIndianNumber(createdInvoice.balanceAmount || 0)}</span>
+              </div>
+              {createdInvoice.pendingAmount !== undefined && (
+                <div className="flex justify-between text-sm">
+                  <span className="font-medium text-gray-700">Pending Amount:</span>
+                  <span className="text-orange-600 font-semibold">₹{formatIndianNumber(createdInvoice.pendingAmount || 0)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm pt-2 border-t">
+                <span className="font-medium text-gray-700">Due Number:</span>
+                <span className="text-gray-900">{createdInvoice.dueNumber || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="font-medium text-gray-700">Payment Month:</span>
+                <span className="text-gray-900">{createdInvoice.paymentMonth || 'N/A'}</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  setCreatedInvoice(null);
+                }}
+                variant="outline"
+                className="flex-1"
+              >
+                Create Another
+              </Button>
+              <Button
+                onClick={() => {
+                  window.location.href = '/admin/invoices';
+                }}
+                className="flex-1 bg-blue-600 hover:bg-blue-700"
+              >
+                View Invoices
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

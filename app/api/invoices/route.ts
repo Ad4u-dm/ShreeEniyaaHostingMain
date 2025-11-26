@@ -45,17 +45,49 @@ export async function POST(request: NextRequest) {
     let balanceAmount = 0;
     let dueAmount = payment.planId.monthlyAmount;
     let receivedAmount = payment.amount;
+
+    // Debug logging for previous invoice and calculation
+    console.log('=== INVOICE CALCULATION DEBUG ===');
+    if (previousInvoice) {
+      console.log('Previous Invoice:', {
+        balanceAmount: previousInvoice.balanceAmount,
+        arrearAmount: previousInvoice.arrearAmount,
+        dueAmount: previousInvoice.dueAmount,
+        receivedAmount: previousInvoice.receivedAmount,
+        invoiceId: previousInvoice.invoiceId
+      });
+    } else {
+      console.log('No previous invoice found for customer/plan');
+    }
+    console.log('Current Payment:', { dueAmount, receivedAmount, is21st });
+
+    // Improved logic for all scenarios
     if (!previousInvoice) {
       // First invoice logic
       arrearAmount = 0;
       balanceAmount = Math.max(0, dueAmount - receivedAmount);
-    } else if (is21st) {
-      arrearAmount = previousInvoice.balanceAmount || 0;
-      balanceAmount = Math.max(0, (dueAmount + arrearAmount) - receivedAmount);
+      console.log('First invoice calculation:', { arrearAmount, balanceAmount });
     } else {
-      arrearAmount = previousInvoice.arrearAmount || 0;
-      balanceAmount = Math.max(0, previousInvoice.balanceAmount - receivedAmount);
+      // Not first invoice
+      if (is21st) {
+        // On 21st, arrears = previous balance
+        arrearAmount = previousInvoice.balanceAmount ?? 0;
+        balanceAmount = Math.max(0, (dueAmount + arrearAmount) - receivedAmount);
+        console.log('21st calculation:', { arrearAmount, balanceAmount });
+      } else {
+        // Other days, arrears = previous arrear
+        arrearAmount = previousInvoice.arrearAmount ?? 0;
+        // If previous balance is zero, use dueAmount for new cycle
+        if ((previousInvoice.balanceAmount ?? 0) === 0) {
+          balanceAmount = Math.max(0, dueAmount - receivedAmount);
+          console.log('Previous balance zero, new cycle:', { arrearAmount, balanceAmount });
+        } else {
+          balanceAmount = Math.max(0, previousInvoice.balanceAmount - receivedAmount);
+          console.log('Normal calculation:', { arrearAmount, balanceAmount });
+        }
+      }
     }
+    console.log('=== END INVOICE CALCULATION DEBUG ===');
 
     // Generate invoice data
     const invoiceData = {

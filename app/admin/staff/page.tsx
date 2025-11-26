@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Search, Filter, UserPlus, Eye, Edit, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Search, Filter, UserPlus, Eye, Edit, Trash2, X, Download } from 'lucide-react';
 
 export default function StaffPage() {
   const [staff, setStaff] = useState([]);
@@ -18,6 +18,8 @@ export default function StaffPage() {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ password: '', confirmPassword: '' });
   const [editForm, setEditForm] = useState({ name: '', email: '', phone: '' });
+  const [showDatePicker, setShowDatePicker] = useState<string | null>(null); // Staff ID for which to show date picker
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
   useEffect(() => {
     fetchStaff();
@@ -112,6 +114,46 @@ export default function StaffPage() {
     } catch (error) {
       console.error('Delete staff error:', error);
       alert('Failed to delete staff member');
+    }
+  };
+
+  const handleDownloadStaffReport = async (staffMember: any, date?: string) => {
+    try {
+      const dateParam = date ? `&date=${date}` : '';
+      const staffId = staffMember.userId || staffMember._id;
+      const response = await fetch(`/api/reports/staff-invoices/pdf?staffId=${staffId}${dateParam}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        }
+      });
+
+      if (!response.ok) {
+        const result = await response.json();
+        alert('Failed to generate report: ' + (result.error || 'Unknown error'));
+        return;
+      }
+
+      // Create a blob from the response
+      const blob = await response.blob();
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const filename = date
+        ? `staff-report-${staffMember.name}-${date}.pdf`
+        : `staff-report-${staffMember.name}-all-time.pdf`;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+
+      // Cleanup
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      setShowDatePicker(null);
+    } catch (error) {
+      console.error('Download staff report error:', error);
+      alert('Failed to download report');
     }
   };
 
@@ -255,23 +297,71 @@ export default function StaffPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => {
-                            const today = new Date().toISOString().slice(0, 10);
-                            window.open(`/api/reports/daily-invoices/pdf?date=${today}&staffId=${staffMember.userId || staffMember._id}`);
-                          }}
+                          className="bg-green-50 hover:bg-green-100"
+                          onClick={() => setShowDatePicker(staffMember._id)}
                         >
-                          Download Today's Report (PDF)
+                          <Download className="h-4 w-4 mr-1" />
+                          Download Report
                         </Button>
                       </div>
                     </div>
                   </div>
                 ))}
-                
+
                 {staff.length === 0 && (
                   <div className="text-center py-12 text-slate-500">
                     <p>No staff members found matching your criteria.</p>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Date Picker Modal */}
+            {showDatePicker && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-lg max-w-md w-full p-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-semibold">Download Staff Report</h2>
+                    <Button variant="ghost" size="sm" onClick={() => setShowDatePicker(null)}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Select Date
+                      </label>
+                      <Input
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        className="w-full"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                        onClick={() => {
+                          const staffMember = staff.find((s: any) => s._id === showDatePicker);
+                          if (staffMember) handleDownloadStaffReport(staffMember, selectedDate);
+                        }}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Download for Date
+                      </Button>
+                      <Button
+                        className="flex-1"
+                        variant="outline"
+                        onClick={() => {
+                          const staffMember = staff.find((s: any) => s._id === showDatePicker);
+                          if (staffMember) handleDownloadStaffReport(staffMember);
+                        }}
+                      >
+                        Download All Time
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 

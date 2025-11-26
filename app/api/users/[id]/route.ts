@@ -4,11 +4,11 @@ import User from '@/models/User';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectDB();
 
-    const { id } = params;
+    const { id } = await params;
     let user = null;
     // Check if id is a valid ObjectId
     if (/^[0-9a-fA-F]{24}$/.test(id)) {
