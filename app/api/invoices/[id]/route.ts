@@ -27,15 +27,19 @@ export async function GET(
     const rawInvoice = await Invoice.findById(id).lean();
     console.log('Raw invoice from DB:', rawInvoice);
 
-    // Fetch real invoice from database with populated references
+    // Fetch invoice without populating customerId
     const invoice = await Invoice.findById(id)
-      .populate('customerId', 'name email phone address')
       .populate('planId', 'planName totalAmount monthlyAmount duration')
       .lean();
 
-    console.log('Populated invoice:', invoice);
-    console.log('Invoice customerId after populate:', invoice?.customerId);
-    console.log('Invoice planId after populate:', invoice?.planId);
+    // Manually fetch user details for string customerId
+    let customerData = null;
+    if (invoice && invoice.customerId) {
+      customerData = await User.findOne({ userId: invoice.customerId }).select('userId name email phone address');
+    }
+
+    console.log('Invoice after manual customer lookup:', invoice);
+    console.log('Customer data:', customerData);
 
     if (!invoice) {
       return NextResponse.json(
@@ -46,8 +50,7 @@ export async function GET(
 
     // Process invoice to match expected format
     // Use snapshot data from customerDetails/planDetails if populate didn't work
-    const customerData = invoice.customerId || invoice.customerDetails;
-    const planData = invoice.planId || invoice.planDetails;
+  const planData = invoice.planId || invoice.planDetails;
 
     console.log('Customer data to use:', customerData);
     console.log('Plan data to use:', planData);
