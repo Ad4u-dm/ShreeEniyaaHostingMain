@@ -63,6 +63,36 @@ interface InvoiceForm {
 }
 
 export default function CreateInvoicePage() {
+  // Fetch all customers on mount
+  const fetchCustomers = async () => {
+    try {
+      const token = localStorage.getItem('auth-token');
+
+      const headers: any = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch('/api/users?role=user&limit=1000', { headers });
+
+      if (response.ok) {
+        const data = await response.json();
+        setCustomers(data.users?.map((c: any) => ({
+          _id: c._id,
+          userId: c.userId,
+          name: c.name,
+          email: c.email,
+          phone: c.phone
+        })) || []);
+      } else {
+        console.error('Failed to fetch customers:', response.status, response.statusText);
+        setCustomers([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch customers:', error);
+      setCustomers([]);
+    }
+  };
   // Helper function to safely extract ID from potentially populated field
   const getId = (field: any) => typeof field === "object" && field ? field._id : field;
 
@@ -378,10 +408,17 @@ export default function CreateInvoicePage() {
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
 
   // Filter customers based on search (name or phone)
-  const filteredCustomers = customers.filter(customer => 
+  const filteredCustomers = customers.filter(customer =>
     customer.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
     customer.phone.toLowerCase().includes(customerSearch.toLowerCase())
   );
+
+  // Load all customers on mount - search is done on the client side
+  useEffect(() => {
+    if (typeof window !== 'undefined' && authChecked) {
+      fetchCustomers();
+    }
+  }, [authChecked]);
 
   // Check authentication on component mount
   useEffect(() => {
@@ -417,31 +454,39 @@ export default function CreateInvoicePage() {
   // Helper function to check if customer is enrolled in a specific plan
   const isCustomerEnrolled = (customerId: string, planId?: string) => {
     const selectedCustomer = customers.find(c => c._id === customerId);
-    if (!selectedCustomer || !selectedCustomer.userId) return false;
+    if (!selectedCustomer) return false;
 
     return customerEnrollments.some(enrollment => {
-      const userMatch = enrollment.userId?.userId === selectedCustomer.userId;
+      // Handle userId comparison - enrollment.userId can be a string, _id, or object with userId property
+      const enrollmentUserId = typeof enrollment.userId === 'object' && enrollment.userId
+        ? (enrollment.userId.userId || enrollment.userId._id || enrollment.userId)
+        : enrollment.userId;
+
+      // Check if enrollment matches customer by userId or _id
+      const userMatch = enrollmentUserId === selectedCustomer.userId ||
+                        enrollmentUserId === selectedCustomer._id;
       const statusMatch = enrollment.status === 'active';
-      
+
       // Handle planId comparison - enrollment.planId can be string or populated object
       let planMatch = true;
       if (planId) {
-        const enrollmentPlanId = typeof enrollment.planId === 'object' ? 
+        const enrollmentPlanId = typeof enrollment.planId === 'object' ?
           enrollment.planId?._id : enrollment.planId;
         planMatch = enrollmentPlanId === planId;
       }
-      
+
       console.log('Enrollment check:', {
         userMatch,
         statusMatch,
         planMatch,
-        enrollmentUserId: enrollment.userId?.userId,
-        customerUserId: selectedCustomer.userId,
+        enrollmentUserId,
+        selectedCustomerUserId: selectedCustomer.userId,
+        selectedCustomerId: selectedCustomer._id,
         enrollmentPlanId: typeof enrollment.planId === 'object' ? enrollment.planId?._id : enrollment.planId,
         formPlanId: planId,
         enrollmentStatus: enrollment.status
       });
-      
+
       return userMatch && statusMatch && planMatch;
     });
   };
@@ -449,7 +494,6 @@ export default function CreateInvoicePage() {
   useEffect(() => {
     // Only run after auth is checked and on client side
     if (typeof window !== 'undefined' && authChecked) {
-      fetchCustomers();
       fetchPlans();
       fetchEnrollments();
       generateNextReceiptNumber();
@@ -507,39 +551,6 @@ export default function CreateInvoicePage() {
     }
   };
 
-  const fetchCustomers = async () => {
-    try {
-      const token = localStorage.getItem('auth-token');
-      
-      // Try with authentication first, then fallback to no auth since /api/users doesn't require it
-      const headers: any = {};
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-      
-      const response = await fetch('/api/users?role=user', { headers });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setCustomers(data.users?.map((c: any) => ({
-          _id: c._id,
-          userId: c.userId,
-          name: c.name,
-          email: c.email,
-          phone: c.phone
-        })) || []);
-      } else {
-        console.error('Failed to fetch customers:', response.status, response.statusText);
-        if (response.status === 401) {
-          console.warn('Unauthorized - may need to login again');
-        }
-        setCustomers([]);
-      }
-    } catch (error) {
-      console.error('Failed to fetch customers:', error);
-      setCustomers([]);
-    }
-  };
 
   const fetchPlans = async () => {
     try {
