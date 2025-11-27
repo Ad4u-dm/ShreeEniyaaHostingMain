@@ -63,36 +63,21 @@ interface InvoiceForm {
 }
 
 export default function CreateInvoicePage() {
-  // Fetch all customers on mount
-  const fetchCustomers = async () => {
+  // Fetch customers with search and higher limit
+  const fetchCustomers = async (searchTerm: string) => {
+    setLoading(true);
     try {
-      const token = localStorage.getItem('auth-token');
-
-      const headers: any = {};
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
-      const response = await fetch('/api/users?role=user&limit=1000', { headers });
-
+      const response = await fetch(`/api/users?search=${encodeURIComponent(searchTerm)}&limit=100`);
       if (response.ok) {
         const data = await response.json();
-        setCustomers(data.users?.map((c: any) => ({
-          _id: c._id,
-          userId: c.userId,
-          name: c.name,
-          email: c.email,
-          phone: c.phone
-        })) || []);
-      } else {
-        console.error('Failed to fetch customers:', response.status, response.statusText);
-        setCustomers([]);
+        setCustomers(data.users || []);
       }
     } catch (error) {
-      console.error('Failed to fetch customers:', error);
-      setCustomers([]);
+      console.error('Error fetching customers:', error);
     }
+    setLoading(false);
   };
+  // ...existing code...
   // Helper function to safely extract ID from potentially populated field
   const getId = (field: any) => typeof field === "object" && field ? field._id : field;
 
@@ -413,10 +398,10 @@ export default function CreateInvoicePage() {
     customer.phone.toLowerCase().includes(customerSearch.toLowerCase())
   );
 
-  // Load all customers on mount - search is done on the client side
+  // Load all customers on mount using new fetchCustomers signature
   useEffect(() => {
     if (typeof window !== 'undefined' && authChecked) {
-      fetchCustomers();
+      fetchCustomers('');
     }
   }, [authChecked]);
 
