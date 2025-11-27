@@ -48,6 +48,10 @@ function centerText(text: string, width = 24): string {
 }
 
 export async function POST(request: NextRequest) {
+  let invoiceId: string | undefined;
+  let paymentId: string | undefined;
+  let invoiceData: any;
+  
   try {
     await connectDB();
     
@@ -56,7 +60,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { invoiceId, paymentId } = await request.json();
+    const body = await request.json();
+    invoiceId = body.invoiceId;
+    paymentId = body.paymentId;
 
     let invoiceData;
 
@@ -136,22 +142,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No data found' }, { status: 404 });
     }
 
-    // Format date and time in IST timezone
+    // Format date and time in IST timezone (with safety check)
     const date = new Date(invoiceData.issueDate);
-    const formattedDate = date.toLocaleDateString('en-GB', { timeZone: 'Asia/Kolkata' });
-    const formattedTime = date.toLocaleTimeString('en-IN', {
+    const formattedDate = isNaN(date.getTime()) ? new Date().toLocaleDateString('en-GB', { timeZone: 'Asia/Kolkata' }) : date.toLocaleDateString('en-GB', { timeZone: 'Asia/Kolkata' });
+    const formattedTime = isNaN(date.getTime()) ? new Date().toLocaleTimeString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    }) : date.toLocaleTimeString('en-IN', {
       timeZone: 'Asia/Kolkata',
       hour: '2-digit',
       minute: '2-digit',
       hour12: true
     });
 
-    // Calculate amounts from invoice snapshot fields
-    const dueAmount = invoiceData.dueAmount || invoiceData.planId?.monthlyAmount || 0;
-    const arrearAmount = invoiceData.arrearAmount || 0;
-    const pendingAmount = invoiceData.pendingAmount || dueAmount;
-    const receivedAmount = invoiceData.paidAmount || invoiceData.total || 0;
-    const balanceAmount = invoiceData.balanceAmount || (pendingAmount - receivedAmount);
+    // Calculate amounts from invoice snapshot fields (with safety checks)
+    const dueAmount = Number(invoiceData.dueAmount || invoiceData.planId?.monthlyAmount || 0);
+    const arrearAmount = Number(invoiceData.arrearAmount || 0);
+    const pendingAmount = Number(invoiceData.pendingAmount || dueAmount);
+    const receivedAmount = Number(invoiceData.paidAmount || invoiceData.total || 0);
+    const balanceAmount = Number(invoiceData.balanceAmount || (pendingAmount - receivedAmount));
 
     // Build ESC/POS receipt
     let receipt = '';
@@ -159,10 +170,9 @@ export async function POST(request: NextRequest) {
     // Initialize
     receipt += COMMANDS.INIT;
     
-    // Initialize
-    receipt += COMMANDS.INIT;
-  // Select Font A (ESC M 0) for larger text
-  receipt += '\x1B\x4D\x00';
+    // Select Font A (ESC M 0) for larger text
+    receipt += '\x1B\x4D\x00';
+    
     // All lines left-aligned, compact, uniform font
     receipt += COMMANDS.ALIGN_LEFT;
   receipt += dashedLine();
@@ -190,6 +200,13 @@ export async function POST(request: NextRequest) {
 
   // Cut paper
   receipt += COMMANDS.CUT_PAPER;
+
+  // Validate receipt data before encoding
+  if (!receipt || receipt.length === 0) {
+    throw new Error('Receipt content is empty');
+  }
+
+  try {
     const receiptBuffer = Buffer.from(receipt, 'binary');
     const base64Data = receiptBuffer.toString('base64');
     
@@ -204,11 +221,25 @@ export async function POST(request: NextRequest) {
         total: receivedAmount
       }
     });
+  } catch (bufferError) {
+    console.error('Buffer encoding error:', bufferError);
+    throw new Error(`Failed to encode receipt data: ${bufferError}`);
+  }
 
   } catch (error) {
-    console.error('Generate ESC/POS receipt error:', error);
+    console.error('Generate ESC/POS receipt error:', {
+      error: error,
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      invoiceData: {
+        invoiceId: invoiceId,
+        paymentId: paymentId,
+        hasInvoiceData: !!invoiceData,
+        invoiceNumber: invoiceData?.invoiceNumber
+      }
+    });
     return NextResponse.json(
-      { error: 'Failed to generate ESC/POS receipt', details: String(error) },
+      { error: 'Failed to generate ESC/POS receipt', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

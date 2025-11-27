@@ -7,79 +7,80 @@ interface A4InvoiceTemplateProps {
 export function A4InvoiceTemplate({ invoice }: A4InvoiceTemplateProps) {
   return (
     <div style={{
-      minHeight: '100vh',
-      width: '100vw',
+      minHeight: '297mm', // A4 height
+      width: '210mm', // A4 width
+      background: '#fff',
+      padding: '0',
+      margin: '0',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      background: '#f5f6fa',
+      pageBreakAfter: 'avoid',
     }}>
       <div style={{
         width: '100%',
         maxWidth: '900px',
-        minHeight: '1100px',
+        minHeight: '90%',
         background: '#fff',
-        fontFamily: 'Courier New, monospace',
+        fontFamily: 'Segoe UI, Arial, sans-serif',
         fontSize: '18px',
-        color: '#000',
-        padding: '48px 56px',
+        color: '#222',
+        padding: '32px 40px',
         margin: '0 auto',
         boxSizing: 'border-box',
         fontWeight: 'normal',
-        textAlign: 'center',
-        borderRadius: '16px',
-        boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
+        textAlign: 'left',
+        borderRadius: '8px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+        display: 'block',
+        pageBreakInside: 'avoid',
       }}>
         {/* Logo */}
-        <img src="/icon.png" alt="Company Logo" style={{ height: '60px', width: '60px', borderRadius: '12px', marginBottom: '8px' }} />
+        <img src="/icon.png" alt="Company Logo" style={{ height: '60px', width: '60px', borderRadius: '8px', marginBottom: '8px', display: 'block' }} />
         {/* Header */}
-        <div style={{fontSize: '14px', fontWeight: 'bold', marginBottom: '2px'}}>Mobile Receipt</div>
-          <div style={{borderTop: '1px dashed #000', margin: '3px 0', width: '100%'}}></div>
-          {/* Company Details */}
-          <div style={{fontSize: '13px', fontWeight: 'bold', marginBottom: '1px'}}>SHREE ENIYAA CHITFUNDS (P) LTD.</div>
-          <div style={{fontSize: '11px', marginBottom: '1px'}}>Mahadhana Street, Mayiladuthurai – 609 001.</div>
-          <div style={{borderTop: '1px dashed #000', margin: '3px 0', width: '100%'}}></div>
-          {/* Receipt Details - Left Aligned with consistent spacing */}
-          <div style={{textAlign: 'left', fontSize: '12px', fontFamily: 'monospace'}}>
-            <div style={{margin: '1px 0'}}>Receipt No     : {invoice.receiptNo || 'N/A'}</div>
-            <div style={{margin: '1px 0'}}>Date/Time      : {invoice.issueDate ? new Date(invoice.issueDate).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A'}</div>
-            <div style={{margin: '1px 0'}}>Member No      : {invoice.memberNumber || 'N/A'}</div>
-            <div style={{margin: '1px 0'}}>Member Name    : {invoice.memberName || invoice.customerId?.name || 'N/A'}</div>
-            <div style={{margin: '1px 0'}}>Group Name     : {invoice.planId?.name || invoice.planDetails?.planName || invoice.planId?.planName || invoice.planName || 'N/A'}</div>
-            <div style={{margin: '1px 0'}}>Due No         : {invoice.dueNumber || '1'}</div>
-            <div style={{margin: '1px 0'}}>Due Amount     : ₹ {(invoice.dueAmount || 0).toLocaleString('en-IN')}</div>
-            <div style={{margin: '1px 0'}}>Arrear Amount  : ₹ {(invoice.arrearAmount || 0).toLocaleString('en-IN')}</div>
-            <div style={{margin: '1px 0'}}>Received Amount: ₹ {(invoice.receivedAmount || 0).toLocaleString('en-IN')}</div>
-            <div style={{margin: '1px 0'}}>Balance Amount : ₹ {(invoice.balanceAmount || 0).toLocaleString('en-IN')}</div>
-          </div>
-          <div style={{borderTop: '1px dashed #000', margin: '3px 0', width: '100%'}}></div>
-          {/* Total */}
-          <div style={{fontSize: '13px', fontWeight: 'bold', textAlign: 'center', margin: '2px 0'}}>
-            Total Received : ₹ {(invoice.totalReceivedAmount || invoice.receivedAmount || 0).toLocaleString('en-IN')}
-          </div>
-          <div style={{borderTop: '1px dashed #000', margin: '3px 0', width: '100%'}}></div>
-          {/* Footer */}
-          <div style={{textAlign: 'center', fontSize: '11px', margin: '1px 0'}}>
-            Issued By : {invoice.issuedBy || invoice.collectedBy?.name || invoice.staff?.name || 'ADMIN'}
-          </div>
-          <div style={{textAlign: 'center', fontSize: '10px', margin: '2px 0'}}>
-            For Any Enquiry : 96266 66527 / 90035 62126
-          </div>
-          <div style={{textAlign: 'center', fontSize: '10px', margin: '2px 0', color: '#666'}}>
-            Thank you for your business!
-          </div>
-          {/* Receipt ID at bottom */}
-          <div style={{borderTop: '1px dashed #000', margin: '3px 0', width: '100%'}}></div>
-          <div style={{textAlign: 'center', fontSize: '11px', margin: '2px 0'}}>
-            Receipt ID: {invoice.receiptNo || invoice._id || '0027'}
-          </div>
-          <div style={{textAlign: 'center', fontSize: '10px', color: '#888'}}>
-            Optimized for A4 printers
-          </div>
+        <h1 style={{fontSize: '22px', fontWeight: 'bold', marginBottom: '8px', color: '#1a237e'}}>Mobile Receipt</h1>
+        <div style={{borderTop: '2px solid #1a237e', margin: '8px 0', width: '100%'}}></div>
+        {/* Company Details */}
+        <div style={{fontSize: '16px', fontWeight: 'bold', marginBottom: '4px'}}>SHREE ENIYAA CHITFUNDS (P) LTD.</div>
+        <div style={{fontSize: '14px', marginBottom: '4px'}}>Mahadhana Street, Mayiladuthurai – 609 001.</div>
+        <div style={{borderTop: '1px solid #bdbdbd', margin: '8px 0', width: '100%'}}></div>
+        {/* Receipt Details - Left Aligned with professional spacing */}
+        <div style={{textAlign: 'left', fontSize: '15px', fontFamily: 'monospace', marginTop: '12px', marginBottom: '12px'}}>
+          <div style={{margin: '4px 0'}}>Receipt No     : <b>{invoice.receiptNo || 'N/A'}</b></div>
+          <div style={{margin: '4px 0'}}>Date/Time      : <b>{invoice.issueDate ? new Date(invoice.issueDate).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A'}</b></div>
+          <div style={{margin: '4px 0'}}>Member No      : <b>{invoice.memberNumber || 'N/A'}</b></div>
+          <div style={{margin: '4px 0'}}>Member Name    : <b>{invoice.memberName || invoice.customerId?.name || 'N/A'}</b></div>
+          <div style={{margin: '4px 0'}}>Group Name     : <b>{invoice.planId?.name || invoice.planDetails?.planName || invoice.planId?.planName || invoice.planName || 'N/A'}</b></div>
+          <div style={{margin: '4px 0'}}>Due No         : <b>{invoice.dueNumber || '1'}</b></div>
+          <div style={{margin: '4px 0'}}>Due Amount     : <b>₹ {(invoice.dueAmount || 0).toLocaleString('en-IN')}</b></div>
+          <div style={{margin: '4px 0'}}>Arrear Amount  : <b>₹ {(invoice.arrearAmount || 0).toLocaleString('en-IN')}</b></div>
+          <div style={{margin: '4px 0'}}>Received Amount: <b>₹ {(invoice.receivedAmount || 0).toLocaleString('en-IN')}</b></div>
+          <div style={{margin: '4px 0'}}>Balance Amount : <b>₹ {(invoice.balanceAmount || 0).toLocaleString('en-IN')}</b></div>
+        </div>
+        <div style={{borderTop: '1px solid #bdbdbd', margin: '8px 0', width: '100%'}}></div>
+        {/* Total */}
+        <div style={{fontSize: '17px', fontWeight: 'bold', textAlign: 'right', margin: '8px 0'}}>
+          Total Received : <span style={{color:'#1a237e'}}>₹ {(invoice.totalReceivedAmount || invoice.receivedAmount || 0).toLocaleString('en-IN')}</span>
+        </div>
+        <div style={{borderTop: '1px solid #bdbdbd', margin: '8px 0', width: '100%'}}></div>
+        {/* Footer */}
+        <div style={{textAlign: 'left', fontSize: '14px', margin: '8px 0'}}>
+          Issued By : <b>{invoice.issuedBy || invoice.collectedBy?.name || invoice.staff?.name || 'ADMIN'}</b>
+        </div>
+        <div style={{textAlign: 'left', fontSize: '13px', margin: '4px 0'}}>
+          For Any Enquiry : <b>96266 66527 / 90035 62126</b>
+        </div>
+        <div style={{textAlign: 'left', fontSize: '13px', margin: '4px 0', color: '#666'}}>
+          Thank you for your business!
+        </div>
+        {/* Receipt ID at bottom */}
+        <div style={{borderTop: '1px solid #bdbdbd', margin: '8px 0', width: '100%'}}></div>
+        <div style={{textAlign: 'left', fontSize: '13px', margin: '4px 0'}}>
+          Receipt ID: <b>{invoice.receiptNo || invoice._id || '0027'}</b>
+        </div>
+        <div style={{textAlign: 'left', fontSize: '12px', color: '#888'}}>
+          Optimized for A4 printers
+        </div>
       </div>
     </div>
   );
