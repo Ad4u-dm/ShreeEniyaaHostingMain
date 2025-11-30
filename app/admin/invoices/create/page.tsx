@@ -45,6 +45,7 @@ interface InvoiceForm {
   planId: string;
   description: string;
   dueDate: string;
+  invoiceDate?: string;
   // REMOVED: paymentTerms: string;
   notes: string;
   template: number;
@@ -286,44 +287,16 @@ export default function CreateInvoicePage() {
 
   // Function to recalculate balance when received amount changes
   const handleReceivedAmountChange = async (newReceivedAmount: number) => {
-    // Fetch previous balance and arrear from latest invoice
-    const previousData = await getPreviousBalance(formData.customerId, formData.planId);
-    const previousBalance = previousData.balance || 0;
-    const previousArrear = previousData.arrear || 0;
-    const today = new Date();
-    const is21st = today.getDate() === 21;
-  // Fix: Use previousData.invoice == null for first invoice detection
-  const hasPreviousInvoice = !!previousData.invoice;
-    setFormData(prev => {
-      let arrearAmount = 0;
-      let balanceAmount = 0;
-      let pendingAmount = 0;
-      if (!hasPreviousInvoice) {
-        // First invoice logic
-        arrearAmount = 0;
-        pendingAmount = prev.receiptDetails.dueAmount;
-        balanceAmount = Math.max(0, prev.receiptDetails.dueAmount - newReceivedAmount);
-      } else if (is21st) {
-        arrearAmount = previousBalance;
-        pendingAmount = prev.receiptDetails.dueAmount + arrearAmount;
-        balanceAmount = Math.max(0, pendingAmount - newReceivedAmount);
-      } else {
-        arrearAmount = previousArrear;
-        pendingAmount = previousBalance;
-        balanceAmount = Math.max(0, previousBalance - newReceivedAmount);
-      }
-      return {
-        ...prev,
-        receiptDetails: {
-          ...prev.receiptDetails,
-          receivedAmount: newReceivedAmount,
-          arrearAmount: arrearAmount,
-          balanceAmount: balanceAmount,
-          pendingAmount: pendingAmount
-        },
+    // Update the received amount and trigger the preview calculation
+    setFormData(prev => ({
+      ...prev,
+      receiptDetails: {
+        ...prev.receiptDetails,
         receivedAmount: newReceivedAmount
-      };
-    });
+      },
+      receivedAmount: newReceivedAmount
+    }));
+    // The useEffect will automatically fetch updated preview
   };
 
   // Calculate fixed due date (20th of current month, or next month if past 20th)
@@ -412,6 +385,14 @@ export default function CreateInvoicePage() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Auto-fetch invoice preview when customer, plan, or received amount changes
+  useEffect(() => {
+    if (formData.customerId && formData.planId && ((formData.receivedAmount ?? 0) > 0 || (formData.receiptDetails?.receivedAmount ?? 0) > 0)) {
+      fetchInvoicePreview();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.customerId, formData.planId, formData.receivedAmount, formData.receiptDetails?.receivedAmount]);
 
   // Helper function to check if customer is enrolled in a specific plan
   const isCustomerEnrolled = (customerId: string, planId?: string) => {
@@ -762,6 +743,58 @@ export default function CreateInvoicePage() {
     }
   };
 
+  // Fetch calculated invoice preview from backend
+  const fetchInvoicePreview = async () => {
+    if (!formData.customerId || !formData.planId) {
+      console.log('Missing customer or plan for preview');
+      return;
+    }
+
+    const selectedCustomer = customers.find(c => c._id === formData.customerId);
+    const selectedPlan = plans.find(p => p._id === formData.planId);
+    
+    if (!selectedCustomer || !selectedPlan) return;
+
+    try {
+      const customerIdToSend = selectedCustomer.userId || formData.customerId;
+      const receivedAmount = formData.receivedAmount || formData.receiptDetails?.receivedAmount || 0;
+      const invoiceDate = formData.invoiceDate || new Date().toISOString().split('T')[0];
+      
+      // Use backend preview API - single source of truth
+      const previewRes = await fetch(
+        `/api/invoices/preview?customerId=${customerIdToSend}&planId=${formData.planId}&receivedAmount=${receivedAmount}&invoiceDate=${invoiceDate}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+          }
+        }
+      );
+
+      if (previewRes.ok) {
+        const previewData = await previewRes.json();
+        
+        if (previewData.success && previewData.preview) {
+          const { dueNumber, dueAmount, arrearAmount, balanceAmount } = previewData.preview;
+          
+          // Update form with backend-calculated values
+          setFormData(prev => ({
+            ...prev,
+            receiptDetails: {
+              ...prev.receiptDetails,
+              dueNo: dueNumber.toString(),
+              dueAmount: dueAmount,
+              arrearAmount: arrearAmount,
+              receivedAmount: receivedAmount,
+              balanceAmount: balanceAmount
+            }
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch invoice preview:', error);
+    }
+  };
+
 
 
   const handleSave = async (status: 'draft' | 'sent') => {
@@ -907,7 +940,6 @@ export default function CreateInvoicePage() {
       });
 
       const result = await response.json();
-      console.log('Invoice creation response:', result);
 
       if (response.ok) {
         const backendInvoice = result.invoice;

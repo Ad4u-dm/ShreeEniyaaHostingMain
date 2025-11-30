@@ -1,68 +1,143 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Invoice from '@/models/Invoice';
-import Payment from '@/models/Payment';
-import ChitPlan from '@/models/ChitPlan';
+import Enrollment from '@/models/Enrollment';
+import Plan from '@/models/Plan';
+import { getUserFromRequest, hasMinimumRole } from '@/lib/auth';
+import {
+  calculateDueNumber,
+  calculateArrearAmount,
+  calculateBalanceAmount
+} from '@/lib/invoiceUtils';
 
-export async function POST(request: NextRequest) {
+/**
+ * GET /api/invoices/preview
+ * Calculate invoice preview values using the same logic as invoice creation
+ */
+export async function GET(request: NextRequest) {
   try {
-    console.log('Preview endpoint called');
     await connectDB();
-    const { customerId, planId, receivedAmount } = await request.json();
-    console.log('Preview request body:', { customerId, planId, receivedAmount });
+
+    // Get user from token
+    const user = await getUserFromRequest(request);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Check user has minimum role (staff)
+    if (!hasMinimumRole(user, "staff")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // Get query params
+    const searchParams = request.nextUrl.searchParams;
+    const customerId = searchParams.get("customerId");
+    const planId = searchParams.get("planId");
+    const receivedAmountStr = searchParams.get("receivedAmount");
+    const invoiceDateStr = searchParams.get("invoiceDate");
+
     if (!customerId || !planId) {
-      return NextResponse.json({ success: false, error: 'customerId and planId required' }, { status: 400 });
+      return NextResponse.json(
+        { error: "customerId and planId are required" },
+        { status: 400 }
+      );
     }
 
-    // Fetch plan details
-    const plan = await ChitPlan.findById(planId);
-    if (!plan) {
-      return NextResponse.json({ success: false, error: 'Plan not found' }, { status: 404 });
+    const receivedAmount = receivedAmountStr ? parseFloat(receivedAmountStr) : 0;
+    const invoiceDate = invoiceDateStr ? new Date(invoiceDateStr) : new Date();
+
+    // Find enrollment
+    const enrollment = await Enrollment.findOne({
+      customer: customerId,
+      plan: planId,
+      status: "active",
+    }).populate("plan");
+
+    if (!enrollment) {
+      return NextResponse.json(
+        { error: "No active enrollment found for this customer and plan" },
+        { status: 404 }
+      );
     }
 
-    // Fetch previous invoice for this customer/plan
-    const previousInvoice = await Invoice.findOne({ customerId, planId }).sort({ createdAt: -1 });
-    const today = new Date();
-    const is21st = today.getDate() === 21;
-    let arrearAmount = 0;
-    let balanceAmount = 0;
-    let dueAmount = plan.monthlyAmount;
-    // Use provided receivedAmount or default to 0
-    const received = typeof receivedAmount === 'number' ? receivedAmount : 0;
+    const plan = enrollment.plan as any;
 
-    if (!previousInvoice) {
-      // First invoice logic
-      arrearAmount = 0;
-      balanceAmount = Math.max(0, dueAmount - received);
-    } else {
-      if (is21st) {
-        arrearAmount = previousInvoice.balanceAmount ?? 0;
-        balanceAmount = Math.max(0, (dueAmount + arrearAmount) - received);
-      } else {
-        arrearAmount = previousInvoice.arrearAmount ?? 0;
-        if ((previousInvoice.balanceAmount ?? 0) === 0) {
-          balanceAmount = Math.max(0, dueAmount - received);
-        } else {
-          balanceAmount = Math.max(0, previousInvoice.balanceAmount - received);
-        }
+    // STEP 1: Calculate due number using the same logic as invoice creation
+    const enrollmentDate = new Date(enrollment.enrollmentDate);
+    let dueNumber: number;
+    
+    try {
+      dueNumber = calculateDueNumber(enrollmentDate, invoiceDate, plan.duration);
+    } catch (error: any) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 400 }
+      );
+    }
+
+    // STEP 2: Calculate due amount from monthlyData based on dueNumber
+    const index = dueNumber - 1;
+    let calculatedDueAmount = 0;
+
+    const monthInfo = plan.monthlyData?.[index];
+    if (monthInfo) {
+      calculatedDueAmount = monthInfo.installmentAmount ?? 0;
+    } else if (plan.monthlyAmount) {
+      if (Array.isArray(plan.monthlyAmount) && index < plan.monthlyAmount.length) {
+        calculatedDueAmount = plan.monthlyAmount[index];
+      } else if (typeof plan.monthlyAmount === "number") {
+        calculatedDueAmount = plan.monthlyAmount;
       }
     }
 
-    // Simulate other fields for preview
-    const previewInvoice = {
-      dueAmount,
-      arrearAmount,
-      balanceAmount,
-      receivedAmount: received,
-      pendingAmount: 0,
-      dueNumber: previousInvoice ? (parseInt(previousInvoice.dueNumber || '1') + 1) : 1,
-      paymentMonth: `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}`
-    };
+    // STEP 3: Calculate arrear amount using helper function
+    const arrearAmount = await calculateArrearAmount(enrollment._id, Invoice, invoiceDate);
 
-    console.log('Preview response:', previewInvoice);
-    return NextResponse.json({ success: true, invoice: previewInvoice });
+    // STEP 4: Get previous invoice for balance calculation
+    const currentDay = invoiceDate.getDate();
+    const previousInvoice = await Invoice.findOne({
+      enrollmentId: enrollment._id,
+      invoiceDate: { $lt: invoiceDate }
+    })
+      .sort({ invoiceDate: -1 })
+      .limit(1)
+      .lean();
+
+    // For first invoice on non-21st day, use due amount as the starting balance
+    let previousBalance: number;
+    if (!previousInvoice && currentDay !== 21) {
+      previousBalance = calculatedDueAmount;
+    } else {
+      previousBalance = previousInvoice ? (previousInvoice.balanceAmount || 0) : 0;
+    }
+
+    // STEP 5: Calculate balance amount using helper function
+    const balanceAmount = calculateBalanceAmount(
+      calculatedDueAmount,
+      arrearAmount,
+      receivedAmount,
+      invoiceDate,
+      previousBalance
+    );
+
+    const totalDue = calculatedDueAmount + arrearAmount;
+
+    return NextResponse.json({
+      success: true,
+      preview: {
+        dueNumber,
+        dueAmount: calculatedDueAmount,
+        arrearAmount,
+        totalDue,
+        receivedAmount,
+        balanceAmount,
+      },
+    });
   } catch (error: any) {
-    console.error('Preview invoice error:', error);
-    return NextResponse.json({ success: false, error: 'Failed to preview invoice', details: error?.message }, { status: 500 });
+    console.error("Error calculating invoice preview:", error);
+    return NextResponse.json(
+      { error: error.message || "Failed to calculate preview" },
+      { status: 500 }
+    );
   }
 }

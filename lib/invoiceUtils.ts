@@ -5,7 +5,8 @@
 
 /**
  * Calculate dueNumber based on enrollment date and invoice date
- * Uses the 20th cut-off rule: after the 20th, consider it next month's installment
+ * Special rule for due 1: cutoff is last day of enrollment month
+ * For due 2+: cutoff is 20th of each month
  *
  * @param enrollmentDate - Date when user enrolled in the plan
  * @param invoiceDate - Date of the invoice (when admin creates it)
@@ -25,26 +26,45 @@ export function calculateDueNumber(
   const invoice = new Date(invoiceDate);
   invoice.setHours(0, 0, 0, 0);
 
-  // Step 1: Determine effective billing month based on 20th cut-off
+  // Step 1: Check if this is in the same month as enrollment (potential due 1)
+  const enrollYear = enrollment.getFullYear();
+  const enrollMonth = enrollment.getMonth();
+  const invoiceYear = invoice.getFullYear();
+  const invoiceMonth = invoice.getMonth();
+
+  const isSameMonthAsEnrollment = (enrollYear === invoiceYear && enrollMonth === invoiceMonth);
+
+  // Step 2: Determine effective billing month based on cutoff rules
   let effectiveDate = new Date(invoice);
 
-  if (invoice.getDate() > 20) {
-    // After 20th, count as next month's installment
-    // Set to first day of next month
-    effectiveDate.setMonth(effectiveDate.getMonth() + 1);
-    effectiveDate.setDate(1);
+  if (isSameMonthAsEnrollment) {
+    // Special case: First month (due 1)
+    // Cutoff is last day of enrollment month
+    const lastDayOfEnrollmentMonth = new Date(enrollYear, enrollMonth + 1, 0).getDate();
+    
+    if (invoice.getDate() > lastDayOfEnrollmentMonth) {
+      // After last day, count as next month
+      effectiveDate.setMonth(effectiveDate.getMonth() + 1);
+      effectiveDate.setDate(1);
+    }
+    // Otherwise, stays as enrollment month (due 1)
+  } else {
+    // Standard case: Due 2 onwards
+    // Cutoff is 20th of the month
+    if (invoice.getDate() > 20) {
+      // After 20th, count as next month's installment
+      effectiveDate.setMonth(effectiveDate.getMonth() + 1);
+      effectiveDate.setDate(1);
+    }
   }
 
-  // Step 2: Calculate months difference
-  const enrollYear = enrollment.getFullYear();
-  const enrollMonth = enrollment.getMonth(); // 0-indexed (0 = January)
-
+  // Step 3: Calculate months difference
   const effectiveYear = effectiveDate.getFullYear();
   const effectiveMonth = effectiveDate.getMonth();
 
   const monthsDiff = (effectiveYear - enrollYear) * 12 + (effectiveMonth - enrollMonth);
 
-  // Step 3: Calculate dueNumber (1-based)
+  // Step 4: Calculate dueNumber (1-based)
   const dueNumber = monthsDiff + 1;
 
   // Step 4: Validate dueNumber
@@ -66,6 +86,8 @@ export function calculateDueNumber(
     enrollmentDate: enrollment.toISOString().split('T')[0],
     invoiceDate: invoice.toISOString().split('T')[0],
     invoiceDateDay: invoice.getDate(),
+    isSameMonthAsEnrollment,
+    cutoffRule: isSameMonthAsEnrollment ? 'Last day of month (due 1)' : '20th of month (due 2+)',
     effectiveDate: effectiveDate.toISOString().split('T')[0],
     monthsDiff,
     dueNumber,

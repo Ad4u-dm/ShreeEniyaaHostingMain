@@ -73,6 +73,9 @@ export async function PUT(
 
     if (plan.planType === 'monthly') {
       end.setMonth(end.getMonth() + plan.duration);
+      // Ensure enrollment end date falls on the 20th of the ending month
+      // Business rule: end date always set to 20th of ending month
+      end.setDate(20);
     } else if (plan.planType === 'weekly') {
       end.setDate(end.getDate() + (plan.duration * 7));
     } else if (plan.planType === 'daily') {

@@ -416,6 +416,14 @@ export default function InvoicesPage() {
               <Plus className="h-4 w-4" />
               Create Invoice
             </Button>
+            <Button
+              onClick={() => window.location.href = '/staff/invoices/manual'}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <Calendar className="h-4 w-4" />
+              Manual Create
+            </Button>
             <Button onClick={fetchInvoices} variant="outline">
               Refresh
             </Button>
