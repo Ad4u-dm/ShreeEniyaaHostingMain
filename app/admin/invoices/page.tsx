@@ -417,14 +417,6 @@ export default function InvoicesPage() {
               Create Invoice
             </Button>
             <Button 
-              onClick={() => window.location.href = '/admin/invoices/manual'}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              <Calendar className="h-4 w-4" />
-              Manual Create
-            </Button>
-            <Button 
               onClick={() => window.location.href = '/admin/utilities/update-arrears'}
               variant="outline"
               className="flex items-center gap-2 border-orange-300 text-orange-700 hover:bg-orange-50"

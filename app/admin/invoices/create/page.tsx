@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Save, Send, Eye } from 'lucide-react';
+import { ArrowLeft, Save, Send, Eye, XCircle } from 'lucide-react';
 import { formatIndianNumber } from '@/lib/helpers';
 
 interface Customer {
@@ -848,6 +848,47 @@ export default function CreateInvoicePage() {
     }
   };
 
+  // Clear arrear amount for selected enrollment
+  const handleClearArrear = async () => {
+    if (!formData.customerId || !formData.planId) {
+      alert('Please select a customer and plan first');
+      return;
+    }
+
+    if (!confirm('Are you sure you want to clear the arrear amount for this enrollment?')) {
+      return;
+    }
+
+    try {
+      const selectedCustomer = customers.find(c => c._id === formData.customerId);
+      const customerIdToSend = selectedCustomer?.userId || formData.customerId;
+
+      const response = await fetch('/api/enrollments/clear-arrear', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        },
+        body: JSON.stringify({
+          customerId: customerIdToSend,
+          planId: formData.planId
+        })
+      });
+
+      if (response.ok) {
+        alert('Arrear cleared successfully!');
+        // Refresh the preview to show updated values
+        await fetchInvoicePreview();
+      } else {
+        const errorData = await response.json();
+        alert(`Failed to clear arrear: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error clearing arrear:', error);
+      alert('Failed to clear arrear');
+    }
+  };
+
 
 
   const handleSave = async (status: 'draft' | 'sent') => {
@@ -1332,13 +1373,26 @@ export default function CreateInvoicePage() {
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     Arrear Amount (Last Month Pending) <span className="text-xs text-blue-600">(Auto-calculated)</span>
                   </label>
-                  <Input
-                    type="number"
-                    value={formData.receiptDetails.arrearAmount}
-                    disabled
-                    className="bg-gray-50 cursor-not-allowed"
-                    placeholder="Calculated by backend"
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      value={formData.receiptDetails.arrearAmount}
+                      disabled
+                      className="bg-gray-50 cursor-not-allowed flex-1"
+                      placeholder="Calculated by backend"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={handleClearArrear}
+                      disabled={!formData.customerId || !formData.planId}
+                      title="Clear arrear amount"
+                      className="shrink-0"
+                    >
+                      <XCircle className="h-4 w-4" />
+                    </Button>
+                  </div>
                   <p className="text-xs text-gray-500 mt-1">
                     From previous invoice for this enrollment
                   </p>

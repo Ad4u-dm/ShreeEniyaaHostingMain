@@ -178,8 +178,8 @@ export default function UpdateArrearsPage() {
         </CardContent>
       </Card>
 
-      {/* Action Button */}
-      <Card className="mb-6">
+      {/* Action Button - Hidden for Production */}
+      {/* <Card className="mb-6">
         <CardHeader>
           <CardTitle>Actions</CardTitle>
         </CardHeader>
@@ -243,7 +243,7 @@ export default function UpdateArrearsPage() {
             )}
           </Button>
         </CardContent>
-      </Card>
+      </Card> */}
 
       {/* Error Display */}
       {error && (
