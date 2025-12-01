@@ -72,6 +72,7 @@ export default function CreateInvoicePage() {
   const [loading, setLoading] = useState(false);
   const [nextReceiptNo, setNextReceiptNo] = useState<string>('');
   const [customerEnrollments, setCustomerEnrollments] = useState<any[]>([]);
+  const [enrollmentsLoaded, setEnrollmentsLoaded] = useState(false);
   const [enrolling, setEnrolling] = useState(false);
   const [selectedCustomerProfile, setSelectedCustomerProfile] = useState<any>(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -397,17 +398,35 @@ export default function CreateInvoicePage() {
   // Helper function to check if customer is enrolled in a specific plan
   const isCustomerEnrolled = (customerId: string, planId?: string) => {
     const selectedCustomer = customers.find(c => c._id === customerId);
-    if (!selectedCustomer) return false;
+    if (!selectedCustomer) {
+      console.log('isCustomerEnrolled: Customer not found', customerId);
+      return false;
+    }
 
-    return customerEnrollments.some(enrollment => {
-      // Handle userId comparison - enrollment.userId can be a string, _id, or object with userId property
-      const enrollmentUserId = typeof enrollment.userId === 'object' && enrollment.userId
-        ? (enrollment.userId.userId || enrollment.userId._id || enrollment.userId)
-        : enrollment.userId;
+    const hasEnrollment = customerEnrollments.some(enrollment => {
+      // Get the userId - prefer userIdString (original string) if available
+      let enrollmentUserId: string | undefined;
+      
+      if (enrollment.userIdString) {
+        // Use the preserved original userId string from API
+        enrollmentUserId = enrollment.userIdString;
+      } else if (typeof enrollment.userId === 'object' && enrollment.userId) {
+        // If it's a populated user object, get the userId or _id field
+        enrollmentUserId = enrollment.userId.userId || enrollment.userId._id;
+      } else if (typeof enrollment.userId === 'string') {
+        // If it's a string, use it directly
+        enrollmentUserId = enrollment.userId;
+      }
 
       // Check if enrollment matches customer by userId or _id
-      const userMatch = enrollmentUserId === selectedCustomer.userId ||
-                        enrollmentUserId === selectedCustomer._id;
+      // Compare all possible combinations
+      const userMatch = !!(
+        enrollmentUserId && (
+          enrollmentUserId === selectedCustomer.userId ||
+          enrollmentUserId === selectedCustomer._id
+        )
+      );
+      
       const statusMatch = enrollment.status === 'active';
 
       // Handle planId comparison - enrollment.planId can be string or populated object
@@ -418,11 +437,16 @@ export default function CreateInvoicePage() {
         planMatch = enrollmentPlanId === planId;
       }
 
+      const matches = userMatch && statusMatch && planMatch;
+
       console.log('Enrollment check:', {
+        matches,
         userMatch,
         statusMatch,
         planMatch,
         enrollmentUserId,
+        hasUserIdString: !!enrollment.userIdString,
+        enrollmentUserIdType: typeof enrollment.userId,
         selectedCustomerUserId: selectedCustomer.userId,
         selectedCustomerId: selectedCustomer._id,
         enrollmentPlanId: typeof enrollment.planId === 'object' ? enrollment.planId?._id : enrollment.planId,
@@ -430,8 +454,17 @@ export default function CreateInvoicePage() {
         enrollmentStatus: enrollment.status
       });
 
-      return userMatch && statusMatch && planMatch;
+      return matches;
     });
+
+    console.log('isCustomerEnrolled result:', {
+      customerId,
+      selectedCustomer,
+      hasEnrollment,
+      totalEnrollments: customerEnrollments.length
+    });
+
+    return hasEnrollment;
   };
 
   useEffect(() => {
@@ -510,13 +543,16 @@ export default function CreateInvoicePage() {
       
       if (response.ok) {
         const data = await response.json();
-        setCustomers(data.users?.map((c: any) => ({
+        const mappedCustomers = data.users?.map((c: any) => ({
           _id: c._id,
           userId: c.userId,
           name: c.name,
           email: c.email,
           phone: c.phone
-        })) || []);
+        })) || [];
+        console.log('👥 Fetched customers:', mappedCustomers.length);
+        console.log('👥 Sample customer:', mappedCustomers[0]);
+        setCustomers(mappedCustomers);
       } else {
         console.error('Failed to fetch customers:', response.status, response.statusText);
         if (response.status === 401) {
@@ -550,10 +586,12 @@ export default function CreateInvoicePage() {
       if (!token) {
         console.warn('No auth token found');
         setCustomerEnrollments([]);
+        setEnrollmentsLoaded(true);
         return;
       }
       
-      const response = await fetch('/api/enrollments', {
+      // Fetch ALL enrollments (no pagination limit) for invoice creation
+      const response = await fetch('/api/enrollments?limit=1000', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -561,17 +599,25 @@ export default function CreateInvoicePage() {
       
       if (response.ok) {
         const data = await response.json();
+        console.log('📋 Fetched enrollments:', data.enrollments);
+        console.log('📋 Total enrollments:', data.enrollments?.length || 0);
+        if (data.enrollments && data.enrollments.length > 0) {
+          console.log('📋 Sample enrollment:', data.enrollments[0]);
+        }
         setCustomerEnrollments(data.enrollments || []);
+        setEnrollmentsLoaded(true);
       } else {
         console.error('Failed to fetch enrollments:', response.status, response.statusText);
         if (response.status === 401) {
           console.warn('Unauthorized - may need to login again');
         }
         setCustomerEnrollments([]);
+        setEnrollmentsLoaded(true);
       }
     } catch (error) {
       console.error('Failed to fetch enrollments:', error);
       setCustomerEnrollments([]);
+      setEnrollmentsLoaded(true);
     }
   };
 
@@ -758,7 +804,14 @@ export default function CreateInvoicePage() {
     try {
       const customerIdToSend = selectedCustomer.userId || formData.customerId;
       const receivedAmount = formData.receivedAmount || formData.receiptDetails?.receivedAmount || 0;
-      const invoiceDate = formData.invoiceDate || new Date().toISOString().split('T')[0];
+      // Always use TODAY's date for invoice calculation (not the due date)
+      const invoiceDate = new Date().toISOString().split('T')[0];
+      
+      console.log('🎯 INVOICE DATE FOR PREVIEW:', {
+        today: new Date().toISOString(),
+        invoiceDateUsed: invoiceDate,
+        formDataInvoiceDate: formData.invoiceDate
+      });
       
       // Use backend preview API - single source of truth
       const previewRes = await fetch(
@@ -883,6 +936,9 @@ export default function CreateInvoicePage() {
         // Received amount (what customer paid)
         receivedAmount: total,
 
+        // Manual balance amount (if user edited it, send it to backend)
+        manualBalanceAmount: formData.receiptDetails.balanceAmount,
+
         // Customer details snapshot
         customerDetails: {
           name: selectedCustomer.name,
@@ -943,6 +999,15 @@ export default function CreateInvoicePage() {
 
       if (response.ok) {
         const backendInvoice = result.invoice;
+        console.log('🔍 Backend Invoice Response:', {
+          dueAmount: backendInvoice.dueAmount,
+          arrearAmount: backendInvoice.arrearAmount,
+          receivedAmount: backendInvoice.receivedAmount,
+          balanceAmount: backendInvoice.balanceAmount,
+          pendingAmount: backendInvoice.pendingAmount,
+          totalAmount: backendInvoice.totalAmount,
+          subtotal: backendInvoice.subtotal
+        });
         setFormData(prev => ({
           ...prev,
           receiptDetails: {
@@ -1055,7 +1120,7 @@ export default function CreateInvoicePage() {
                       </div>
                     )}
                   </div>
-                  {formData.customerId && !isCustomerEnrolled(formData.customerId) && (
+                  {formData.customerId && enrollmentsLoaded && !isCustomerEnrolled(formData.customerId) && (
                     <div className="bg-amber-50 border border-amber-200 rounded-md p-3 mt-2">
                       <div className="flex">
                         <div className="flex-shrink-0">
@@ -1542,24 +1607,24 @@ export default function CreateInvoicePage() {
             <div className="border-t border-b border-gray-200 py-4 space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="font-medium text-gray-700">Due Amount:</span>
-                <span className="text-gray-900">₹{formatIndianNumber(createdInvoice.dueAmount || 0)}</span>
+                <span className="text-gray-900">₹{(createdInvoice.dueAmount || 0).toLocaleString('en-IN')}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="font-medium text-gray-700">Arrear Amount:</span>
-                <span className="text-gray-900">₹{formatIndianNumber(createdInvoice.arrearAmount || 0)}</span>
+                <span className="text-gray-900">₹{(createdInvoice.arrearAmount || 0).toLocaleString('en-IN')}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="font-medium text-gray-700">Received Amount:</span>
-                <span className="text-green-600 font-semibold">₹{formatIndianNumber(createdInvoice.receivedAmount || 0)}</span>
+                <span className="text-green-600 font-semibold">₹{(createdInvoice.receivedAmount || 0).toLocaleString('en-IN')}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="font-medium text-gray-700">Balance Amount:</span>
-                <span className="text-blue-600 font-semibold">₹{formatIndianNumber(createdInvoice.balanceAmount || 0)}</span>
+                <span className="text-blue-600 font-semibold">₹{(createdInvoice.balanceAmount || 0).toLocaleString('en-IN')}</span>
               </div>
               {createdInvoice.pendingAmount !== undefined && (
                 <div className="flex justify-between text-sm">
                   <span className="font-medium text-gray-700">Pending Amount:</span>
-                  <span className="text-orange-600 font-semibold">₹{formatIndianNumber(createdInvoice.pendingAmount || 0)}</span>
+                  <span className="text-orange-600 font-semibold">₹{(createdInvoice.pendingAmount || 0).toLocaleString('en-IN')}</span>
                 </div>
               )}
               <div className="flex justify-between text-sm pt-2 border-t">

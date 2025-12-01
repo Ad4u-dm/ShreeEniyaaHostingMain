@@ -178,7 +178,8 @@ export async function POST(request: NextRequest) {
 
     // STEP 1: Calculate dueNumber automatically using enrollmentDate + invoiceDate + 20th cut-off
     const invoiceDate = invoiceData.invoiceDate ? new Date(invoiceData.invoiceDate) : new Date();
-    const enrollmentDate = new Date(enrollment.enrollmentDate);
+    // Use startDate (when plan starts) not enrollmentDate (when they signed up)
+    const enrollmentDate = new Date(enrollment.startDate);
 
     let dueNumber: number;
     try {

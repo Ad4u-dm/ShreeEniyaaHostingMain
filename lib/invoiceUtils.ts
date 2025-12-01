@@ -20,29 +20,40 @@ export function calculateDueNumber(
   planDuration: number
 ): number {
   // Normalize dates to start of day for consistent comparison
+  // Handle timezone issues by ensuring we work with local dates
   const enrollment = new Date(enrollmentDate);
-  enrollment.setHours(0, 0, 0, 0);
+  const enrollmentLocal = new Date(
+    enrollment.getFullYear(),
+    enrollment.getMonth(),
+    enrollment.getDate(),
+    0, 0, 0, 0
+  );
 
   const invoice = new Date(invoiceDate);
-  invoice.setHours(0, 0, 0, 0);
+  const invoiceLocal = new Date(
+    invoice.getFullYear(),
+    invoice.getMonth(),
+    invoice.getDate(),
+    0, 0, 0, 0
+  );
 
   // Step 1: Check if this is in the same month as enrollment (potential due 1)
-  const enrollYear = enrollment.getFullYear();
-  const enrollMonth = enrollment.getMonth();
-  const invoiceYear = invoice.getFullYear();
-  const invoiceMonth = invoice.getMonth();
+  const enrollYear = enrollmentLocal.getFullYear();
+  const enrollMonth = enrollmentLocal.getMonth();
+  const invoiceYear = invoiceLocal.getFullYear();
+  const invoiceMonth = invoiceLocal.getMonth();
 
   const isSameMonthAsEnrollment = (enrollYear === invoiceYear && enrollMonth === invoiceMonth);
 
   // Step 2: Determine effective billing month based on cutoff rules
-  let effectiveDate = new Date(invoice);
+  let effectiveDate = new Date(invoiceLocal);
 
   if (isSameMonthAsEnrollment) {
     // Special case: First month (due 1)
     // Cutoff is last day of enrollment month
     const lastDayOfEnrollmentMonth = new Date(enrollYear, enrollMonth + 1, 0).getDate();
     
-    if (invoice.getDate() > lastDayOfEnrollmentMonth) {
+    if (invoiceLocal.getDate() > lastDayOfEnrollmentMonth) {
       // After last day, count as next month
       effectiveDate.setMonth(effectiveDate.getMonth() + 1);
       effectiveDate.setDate(1);
@@ -51,7 +62,7 @@ export function calculateDueNumber(
   } else {
     // Standard case: Due 2 onwards
     // Cutoff is 20th of the month
-    if (invoice.getDate() > 20) {
+    if (invoiceLocal.getDate() > 20) {
       // After 20th, count as next month's installment
       effectiveDate.setMonth(effectiveDate.getMonth() + 1);
       effectiveDate.setDate(1);
@@ -69,9 +80,11 @@ export function calculateDueNumber(
 
   // Step 4: Validate dueNumber
   if (dueNumber < 1) {
+    const enrollDateStr = `${enrollmentLocal.getFullYear()}-${String(enrollmentLocal.getMonth() + 1).padStart(2, '0')}-${String(enrollmentLocal.getDate()).padStart(2, '0')}`;
+    const invoiceDateStr = `${invoiceLocal.getFullYear()}-${String(invoiceLocal.getMonth() + 1).padStart(2, '0')}-${String(invoiceLocal.getDate()).padStart(2, '0')}`;
     throw new Error(
-      `Invalid due number: ${dueNumber}. Invoice date (${invoice.toISOString().split('T')[0]}) ` +
-      `cannot be before enrollment date (${enrollment.toISOString().split('T')[0]})`
+      `Invalid due number: ${dueNumber}. Invoice date (${invoiceDateStr}) ` +
+      `cannot be before enrollment date (${enrollDateStr})`
     );
   }
 
@@ -82,13 +95,17 @@ export function calculateDueNumber(
     );
   }
 
+  const enrollDateStr = `${enrollmentLocal.getFullYear()}-${String(enrollmentLocal.getMonth() + 1).padStart(2, '0')}-${String(enrollmentLocal.getDate()).padStart(2, '0')}`;
+  const invoiceDateStr = `${invoiceLocal.getFullYear()}-${String(invoiceLocal.getMonth() + 1).padStart(2, '0')}-${String(invoiceLocal.getDate()).padStart(2, '0')}`;
+  const effectiveDateStr = `${effectiveDate.getFullYear()}-${String(effectiveDate.getMonth() + 1).padStart(2, '0')}-${String(effectiveDate.getDate()).padStart(2, '0')}`;
+  
   console.log('DueNumber calculation:', {
-    enrollmentDate: enrollment.toISOString().split('T')[0],
-    invoiceDate: invoice.toISOString().split('T')[0],
-    invoiceDateDay: invoice.getDate(),
+    enrollmentDate: enrollDateStr,
+    invoiceDate: invoiceDateStr,
+    invoiceDateDay: invoiceLocal.getDate(),
     isSameMonthAsEnrollment,
     cutoffRule: isSameMonthAsEnrollment ? 'Last day of month (due 1)' : '20th of month (due 2+)',
-    effectiveDate: effectiveDate.toISOString().split('T')[0],
+    effectiveDate: effectiveDateStr,
     monthsDiff,
     dueNumber,
     planDuration
@@ -119,14 +136,40 @@ export function formatPaymentMonth(invoiceDate: Date): string {
 /**
  * Calculate arrear amount from previous invoice for the same enrollment
  *
+ * Priority Logic:
+ * 1. Check enrollment.currentArrear (manually updated via "Update Arrears" button)
+ * 2. Check previous invoice balance (automatic calculation)
+ * 3. Return 0 if no previous invoice
+ *
  * On 21st: arrear = previous invoice's balance
  * On other days: arrear = previous invoice's arrear
  */
 export async function calculateArrearAmount(
   enrollmentId: string,
   InvoiceModel: any,
-  currentInvoiceDate: Date
+  currentInvoiceDate: Date,
+  enrollment?: any // Optional: pass enrollment to check currentArrear
 ): Promise<number> {
+  
+  console.log('🔍 calculateArrearAmount called with:', {
+    enrollmentId,
+    hasEnrollment: !!enrollment,
+    enrollmentCurrentArrear: enrollment?.currentArrear,
+    enrollmentArrearLastUpdated: enrollment?.arrearLastUpdated
+  });
+
+  // PRIORITY 1: Check manually updated arrear (from "Update Arrears" button)
+  if (enrollment?.currentArrear !== undefined && enrollment.currentArrear !== null && enrollment.currentArrear > 0) {
+    console.log('Arrear calculation (Manual Update - Priority 1):', {
+      enrollmentId,
+      currentArrear: enrollment.currentArrear,
+      lastUpdated: enrollment.arrearLastUpdated,
+      source: 'Manual update via Update Arrears button'
+    });
+    return enrollment.currentArrear;
+  }
+
+  // PRIORITY 2: Check previous invoice (existing automatic logic)
   const currentDay = currentInvoiceDate.getDate();
 
   // Find the most recent previous invoice for this enrollment before current invoice date

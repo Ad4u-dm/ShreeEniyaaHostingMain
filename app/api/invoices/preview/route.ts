@@ -46,12 +46,12 @@ export async function GET(request: NextRequest) {
     const receivedAmount = receivedAmountStr ? parseFloat(receivedAmountStr) : 0;
     const invoiceDate = invoiceDateStr ? new Date(invoiceDateStr) : new Date();
 
-    // Find enrollment
+    // Find enrollment using correct field names (userId and planId)
     const enrollment = await Enrollment.findOne({
-      customer: customerId,
-      plan: planId,
+      userId: customerId,
+      planId: planId,
       status: "active",
-    }).populate("plan");
+    }).populate("planId");
 
     if (!enrollment) {
       return NextResponse.json(
@@ -60,14 +60,35 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const plan = enrollment.plan as any;
+    const plan = enrollment.planId as any;
+
+    console.log('🔍 PREVIEW API - Enrollment Data:', {
+      enrollmentId: enrollment._id,
+      userId: enrollment.userId,
+      planId: enrollment.planId._id,
+      enrollmentDate: enrollment.enrollmentDate,
+      startDate: enrollment.startDate,
+      status: enrollment.status,
+      currentArrear: enrollment.currentArrear,
+      arrearLastUpdated: enrollment.arrearLastUpdated
+    });
 
     // STEP 1: Calculate due number using the same logic as invoice creation
-    const enrollmentDate = new Date(enrollment.enrollmentDate);
+    // Use startDate (when plan starts) not enrollmentDate (when they signed up)
+    const enrollmentDate = new Date(enrollment.startDate);
+    
+    console.log('🔍 PREVIEW API - Date Calculation:', {
+      enrollmentStartDate: enrollment.startDate,
+      enrollmentDateParsed: enrollmentDate.toISOString(),
+      invoiceDate: invoiceDate.toISOString(),
+      invoiceDateInput: invoiceDateStr
+    });
+    
     let dueNumber: number;
     
     try {
       dueNumber = calculateDueNumber(enrollmentDate, invoiceDate, plan.duration);
+      console.log('🔍 PREVIEW API - Calculated Due Number:', dueNumber);
     } catch (error: any) {
       return NextResponse.json(
         { error: error.message },
@@ -91,17 +112,27 @@ export async function GET(request: NextRequest) {
     }
 
     // STEP 3: Calculate arrear amount using helper function
-    const arrearAmount = await calculateArrearAmount(enrollment._id, Invoice, invoiceDate);
+    // Pass enrollment object to check currentArrear field (manual update)
+    const arrearAmount = await calculateArrearAmount(enrollment._id, Invoice, invoiceDate, enrollment);
 
     // STEP 4: Get previous invoice for balance calculation
     const currentDay = invoiceDate.getDate();
+    
+    // Get the most recent invoice for this enrollment
+    // Use createdAt for sorting to handle multiple invoices on same date
     const previousInvoice = await Invoice.findOne({
-      enrollmentId: enrollment._id,
-      invoiceDate: { $lt: invoiceDate }
+      enrollmentId: enrollment._id
     })
-      .sort({ invoiceDate: -1 })
+      .sort({ createdAt: -1 })
       .limit(1)
       .lean();
+
+    console.log('📊 Preview API - Previous Invoice:', {
+      found: !!previousInvoice,
+      invoiceId: previousInvoice?.invoiceId,
+      balanceAmount: previousInvoice?.balanceAmount,
+      createdAt: previousInvoice?.createdAt
+    });
 
     // For first invoice on non-21st day, use due amount as the starting balance
     let previousBalance: number;

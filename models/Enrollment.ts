@@ -29,6 +29,10 @@ const EnrollmentSchema = new mongoose.Schema({
   totalDue: { type: Number, default: 0 },
   nextDueDate: { type: Date },
   
+  // Arrear Management (manually updated via "Update Arrears" button)
+  currentArrear: { type: Number, default: 0 }, // Set on 21st or last day of month
+  arrearLastUpdated: { type: Date }, // Track when arrear was last updated
+  
   // Member Position
   memberNumber: { type: String, required: true }, // Copied from User.memberNumber - unique per user across all plans
   

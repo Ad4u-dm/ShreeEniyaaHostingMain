@@ -424,6 +424,15 @@ export default function InvoicesPage() {
               <Calendar className="h-4 w-4" />
               Manual Create
             </Button>
+            <Button 
+              onClick={() => window.location.href = '/admin/utilities/update-arrears'}
+              variant="outline"
+              className="flex items-center gap-2 border-orange-300 text-orange-700 hover:bg-orange-50"
+              title="Update monthly arrears (21st or last day of month)"
+            >
+              <IndianRupee className="h-4 w-4" />
+              Update Arrears
+            </Button>
             <Button onClick={fetchInvoices} variant="outline">
               Refresh
             </Button>

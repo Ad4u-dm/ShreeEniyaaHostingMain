@@ -146,6 +146,15 @@ export async function POST(request: NextRequest) {
       planId: invoiceData.planId
     }).lean();
 
+    console.log('🔍 INVOICE API - Enrollment Data:', {
+      enrollmentId: enrollment?._id,
+      userId: enrollment?.userId,
+      planId: enrollment?.planId,
+      currentArrear: enrollment?.currentArrear,
+      arrearLastUpdated: enrollment?.arrearLastUpdated,
+      startDate: enrollment?.startDate
+    });
+
     if (!enrollment) {
       // Cannot auto-create enrollment without memberNumber
       return NextResponse.json(
@@ -178,7 +187,8 @@ export async function POST(request: NextRequest) {
 
     // STEP 1: Calculate dueNumber automatically using enrollmentDate + invoiceDate + 20th cut-off
     const invoiceDate = invoiceData.invoiceDate ? new Date(invoiceData.invoiceDate) : new Date();
-    const enrollmentDate = new Date(enrollment.enrollmentDate);
+    // Use startDate (when plan starts) not enrollmentDate (when they signed up)
+    const enrollmentDate = new Date(enrollment.startDate);
 
     let dueNumber: number;
     try {
@@ -244,7 +254,17 @@ export async function POST(request: NextRequest) {
       .lean();
 
     // STEP 4: Calculate arrear amount from previous invoice for same enrollment
-    const arrearAmount = await calculateArrearAmount(enrollment._id, Invoice, invoiceDate);
+    // Pass enrollment object to check currentArrear field (manual update via "Update Arrears")
+    const arrearAmount = await calculateArrearAmount(enrollment._id, Invoice, invoiceDate, enrollment);
+
+    console.log('📊 Previous Invoice Data:', {
+      exists: !!previousInvoice,
+      balanceAmount: previousInvoice?.balanceAmount,
+      dueAmount: previousInvoice?.dueAmount,
+      arrearAmount: previousInvoice?.arrearAmount,
+      receivedAmount: previousInvoice?.receivedAmount,
+      invoiceDate: previousInvoice?.invoiceDate
+    });
 
     // For first invoice on non-21st day, use due amount as the starting balance
     // Otherwise use the actual previous balance
@@ -257,15 +277,36 @@ export async function POST(request: NextRequest) {
       previousBalance = previousInvoice ? (previousInvoice.balanceAmount || 0) : 0;
     }
 
-    // STEP 5: Calculate balance amount using the 21st rule
-    const receivedAmount = invoiceData.receivedAmount || 0;
-    const balanceAmount = calculateBalanceAmount(
-      calculatedDueAmount,
+    console.log('💰 Balance Calculation Inputs:', {
+      currentDay,
+      dueAmount: calculatedDueAmount,
       arrearAmount,
-      receivedAmount,
-      invoiceDate,
-      previousBalance
-    );
+      receivedAmount: invoiceData.receivedAmount || 0,
+      previousBalance,
+      manualBalanceAmount: invoiceData.manualBalanceAmount,
+      willUse21stLogic: currentDay === 21
+    });
+
+    // STEP 5: Calculate balance amount
+    // If user manually entered balance amount, use it; otherwise calculate using 21st rule
+    const receivedAmount = invoiceData.receivedAmount || 0;
+    let balanceAmount: number;
+    
+    if (invoiceData.manualBalanceAmount !== undefined && invoiceData.manualBalanceAmount !== null) {
+      // Use manually entered balance amount
+      balanceAmount = invoiceData.manualBalanceAmount;
+      console.log('✅ Using manual balance amount:', balanceAmount);
+    } else {
+      // Calculate using the 21st rule
+      balanceAmount = calculateBalanceAmount(
+        calculatedDueAmount,
+        arrearAmount,
+        receivedAmount,
+        invoiceDate,
+        previousBalance
+      );
+      console.log('✅ Using calculated balance amount:', balanceAmount);
+    }
 
     // STEP 5: Calculate payment month from invoice date
     const paymentMonth = formatPaymentMonth(invoiceDate);

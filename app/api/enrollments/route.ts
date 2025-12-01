@@ -133,11 +133,15 @@ export async function GET(request: NextRequest) {
         remainingAmount
       });
 
+      // Preserve the original userId string before replacing with user object
+      const originalUserId = enrollment.userId;
+
       return {
         ...enrollmentObj,
         totalPaid,
         totalDue,
         remainingAmount,
+        userIdString: originalUserId, // Preserve original userId as string
         userId: userMap.get(enrollment.userId) || {
           userId: enrollment.userId,
           name: 'Unknown User',

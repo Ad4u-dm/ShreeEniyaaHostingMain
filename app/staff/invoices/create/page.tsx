@@ -429,17 +429,35 @@ export default function CreateInvoicePage() {
   // Helper function to check if customer is enrolled in a specific plan
   const isCustomerEnrolled = (customerId: string, planId?: string) => {
     const selectedCustomer = customers.find(c => c._id === customerId);
-    if (!selectedCustomer) return false;
+    if (!selectedCustomer) {
+      console.log('isCustomerEnrolled: Customer not found', customerId);
+      return false;
+    }
 
-    return customerEnrollments.some(enrollment => {
-      // Handle userId comparison - enrollment.userId can be a string, _id, or object with userId property
-      const enrollmentUserId = typeof enrollment.userId === 'object' && enrollment.userId
-        ? (enrollment.userId.userId || enrollment.userId._id || enrollment.userId)
-        : enrollment.userId;
+    const hasEnrollment = customerEnrollments.some(enrollment => {
+      // Get the userId - prefer userIdString (original string) if available
+      let enrollmentUserId: string | undefined;
+      
+      if (enrollment.userIdString) {
+        // Use the preserved original userId string from API
+        enrollmentUserId = enrollment.userIdString;
+      } else if (typeof enrollment.userId === 'object' && enrollment.userId) {
+        // If it's a populated user object, get the userId or _id field
+        enrollmentUserId = enrollment.userId.userId || enrollment.userId._id;
+      } else if (typeof enrollment.userId === 'string') {
+        // If it's a string, use it directly
+        enrollmentUserId = enrollment.userId;
+      }
 
       // Check if enrollment matches customer by userId or _id
-      const userMatch = enrollmentUserId === selectedCustomer.userId ||
-                        enrollmentUserId === selectedCustomer._id;
+      // Compare all possible combinations
+      const userMatch = !!(
+        enrollmentUserId && (
+          enrollmentUserId === selectedCustomer.userId ||
+          enrollmentUserId === selectedCustomer._id
+        )
+      );
+      
       const statusMatch = enrollment.status === 'active';
 
       // Handle planId comparison - enrollment.planId can be string or populated object
@@ -450,11 +468,16 @@ export default function CreateInvoicePage() {
         planMatch = enrollmentPlanId === planId;
       }
 
+      const matches = userMatch && statusMatch && planMatch;
+
       console.log('Enrollment check:', {
+        matches,
         userMatch,
         statusMatch,
         planMatch,
         enrollmentUserId,
+        hasUserIdString: !!enrollment.userIdString,
+        enrollmentUserIdType: typeof enrollment.userId,
         selectedCustomerUserId: selectedCustomer.userId,
         selectedCustomerId: selectedCustomer._id,
         enrollmentPlanId: typeof enrollment.planId === 'object' ? enrollment.planId?._id : enrollment.planId,
@@ -462,8 +485,17 @@ export default function CreateInvoicePage() {
         enrollmentStatus: enrollment.status
       });
 
-      return userMatch && statusMatch && planMatch;
+      return matches;
     });
+
+    console.log('isCustomerEnrolled result:', {
+      customerId,
+      selectedCustomer,
+      hasEnrollment,
+      totalEnrollments: customerEnrollments.length
+    });
+
+    return hasEnrollment;
   };
 
   useEffect(() => {
@@ -550,7 +582,8 @@ export default function CreateInvoicePage() {
         return;
       }
       
-      const response = await fetch('/api/enrollments', {
+      // Fetch ALL enrollments (no pagination limit) for invoice creation
+      const response = await fetch('/api/enrollments?limit=1000', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
