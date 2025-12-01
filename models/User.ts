@@ -49,6 +49,7 @@ const UserSchema = new mongoose.Schema({
   // Profile
   profileImage: { type: String },
   dateOfBirth: { type: Date },
+  weddingDate: { type: Date },
   
   // Chit Fund Customer specific fields
   occupation: { type: String },

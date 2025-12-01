@@ -223,32 +223,71 @@ export default function UsersPage() {
 
       if (response.ok) {
         const result = await response.json();
+        // Show success message
+        alert('✅ Changes saved successfully!');
         // Refresh the customers list
         fetchCustomers();
         setIsEditing(false);
-        setSelectedCustomer(null);
+        // Don't close the modal, just refresh the selected customer data
+        if (selectedCustomer) {
+          // Fetch updated customer data
+          const updatedResponse = await fetch(`/api/users/${userId}`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('auth-token')}`,
+            },
+          });
+          if (updatedResponse.ok) {
+            const { user } = await updatedResponse.json();
+            // Map dateOfBirth to dob for consistency
+            const customerWithMappedFields = {
+              ...user,
+              dob: user.dateOfBirth,
+              weddingDate: user.weddingDate
+            };
+            setSelectedCustomer(customerWithMappedFields);
+          }
+        }
         return result;
       } else {
+        const error = await response.json();
+        alert('❌ Failed to save changes: ' + (error.error || 'Unknown error'));
         console.error('Failed to update user');
       }
     } catch (error) {
+      alert('❌ Error saving changes. Please try again.');
       console.error('Failed to update user:', error);
     }
   };
 
   const handleEditUser = (customer: Customer) => {
+    // Format dates for input[type="date"] which expects YYYY-MM-DD
+    const formatDateForInput = (dateStr: string | undefined | null) => {
+      if (!dateStr) return '';
+      try {
+        const date = new Date(dateStr);
+        return date.toISOString().split('T')[0]; // Returns YYYY-MM-DD
+      } catch {
+        return '';
+      }
+    };
+
     setEditFormData({
       name: customer.name,
       phone: customer.phone,
       address: customer.address,
-      dob: customer.dob || '',
-      weddingDate: customer.weddingDate || ''
+      dob: formatDateForInput(customer.dob),
+      weddingDate: formatDateForInput(customer.weddingDate)
+    });
+    console.log('Edit form initialized with:', {
+      dob: formatDateForInput(customer.dob),
+      weddingDate: formatDateForInput(customer.weddingDate)
     });
     setIsEditing(true);
   };
 
   const handleSaveEdit = () => {
     if (selectedCustomer) {
+      console.log('Saving user data:', editFormData);
       updateUser(selectedCustomer._id, editFormData);
     }
   };
@@ -461,8 +500,14 @@ export default function UsersPage() {
   };
 
   const handleViewCustomer = (customer: Customer) => {
-    setSelectedCustomer(customer);
-    console.log('Selected customer:', customer);
+    // Map dateOfBirth to dob for consistency
+    const customerWithMappedFields = {
+      ...customer,
+      dob: customer.dob || (customer as any).dateOfBirth,
+      weddingDate: customer.weddingDate
+    };
+    setSelectedCustomer(customerWithMappedFields);
+    console.log('Selected customer:', customerWithMappedFields);
     console.log('Using userId for enrollment fetch:', customer.userId || customer._id);
     // Use customer.userId if available, otherwise fall back to _id
     fetchUserEnrollments(customer.userId || customer._id);

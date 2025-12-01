@@ -316,14 +316,8 @@ export async function POST(request: NextRequest) {
       console.log('Using new member number:', finalMemberNumber);
     }
     
-    // Count existing ACTIVE enrollments only
-    const memberCount = await Enrollment.countDocuments({ planId, status: 'active' });
-    if (memberCount >= plan.totalMembers) {
-      return NextResponse.json(
-        { error: 'Plan is full' },
-        { status: 400 }
-      );
-    }
+    // NOTE: Plan capacity check removed - plans can accept unlimited enrollments
+    // Previously checked: if (memberCount >= plan.totalMembers) return error 'Plan is full'
     
     // Calculate end date
     const start = new Date(startDate);

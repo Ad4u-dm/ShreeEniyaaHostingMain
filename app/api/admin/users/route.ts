@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     // Fetch users with filtering and pagination
     const [users, total] = await Promise.all([
       User.find(query)
-        .select('name email phone address role createdAt updatedAt createdBy userId')
+        .select('name email phone address role createdAt updatedAt createdBy userId dateOfBirth weddingDate')
         .sort({ createdAt: -1 })
         .limit(limit)
         .skip((page - 1) * limit)
@@ -210,6 +210,8 @@ export async function GET(request: NextRequest) {
         address: typeof userData.address === 'object'
           ? `${userData.address.street || ''}, ${userData.address.city || ''}, ${userData.address.state || ''} - ${userData.address.pincode || ''}`.replace(/,\s*,/g, ',').replace(/^,\s*|,\s*$/g, '')
           : userData.address || 'Address not provided',
+        dob: userData.dateOfBirth || null, // Map dateOfBirth to dob
+        weddingDate: userData.weddingDate || null, // Include wedding date
         planId: activeEnrollment?.planId?._id || null,
         planName,
         joinDate: userData.createdAt,
@@ -277,6 +279,13 @@ export async function PUT(request: NextRequest) {
 
     const { userId, userData } = await request.json();
     
+    console.log('📝 PUT /api/admin/users - Received data:', {
+      userId,
+      userData,
+      hasDob: !!userData.dob,
+      hasWeddingDate: !!userData.weddingDate
+    });
+    
     if (!userId || !userData) {
       return NextResponse.json(
         { success: false, error: 'User ID and user data are required' },
@@ -285,14 +294,38 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update user in database
+    // Map dob to dateOfBirth for database storage
+    const updateData: any = {
+      ...userData,
+      updatedAt: new Date()
+    };
+    
+    // Convert dob to dateOfBirth if present
+    if (userData.dob) {
+      updateData.dateOfBirth = new Date(userData.dob);
+      delete updateData.dob; // Remove dob as it's not a DB field
+      console.log('✅ Converted dob to dateOfBirth:', updateData.dateOfBirth);
+    }
+    
+    // Convert weddingDate to Date object if present
+    if (userData.weddingDate) {
+      updateData.weddingDate = new Date(userData.weddingDate);
+      console.log('✅ Converted weddingDate:', updateData.weddingDate);
+    }
+    
+    console.log('💾 Updating user with data:', updateData);
+    
     const updatedUser = await User.findByIdAndUpdate(
       userId,
-      { 
-        ...userData,
-        updatedAt: new Date()
-      },
+      updateData,
       { new: true }
     ).populate('createdBy', 'name role');
+
+    console.log('✅ User updated successfully:', {
+      userId: updatedUser._id,
+      dateOfBirth: updatedUser.dateOfBirth,
+      weddingDate: updatedUser.weddingDate
+    });
 
     if (!updatedUser) {
       return NextResponse.json(
