@@ -58,6 +58,7 @@ interface InvoiceForm {
     arrearAmount: number; // READ-ONLY - calculated by backend
     pendingAmount: number; // READ-ONLY - calculated by backend
     receivedAmount: number;
+    receivedArrearAmount?: number; // Amount paid specifically for arrears
     balanceAmount: number; // READ-ONLY - calculated by backend
     issuedBy: string;
   };
@@ -360,6 +361,7 @@ export default function CreateInvoicePage() {
       arrearAmount: 0, // Will be calculated by backend
       pendingAmount: 0, // Will be calculated by backend
       receivedAmount: 0,
+      receivedArrearAmount: 0, // Amount paid for arrears
       balanceAmount: 0, // Will be calculated by backend
       issuedBy: 'ADMIN'
     }
