@@ -123,9 +123,9 @@ export async function GET(request: NextRequest) {
       paidInvoices: processedInvoices.filter(inv => inv.status === 'paid').length,
       overdueInvoices: processedInvoices.filter(inv => inv.status === 'overdue').length,
       cancelledInvoices: processedInvoices.filter(inv => inv.status === 'cancelled').length,
-      totalAmount: processedInvoices.reduce((sum, inv) => sum + inv.total, 0),
-      paidAmount: processedInvoices.filter(inv => inv.status === 'paid').reduce((sum, inv) => sum + inv.total, 0),
-      overdueAmount: processedInvoices.filter(inv => inv.status === 'overdue').reduce((sum, inv) => sum + inv.total, 0)
+      totalAmount: processedInvoices.reduce((sum, inv) => sum + ((inv.receivedAmount || 0) + (inv.receivedArrearAmount || 0)), 0),
+      paidAmount: processedInvoices.filter(inv => inv.status === 'paid').reduce((sum, inv) => sum + ((inv.receivedAmount || 0) + (inv.receivedArrearAmount || 0)), 0),
+      overdueAmount: processedInvoices.filter(inv => inv.status === 'overdue').reduce((sum, inv) => sum + ((inv.receivedAmount || 0) + (inv.receivedArrearAmount || 0)), 0)
     };
 
     return NextResponse.json({
