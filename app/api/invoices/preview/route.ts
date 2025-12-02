@@ -112,8 +112,17 @@ export async function GET(request: NextRequest) {
     }
 
     // STEP 3: Calculate arrear amount using helper function
-    // Pass enrollment object to check currentArrear field (manual update)
-    const arrearAmount = await calculateArrearAmount(enrollment._id, Invoice, invoiceDate, enrollment);
+    // RE-FETCH enrollment to ensure we have the latest currentArrear value
+    const freshEnrollment = await Enrollment.findById(enrollment._id);
+    
+    console.log('🔄 Preview API - Fresh Enrollment Data:', {
+      enrollmentId: freshEnrollment?._id,
+      currentArrear: freshEnrollment?.currentArrear,
+      arrearLastUpdated: freshEnrollment?.arrearLastUpdated
+    });
+    
+    // Pass fresh enrollment object to check currentArrear field (manual update or clear)
+    const arrearAmount = await calculateArrearAmount(enrollment._id, Invoice, invoiceDate, freshEnrollment);
 
     // STEP 4: Get previous invoice for balance calculation
     const currentDay = invoiceDate.getDate();

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Save, Send, Eye, XCircle } from 'lucide-react';
+import { ArrowLeft, Save, Send, Eye, XCircle, Edit, RefreshCw } from 'lucide-react';
 import { formatIndianNumber } from '@/lib/helpers';
 
 interface Customer {
@@ -79,6 +79,10 @@ export default function CreateInvoicePage() {
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [createdInvoice, setCreatedInvoice] = useState<any>(null);
+  const [clearingArrear, setClearingArrear] = useState(false);
+  const [isEditingArrear, setIsEditingArrear] = useState(false);
+  const [manualArrearConfirmed, setManualArrearConfirmed] = useState(false);
+  const [fetchingArrear, setFetchingArrear] = useState(false);
 
   // Get previous balance from the latest invoice for the customer
   const getPreviousBalance = async (customerId: string, planId: string) => {
@@ -254,20 +258,20 @@ export default function CreateInvoicePage() {
       let arrearAmount = 0;
       let balanceAmount = 0;
       let pendingAmount = 0;
-      const receivedAmount = dailyDue;
+      const receivedAmount = 0; // Start at 0, user will enter manually
       if (!hasPreviousInvoice) {
   // First invoice logic
   arrearAmount = 0;
   pendingAmount = paymentDetails.currentDueAmount;
-  balanceAmount = Math.max(0, paymentDetails.currentDueAmount - receivedAmount);
+  balanceAmount = paymentDetails.currentDueAmount; // Full amount pending when received = 0
       } else if (is21st) {
         arrearAmount = previousBalance;
         pendingAmount = paymentDetails.currentDueAmount + arrearAmount;
-        balanceAmount = Math.max(0, pendingAmount - receivedAmount);
+        balanceAmount = pendingAmount; // Full pending amount when received = 0
       } else {
         arrearAmount = previousArrear;
         pendingAmount = previousBalance;
-        balanceAmount = Math.max(0, previousBalance - receivedAmount);
+        balanceAmount = previousBalance; // Full previous balance when received = 0
       }
       setFormData(prev => ({
         ...prev,
@@ -389,7 +393,7 @@ export default function CreateInvoicePage() {
 
   // Auto-fetch invoice preview when customer, plan, or received amount changes
   useEffect(() => {
-    if (formData.customerId && formData.planId && ((formData.receivedAmount ?? 0) > 0 || (formData.receiptDetails?.receivedAmount ?? 0) > 0)) {
+    if (formData.customerId && formData.planId) {
       fetchInvoicePreview();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -495,11 +499,11 @@ export default function CreateInvoicePage() {
     const planIdStr = typeof formData.planId === 'string' ? formData.planId : 
                      (formData.planId as any)?._id || String(formData.planId);
     
-    if (formData.customerId && planIdStr && plans.length > 0) {
+    if (formData.customerId && planIdStr && plans.length > 0 && !isEditingArrear) {
       console.log('Auto-calculating amounts for customer:', formData.customerId, 'plan:', planIdStr);
       calculateChitFundAmounts(formData.receiptDetails.paymentMonth || new Date().toISOString().slice(0, 7));
     }
-  }, [formData.customerId, typeof formData.planId === 'string' ? formData.planId : (formData.planId as any)?._id, plans.length]);
+  }, [formData.customerId, typeof formData.planId === 'string' ? formData.planId : (formData.planId as any)?._id, plans.length, isEditingArrear]);
 
   // Debug form state changes for receivedAmount
   useEffect(() => {
@@ -830,13 +834,14 @@ export default function CreateInvoicePage() {
           const { dueNumber, dueAmount, arrearAmount, balanceAmount } = previewData.preview;
           
           // Update form with backend-calculated values
+          // BUT preserve manual arrear if user is editing it
           setFormData(prev => ({
             ...prev,
             receiptDetails: {
               ...prev.receiptDetails,
               dueNo: dueNumber.toString(),
               dueAmount: dueAmount,
-              arrearAmount: arrearAmount,
+              arrearAmount: isEditingArrear ? prev.receiptDetails.arrearAmount : arrearAmount,
               receivedAmount: receivedAmount,
               balanceAmount: balanceAmount
             }
@@ -859,6 +864,7 @@ export default function CreateInvoicePage() {
       return;
     }
 
+    setClearingArrear(true);
     try {
       const selectedCustomer = customers.find(c => c._id === formData.customerId);
       const customerIdToSend = selectedCustomer?.userId || formData.customerId;
@@ -876,9 +882,11 @@ export default function CreateInvoicePage() {
       });
 
       if (response.ok) {
-        alert('Arrear cleared successfully!');
+        // Add a small delay to ensure DB write is complete
+        await new Promise(resolve => setTimeout(resolve, 300));
         // Refresh the preview to show updated values
         await fetchInvoicePreview();
+        alert('Arrear cleared successfully! Preview has been updated.');
       } else {
         const errorData = await response.json();
         alert(`Failed to clear arrear: ${errorData.error || 'Unknown error'}`);
@@ -886,7 +894,108 @@ export default function CreateInvoicePage() {
     } catch (error) {
       console.error('Error clearing arrear:', error);
       alert('Failed to clear arrear');
+    } finally {
+      setClearingArrear(false);
     }
+  };
+
+  // Fetch previous arrear from last invoice
+  const handleFetchPreviousArrear = async () => {
+    if (!formData.customerId || !formData.planId) {
+      alert('Please select a customer and plan first');
+      return;
+    }
+
+    setFetchingArrear(true);
+    try {
+      const selectedCustomer = customers.find(c => c._id === formData.customerId);
+      const customerIdToSend = selectedCustomer?.userId || formData.customerId;
+
+      // Step 1: Clear the arrearLastUpdated timestamp from enrollment
+      // This ensures the system won't use the manual override anymore
+      await fetch('/api/enrollments/clear-arrear-timestamp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        },
+        body: JSON.stringify({
+          customerId: customerIdToSend,
+          planId: formData.planId
+        })
+      });
+
+      // Step 2: Fetch the latest invoice to get the arrear
+      const response = await fetch(
+        `/api/invoices?customerId=${customerIdToSend}&planId=${formData.planId}&limit=1`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+          }
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.invoices && data.invoices.length > 0) {
+          const latestInvoice = data.invoices[0];
+          const previousArrear = latestInvoice.arrearAmount || 0;
+          
+          // Step 3: Update the arrear amount with the previous invoice's arrear
+          setFormData(prev => ({
+            ...prev,
+            receiptDetails: {
+              ...prev.receiptDetails,
+              arrearAmount: previousArrear
+            }
+          }));
+          
+          // Step 4: Refresh preview to recalculate with the new arrear
+          await new Promise(resolve => setTimeout(resolve, 300));
+          await fetchInvoicePreview();
+          
+          alert(`Previous invoice arrear fetched successfully: ₹${previousArrear.toLocaleString('en-IN')}\n\nFrom Invoice: ${latestInvoice.invoiceNumber || latestInvoice.receiptNo || 'N/A'}`);
+        } else {
+          alert('No previous invoice found for this customer and plan.');
+        }
+      } else {
+        const errorData = await response.json();
+        alert(`Failed to fetch previous arrear: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error fetching previous arrear:', error);
+      alert('Failed to fetch previous arrear');
+    } finally {
+      setFetchingArrear(false);
+    }
+  };
+
+  // Handle manual arrear amount editing
+  const handleArrearAmountChange = (newArrearAmount: number) => {
+    // First time editing - show confirmation
+    if (!manualArrearConfirmed && !isEditingArrear) {
+      const confirmed = confirm(
+        '⚠️ WARNING: You are about to manually modify the arrear amount.\n\n' +
+        'This will override the automatically calculated arrear from previous invoices.\n\n' +
+        'Are you sure you want to proceed?'
+      );
+      
+      if (!confirmed) {
+        return; // User cancelled, don't change the value
+      }
+      
+      setManualArrearConfirmed(true);
+      setIsEditingArrear(true);
+    }
+    
+    // Update the arrear amount
+    setFormData(prev => ({
+      ...prev,
+      receiptDetails: {
+        ...prev.receiptDetails,
+        arrearAmount: newArrearAmount
+      }
+    }));
   };
 
 
@@ -979,6 +1088,9 @@ export default function CreateInvoicePage() {
 
         // Manual balance amount (if user edited it, send it to backend)
         manualBalanceAmount: formData.receiptDetails.balanceAmount,
+        
+        // Manual arrear amount (if user edited it, send it to backend)
+        manualArrearAmount: isEditingArrear ? formData.receiptDetails.arrearAmount : undefined,
 
         // Customer details snapshot
         customerDetails: {
@@ -1371,30 +1483,65 @@ export default function CreateInvoicePage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Arrear Amount (Last Month Pending) <span className="text-xs text-blue-600">(Auto-calculated)</span>
+                    Arrear Amount (Last Month Pending) 
+                    <span className="text-xs text-blue-600 ml-1">
+                      {isEditingArrear ? '(Manually Edited)' : '(Auto-calculated)'}
+                    </span>
                   </label>
                   <div className="flex gap-2">
                     <Input
                       type="number"
                       value={formData.receiptDetails.arrearAmount}
-                      disabled
-                      className="bg-gray-50 cursor-not-allowed flex-1"
+                      onChange={(e) => {
+                        const amount = parseFloat(e.target.value) || 0;
+                        handleArrearAmountChange(amount);
+                      }}
+                      disabled={!isEditingArrear}
+                      className={isEditingArrear ? 'border-orange-300 bg-orange-50' : 'bg-gray-50 cursor-not-allowed'}
                       placeholder="Calculated by backend"
                     />
                     <Button
                       type="button"
                       variant="outline"
                       size="icon"
-                      onClick={handleClearArrear}
+                      onClick={() => {
+                        if (isEditingArrear) {
+                          // Stop editing
+                          setIsEditingArrear(false);
+                          setManualArrearConfirmed(false);
+                          // Refresh preview to get auto-calculated value
+                          fetchInvoicePreview();
+                        } else {
+                          // Start editing - will show confirmation on first change
+                          setIsEditingArrear(true);
+                        }
+                      }}
                       disabled={!formData.customerId || !formData.planId}
-                      title="Clear arrear amount"
+                      title={isEditingArrear ? 'Cancel manual edit' : 'Edit arrear amount manually'}
                       className="shrink-0"
                     >
-                      <XCircle className="h-4 w-4" />
+                      <Edit className={`h-4 w-4 ${isEditingArrear ? 'text-orange-600' : ''}`} />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={handleFetchPreviousArrear}
+                      disabled={!formData.customerId || !formData.planId || fetchingArrear}
+                      title="Fetch arrear from previous invoice"
+                      className="shrink-0"
+                    >
+                      {fetchingArrear ? (
+                        <span className="h-4 w-4 animate-spin">⏳</span>
+                      ) : (
+                        <RefreshCw className="h-4 w-4 text-blue-600" />
+                      )}
                     </Button>
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    From previous invoice for this enrollment
+                    {isEditingArrear 
+                      ? '⚠️ Manual override active - click Edit button again to cancel and restore auto-calculation'
+                      : 'Click Refresh button to fetch balance from previous invoice as arrear'}
                   </p>
                 </div>
               </div>

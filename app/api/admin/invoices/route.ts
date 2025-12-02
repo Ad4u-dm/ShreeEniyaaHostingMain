@@ -141,10 +141,11 @@ export async function POST(request: NextRequest) {
     }
 
     // STEP 1: Find or auto-create enrollment (SILENT - no UI changes needed)
+    // Don't use .lean() to ensure we get fresh data from DB
     let enrollment = await Enrollment.findOne({
       userId: invoiceData.customerId,
       planId: invoiceData.planId
-    }).lean();
+    });
 
     console.log('🔍 INVOICE API - Enrollment Data:', {
       enrollmentId: enrollment?._id,
@@ -254,8 +255,30 @@ export async function POST(request: NextRequest) {
       .lean();
 
     // STEP 4: Calculate arrear amount from previous invoice for same enrollment
-    // Pass enrollment object to check currentArrear field (manual update via "Update Arrears")
-    const arrearAmount = await calculateArrearAmount(enrollment._id, Invoice, invoiceDate, enrollment);
+    // RE-FETCH enrollment to ensure we have the latest currentArrear value
+    const freshEnrollment = await Enrollment.findById(enrollment._id);
+    
+    console.log('🔄 Fresh Enrollment Data for Arrear Calculation:', {
+      enrollmentId: freshEnrollment?._id,
+      currentArrear: freshEnrollment?.currentArrear,
+      arrearLastUpdated: freshEnrollment?.arrearLastUpdated,
+      hasArrearLastUpdated: !!freshEnrollment?.arrearLastUpdated,
+      manualArrearAmount: invoiceData.manualArrearAmount
+    });
+    
+    // Check if user manually entered arrear amount
+    let arrearAmount: number;
+    if (invoiceData.manualArrearAmount !== undefined && invoiceData.manualArrearAmount !== null) {
+      // Use manually entered arrear amount
+      arrearAmount = invoiceData.manualArrearAmount;
+      console.log('✅ Using MANUAL arrear amount:', arrearAmount);
+    } else {
+      // Calculate automatically
+      arrearAmount = await calculateArrearAmount(enrollment._id, Invoice, invoiceDate, freshEnrollment);
+      console.log('💰 Using AUTO-CALCULATED arrear amount:', arrearAmount);
+    }
+    
+    console.log('💰 FINAL ARREAR AMOUNT:', arrearAmount);
 
     console.log('📊 Previous Invoice Data:', {
       exists: !!previousInvoice,

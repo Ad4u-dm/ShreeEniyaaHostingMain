@@ -158,15 +158,16 @@ export async function calculateArrearAmount(
     enrollmentArrearLastUpdated: enrollment?.arrearLastUpdated
   });
 
-  // PRIORITY 1: Check manually updated arrear (from "Update Arrears" button)
-  if (enrollment?.currentArrear !== undefined && enrollment.currentArrear !== null && enrollment.currentArrear > 0) {
-    console.log('Arrear calculation (Manual Update - Priority 1):', {
+  // PRIORITY 1: Check manually updated arrear (from "Update Arrears" button or "Clear Arrear" button)
+  // If arrearLastUpdated exists, it means the arrear was manually set (even if set to 0)
+  if (enrollment?.arrearLastUpdated) {
+    console.log('✅ Arrear calculation (Manual Update - Priority 1):', {
       enrollmentId,
-      currentArrear: enrollment.currentArrear,
+      currentArrear: enrollment.currentArrear || 0,
       lastUpdated: enrollment.arrearLastUpdated,
-      source: 'Manual update via Update Arrears button'
+      source: 'Manual update via Update Arrears or Clear Arrear button'
     });
-    return enrollment.currentArrear;
+    return enrollment.currentArrear || 0;
   }
 
   // PRIORITY 2: Check previous invoice (existing automatic logic)

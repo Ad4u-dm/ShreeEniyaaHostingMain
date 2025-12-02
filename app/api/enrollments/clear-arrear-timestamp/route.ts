@@ -34,47 +34,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('🧹 BEFORE Clear Arrear:', {
+    console.log('🧹 BEFORE Clear Arrear Timestamp:', {
       enrollmentId: enrollment._id,
       currentArrear: enrollment.currentArrear,
       arrearLastUpdated: enrollment.arrearLastUpdated
     });
 
-    // Clear the arrear amount and set the timestamp
-    enrollment.currentArrear = 0;
-    enrollment.arrearLastUpdated = new Date();
-    
+    // Clear the arrearLastUpdated timestamp
+    // This allows the system to auto-calculate arrear again from previous invoices
+    enrollment.arrearLastUpdated = undefined;
     const savedEnrollment = await enrollment.save();
 
-    console.log('✅ AFTER Clear Arrear (saved to DB):', {
+    console.log('✅ AFTER Clear Arrear Timestamp:', {
       enrollmentId: savedEnrollment._id,
       currentArrear: savedEnrollment.currentArrear,
-      arrearLastUpdated: savedEnrollment.arrearLastUpdated,
-      wasModified: enrollment.isModified()
-    });
-    
-    // Verify by re-querying
-    const verifyEnrollment = await Enrollment.findById(enrollment._id);
-    console.log('🔍 VERIFY Clear Arrear (re-queried from DB):', {
-      enrollmentId: verifyEnrollment?._id,
-      currentArrear: verifyEnrollment?.currentArrear,
-      arrearLastUpdated: verifyEnrollment?.arrearLastUpdated
+      arrearLastUpdated: savedEnrollment.arrearLastUpdated
     });
 
     return NextResponse.json({
       success: true,
-      message: 'Arrear cleared successfully',
+      message: 'Arrear timestamp cleared successfully',
       enrollment: {
         _id: enrollment._id,
         userId: enrollment.userId,
         planId: enrollment.planId,
-        currentArrear: enrollment.currentArrear
+        currentArrear: enrollment.currentArrear,
+        arrearLastUpdated: enrollment.arrearLastUpdated
       }
     });
   } catch (error) {
-    console.error('Error clearing arrear:', error);
+    console.error('Error clearing arrear timestamp:', error);
     return NextResponse.json(
-      { error: 'Failed to clear arrear' },
+      { error: 'Failed to clear arrear timestamp' },
       { status: 500 }
     );
   }
