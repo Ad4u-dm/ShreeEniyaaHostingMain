@@ -45,6 +45,9 @@ interface Invoice {
   subtotal: number;
   tax: number;
   total: number;
+  receivedAmount?: number;
+  receivedArrearAmount?: number;
+  totalReceivedAmount?: number;
   paymentTerms: string;
   notes?: string;
   template: number;
@@ -646,7 +649,7 @@ export default function InvoicesPage() {
                       </td>
                       <td className="py-3 px-4">
                         <div className="font-medium text-slate-800">
-                          ₹{formatIndianNumber(invoice.total)}
+                          ₹{formatIndianNumber((invoice.receivedAmount || 0) + (invoice.receivedArrearAmount || 0))}
                         </div>
                       </td>
                       <td className="py-3 px-4">
