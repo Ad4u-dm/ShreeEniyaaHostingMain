@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
+import Enrollment from '@/models/Enrollment';
+import Invoice from '@/models/Invoice';
+import Payment from '@/models/Payment';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
@@ -100,11 +103,35 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       }, { status: 403 });
     }
 
+    // CASCADE DELETE: Remove all related data
+    const userId = user.userId; // Get the custom userId field
+    
+    console.log(`🗑️ Starting cascade deletion for user: ${userId} (${user.name})`);
+    
+    // 1. Delete all enrollments for this user
+    const deletedEnrollments = await Enrollment.deleteMany({ userId: userId });
+    console.log(`   ✓ Deleted ${deletedEnrollments.deletedCount} enrollments`);
+    
+    // 2. Delete all invoices for this user
+    const deletedInvoices = await Invoice.deleteMany({ customerId: userId });
+    console.log(`   ✓ Deleted ${deletedInvoices.deletedCount} invoices`);
+    
+    // 3. Delete all payments for this user
+    const deletedPayments = await Payment.deleteMany({ customerId: userId });
+    console.log(`   ✓ Deleted ${deletedPayments.deletedCount} payments`);
+    
+    // 4. Finally, delete the user
     await User.findByIdAndDelete(id);
+    console.log(`   ✓ Deleted user: ${userId}`);
 
     return NextResponse.json({ 
       success: true, 
-      message: 'User deleted successfully' 
+      message: 'User and all related data deleted successfully',
+      deleted: {
+        enrollments: deletedEnrollments.deletedCount,
+        invoices: deletedInvoices.deletedCount,
+        payments: deletedPayments.deletedCount
+      }
     });
   } catch (error) {
     console.error('Delete user error:', error);

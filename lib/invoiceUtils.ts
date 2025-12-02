@@ -233,7 +233,8 @@ export function calculateBalanceAmount(
   arrearAmount: number,
   receivedAmount: number,
   invoiceDate: Date,
-  previousBalance: number = 0
+  previousBalance: number = 0,
+  receivedArrearAmount: number = 0
 ): number {
   const currentDay = invoiceDate.getDate();
   let balanceAmount: number;
@@ -249,14 +250,16 @@ export function calculateBalanceAmount(
       formula: '(dueAmount + arrearAmount) - receivedAmount'
     });
   }
-  // On other days (1st-20th, 22nd-31st): Use previous balance
+  // On other days (1st-20th, 22nd-31st): Use previous balance + arrear - both received amounts
   else {
-    balanceAmount = previousBalance - receivedAmount;
+    balanceAmount = previousBalance - receivedAmount + arrearAmount - receivedArrearAmount;
     console.log('Balance calculation (Other days):', {
       previousBalance,
       receivedAmount,
+      arrearAmount,
+      receivedArrearAmount,
       balanceAmount,
-      formula: 'previousBalance - receivedAmount'
+      formula: 'previousBalance - receivedAmount + arrearAmount - receivedArrearAmount'
     });
   }
 

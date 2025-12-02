@@ -298,7 +298,7 @@ export default function UsersPage() {
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (!window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
+    if (!window.confirm('⚠️ WARNING: This will permanently delete the user and ALL related data including:\n\n• All enrollments\n• All invoices\n• All payments\n\nThis action CANNOT be undone!\n\nAre you sure you want to proceed?')) return;
     try {
       const response = await fetch(`/api/users/${userId}`, {
         method: 'DELETE',
@@ -307,14 +307,28 @@ export default function UsersPage() {
         },
       });
       if (response.ok) {
+        const result = await response.json();
         fetchCustomers();
         setSelectedCustomer(null);
         setIsEditing(false);
         setEditFormData({});
+        
+        // Show detailed deletion summary
+        if (result.deleted) {
+          alert(`✅ User and all related data deleted successfully!\n\n` +
+                `📊 Deletion Summary:\n` +
+                `• Enrollments: ${result.deleted.enrollments}\n` +
+                `• Invoices: ${result.deleted.invoices}\n` +
+                `• Payments: ${result.deleted.payments}`);
+        } else {
+          alert('User deleted successfully!');
+        }
       } else {
-        alert('Failed to delete user.');
+        const error = await response.json();
+        alert(`Failed to delete user: ${error.message || 'Unknown error'}`);
       }
     } catch (error) {
+      console.error('Error deleting user:', error);
       alert('Error deleting user.');
     }
   };
@@ -730,7 +744,7 @@ export default function UsersPage() {
                             size="sm"
                             variant="destructive"
                             onClick={async () => {
-                              if (!window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
+                              if (!window.confirm('⚠️ WARNING: This will permanently delete the user and ALL related data including:\n\n• All enrollments\n• All invoices\n• All payments\n\nThis action CANNOT be undone!\n\nAre you sure you want to proceed?')) return;
                               try {
                                 const response = await fetch(`/api/users/${customer._id}`, {
                                   method: 'DELETE',
@@ -739,9 +753,22 @@ export default function UsersPage() {
                                   },
                                 });
                                 if (response.ok) {
+                                  const result = await response.json();
                                   fetchCustomers();
+                                  
+                                  // Show detailed deletion summary
+                                  if (result.deleted) {
+                                    alert(`✅ User and all related data deleted successfully!\n\n` +
+                                          `📊 Deletion Summary:\n` +
+                                          `• Enrollments: ${result.deleted.enrollments}\n` +
+                                          `• Invoices: ${result.deleted.invoices}\n` +
+                                          `• Payments: ${result.deleted.payments}`);
+                                  } else {
+                                    alert('User deleted successfully!');
+                                  }
                                 } else {
-                                  alert('Failed to delete user.');
+                                  const error = await response.json();
+                                  alert(`Failed to delete user: ${error.message || 'Unknown error'}`);
                                 }
                               } catch (error) {
                                 alert('Error deleting user.');

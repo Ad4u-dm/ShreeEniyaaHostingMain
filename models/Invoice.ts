@@ -79,6 +79,7 @@ const InvoiceSchema = new mongoose.Schema({
   arrearAmount: { type: Number, default: 0 },
   pendingAmount: { type: Number, default: 0 },
   receivedAmount: Number,
+  receivedArrearAmount: { type: Number, default: 0 }, // Amount paid specifically for arrears
   balanceAmount: { type: Number, default: 0 },
   totalReceivedAmount: Number,
   issuedBy: { type: String, default: 'ADMIN' },

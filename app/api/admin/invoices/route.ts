@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
     const sortBy = searchParams.get('sortBy') || 'createdAt';
     const sortOrder = searchParams.get('sortOrder') === 'asc' ? 1 : -1;
 
+
     // Build query filter
     const filter: any = {};
     if (customerId) {
@@ -342,6 +343,7 @@ export async function POST(request: NextRequest) {
     // STEP 5: Calculate balance amount
     // If user manually entered balance amount, use it; otherwise calculate using 21st rule
     const receivedAmount = invoiceData.receivedAmount || 0;
+    const receivedArrearAmount = invoiceData.receivedArrearAmount || 0;
     let balanceAmount: number;
     
     if (invoiceData.manualBalanceAmount !== undefined && invoiceData.manualBalanceAmount !== null) {
@@ -355,7 +357,8 @@ export async function POST(request: NextRequest) {
         arrearAmount,
         receivedAmount,
         invoiceDate,
-        previousBalance
+        previousBalance,
+        receivedArrearAmount
       );
       console.log('✅ Using calculated balance amount:', balanceAmount);
     }
@@ -445,6 +448,7 @@ export async function POST(request: NextRequest) {
       dueAmount: calculatedDueAmount,
       arrearAmount,
       receivedAmount,
+      receivedArrearAmount,
       balanceAmount,
       totalAmount,
       paymentMonth,

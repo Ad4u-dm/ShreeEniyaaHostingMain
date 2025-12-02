@@ -66,7 +66,8 @@ export async function POST(request: NextRequest) {
     if (!previousInvoice && currentDay !== 21) previousBalance = calculatedDueAmount; else previousBalance = previousInvoice ? (previousInvoice.balanceAmount || 0) : 0;
 
     const receivedAmount = invoiceData.receivedAmount || 0;
-    const balanceAmount = calculateBalanceAmount(calculatedDueAmount, arrearAmount, receivedAmount, invoiceDate, previousBalance);
+    const receivedArrearAmount = invoiceData.receivedArrearAmount || 0;
+    const balanceAmount = calculateBalanceAmount(calculatedDueAmount, arrearAmount, receivedAmount, invoiceDate, previousBalance, receivedArrearAmount);
 
     const paymentMonth = formatPaymentMonth(invoiceDate);
 

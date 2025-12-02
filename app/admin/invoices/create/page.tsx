@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Save, Send, Eye, XCircle, Edit, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Save, Send, Eye, XCircle, Edit, RefreshCw, Calculator } from 'lucide-react';
 import { formatIndianNumber } from '@/lib/helpers';
 
 interface Customer {
@@ -126,12 +126,27 @@ export default function CreateInvoicePage() {
 
       // Get customer enrollment to find start date
       const selectedCustomer = customers.find(c => c._id === customerId);
+      
+      if (!selectedCustomer) {
+        console.error('Selected customer not found');
+        return null;
+      }
+      
+      // Find enrollment matching both customer AND plan
       const customerEnrollment = customerEnrollments.find(
-        enrollment => enrollment.userId?.userId === selectedCustomer?.userId && enrollment.status === 'active'
+        enrollment => 
+          enrollment.userId?.userId === selectedCustomer?.userId && 
+          enrollment.planId?._id === planId &&
+          enrollment.status === 'active'
       );
 
       if (!customerEnrollment) {
-        console.error('Customer enrollment not found');
+        console.error('Customer enrollment not found for customer:', selectedCustomer.userId, 'and plan:', planId);
+        console.log('Available enrollments:', customerEnrollments.map(e => ({
+          userId: e.userId?.userId,
+          planId: e.planId?._id,
+          status: e.status
+        })));
         return null;
       }
 
@@ -499,11 +514,12 @@ export default function CreateInvoicePage() {
     const planIdStr = typeof formData.planId === 'string' ? formData.planId : 
                      (formData.planId as any)?._id || String(formData.planId);
     
-    if (formData.customerId && planIdStr && plans.length > 0 && !isEditingArrear) {
+    // IMPORTANT: Wait for enrollments to be loaded before calculating
+    if (formData.customerId && planIdStr && plans.length > 0 && enrollmentsLoaded && !isEditingArrear) {
       console.log('Auto-calculating amounts for customer:', formData.customerId, 'plan:', planIdStr);
       calculateChitFundAmounts(formData.receiptDetails.paymentMonth || new Date().toISOString().slice(0, 7));
     }
-  }, [formData.customerId, typeof formData.planId === 'string' ? formData.planId : (formData.planId as any)?._id, plans.length, isEditingArrear]);
+  }, [formData.customerId, typeof formData.planId === 'string' ? formData.planId : (formData.planId as any)?._id, plans.length, enrollmentsLoaded, isEditingArrear]);
 
   // Debug form state changes for receivedAmount
   useEffect(() => {
@@ -939,7 +955,17 @@ export default function CreateInvoicePage() {
         const data = await response.json();
         if (data.success && data.invoices && data.invoices.length > 0) {
           const latestInvoice = data.invoices[0];
-          const previousArrear = latestInvoice.arrearAmount || 0;
+          const invoiceArrearAmount = latestInvoice.arrearAmount || 0;
+          const invoiceReceivedArrearAmount = latestInvoice.receivedArrearAmount || 0;
+          
+          // Calculate actual pending arrear: Arrear - ReceivedArrear
+          const previousArrear = invoiceArrearAmount - invoiceReceivedArrearAmount;
+          
+          console.log('📊 Fetched Previous Invoice Arrear:', {
+            invoiceArrearAmount,
+            invoiceReceivedArrearAmount,
+            calculatedPreviousArrear: previousArrear
+          });
           
           // Step 3: Set editing mode and update the arrear amount with the previous invoice's arrear
           setIsEditingArrear(true);
@@ -1002,6 +1028,45 @@ export default function CreateInvoicePage() {
         arrearAmount: newArrearAmount
       }
     }));
+  };
+
+  // Calculate balance amount based on current values
+  const handleCalculateBalance = () => {
+    const dueAmount = formData.receiptDetails.dueAmount || 0;
+    const arrearAmount = formData.receiptDetails.arrearAmount || 0;
+    const receivedAmount = formData.receiptDetails.receivedAmount || 0;
+    const receivedArrearAmount = formData.receiptDetails.receivedArrearAmount || 0;
+    
+    const currentDay = new Date().getDate();
+    let calculatedBalance;
+    
+    if (currentDay === 21) {
+      // On 21st: Balance = (DueAmount + ArrearAmount) - ReceivedAmount
+      calculatedBalance = (dueAmount + arrearAmount) - receivedAmount;
+    } else {
+      // On other days: Balance = DueAmount + ArrearAmount - ReceivedAmount - ReceivedArrearAmount
+      calculatedBalance = dueAmount + arrearAmount - receivedAmount - receivedArrearAmount;
+    }
+    
+    setFormData(prev => ({
+      ...prev,
+      receiptDetails: {
+        ...prev.receiptDetails,
+        balanceAmount: calculatedBalance
+      }
+    }));
+    
+    console.log('Balance calculated:', {
+      dueAmount,
+      arrearAmount,
+      receivedAmount,
+      receivedArrearAmount,
+      calculatedBalance,
+      currentDay,
+      formula: currentDay === 21 
+        ? '(dueAmount + arrearAmount) - receivedAmount'
+        : 'dueAmount + arrearAmount - receivedAmount - receivedArrearAmount'
+    });
   };
 
 
@@ -1091,6 +1156,9 @@ export default function CreateInvoicePage() {
 
         // Received amount (what customer paid)
         receivedAmount: total,
+        
+        // Received arrear amount (what customer paid for arrears)
+        receivedArrearAmount: formData.receiptDetails.receivedArrearAmount || 0,
 
         // Manual balance amount (if user edited it, send it to backend)
         manualBalanceAmount: formData.receiptDetails.balanceAmount,
@@ -1569,24 +1637,89 @@ export default function CreateInvoicePage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Balance Amount
+                    Received Arrear Amount
                   </label>
                   <Input
                     type="number"
-                    value={formData.receiptDetails.balanceAmount}
+                    value={formData.receiptDetails.receivedArrearAmount || 0}
                     onChange={(e) => {
-                      const amount = parseFloat(e.target.value) || 0;
+                      const receivedArrearAmount = parseFloat(e.target.value) || 0;
+                      
+                      // Recalculate balance when received arrear amount changes
+                      const dueAmount = formData.receiptDetails.dueAmount || 0;
+                      const arrearAmount = formData.receiptDetails.arrearAmount || 0;
+                      const receivedAmount = formData.receiptDetails.receivedAmount || 0;
+                      
+                      // Get previous balance from the form or assume 0
+                      const currentDay = new Date().getDate();
+                      let newBalance;
+                      
+                      if (currentDay === 21) {
+                        // On 21st: Balance = (DueAmount + ArrearAmount) - ReceivedAmount
+                        newBalance = (dueAmount + arrearAmount) - receivedAmount;
+                      } else {
+                        // On other days: Balance = PreviousBalance - ReceivedAmount + ArrearAmount - ReceivedArrearAmount
+                        // For now, calculate based on current balance + arrear change
+                        const currentBalance = formData.receiptDetails.balanceAmount || 0;
+                        const currentReceivedArrear = formData.receiptDetails.receivedArrearAmount || 0;
+                        newBalance = currentBalance + currentReceivedArrear - receivedArrearAmount;
+                      }
+                      
                       setFormData({
                         ...formData,
-                        receiptDetails: { ...formData.receiptDetails, balanceAmount: amount }
+                        receiptDetails: { 
+                          ...formData.receiptDetails, 
+                          receivedArrearAmount: receivedArrearAmount,
+                          balanceAmount: newBalance
+                        }
                       });
                     }}
-                    placeholder="Enter balance amount"
+                    placeholder="Enter received arrear amount"
+                    disabled={!formData.receiptDetails.arrearAmount || formData.receiptDetails.arrearAmount === 0}
+                    className={(!formData.receiptDetails.arrearAmount || formData.receiptDetails.arrearAmount === 0) ? 'bg-gray-100 cursor-not-allowed' : ''}
                   />
+                  {(!formData.receiptDetails.arrearAmount || formData.receiptDetails.arrearAmount === 0) && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      No arrear amount - this field is disabled
+                    </p>
+                  )}
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Balance Amount
+                  </label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      value={formData.receiptDetails.balanceAmount}
+                      onChange={(e) => {
+                        const amount = parseFloat(e.target.value) || 0;
+                        setFormData({
+                          ...formData,
+                          receiptDetails: { ...formData.receiptDetails, balanceAmount: amount }
+                        });
+                      }}
+                      placeholder="Enter balance amount"
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={handleCalculateBalance}
+                      title="Calculate balance automatically"
+                      className="shrink-0"
+                    >
+                      <Calculator className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Click calculator button to auto-calculate balance
+                  </p>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     Issued By

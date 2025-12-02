@@ -279,12 +279,14 @@ export async function POST(request: NextRequest) {
 
     // STEP 5: Calculate balance amount using the 21st rule
     const receivedAmount = invoiceData.receivedAmount || 0;
+    const receivedArrearAmount = invoiceData.receivedArrearAmount || 0;
     const balanceAmount = calculateBalanceAmount(
       calculatedDueAmount,
       arrearAmount,
       receivedAmount,
       invoiceDate,
-      previousBalance
+      previousBalance,
+      receivedArrearAmount
     );
 
     // STEP 5: Calculate payment month from invoice date

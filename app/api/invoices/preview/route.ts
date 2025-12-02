@@ -152,12 +152,14 @@ export async function GET(request: NextRequest) {
     }
 
     // STEP 5: Calculate balance amount using helper function
+    const receivedArrearAmount = 0; // Preview doesn't have received arrear amount yet
     const balanceAmount = calculateBalanceAmount(
       calculatedDueAmount,
       arrearAmount,
       receivedAmount,
       invoiceDate,
-      previousBalance
+      previousBalance,
+      receivedArrearAmount
     );
 
     const totalDue = calculatedDueAmount + arrearAmount;
