@@ -201,16 +201,20 @@ export async function calculateArrearAmount(
       formula: 'arrear = previous.balance'
     });
   }
-  // On other days: Carry forward previous arrear
+  // On other days: Carry forward previous arrear MINUS what was paid for arrear
   else {
-    arrearAmount = previousInvoice.arrearAmount || 0;
-    console.log('Arrear calculation (Other days - Carry forward):', {
+    const previousArrear = previousInvoice.arrearAmount || 0;
+    const previousReceivedArrear = previousInvoice.receivedArrearAmount || 0;
+    arrearAmount = previousArrear - previousReceivedArrear;
+    
+    console.log('Arrear calculation (Other days - Net arrear after payment):', {
       enrollmentId,
       currentInvoiceDate: currentInvoiceDate.toISOString().split('T')[0],
       previousInvoiceDate: new Date(previousInvoice.invoiceDate).toISOString().split('T')[0],
-      previousArrear: previousInvoice.arrearAmount || 0,
+      previousArrear,
+      previousReceivedArrear,
       arrearAmount,
-      formula: 'arrear = previous.arrear'
+      formula: 'arrear = previous.arrear - previous.receivedArrearAmount'
     });
   }
 

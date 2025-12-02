@@ -190,7 +190,7 @@ export default function StaffReportsPage() {
                     <th className="text-left py-3 px-4 font-semibold text-slate-700">Invoice No</th>
                     <th className="text-left py-3 px-4 font-semibold text-slate-700">Customer Name</th>
                     <th className="text-left py-3 px-4 font-semibold text-slate-700">Group Name</th>
-                    <th className="text-right py-3 px-4 font-semibold text-slate-700">Amount</th>
+                    <th className="text-right py-3 px-4 font-semibold text-slate-700">Total Received Amount</th>
                     <th className="text-left py-3 px-4 font-semibold text-slate-700">Collected By</th>
                   </tr>
                 </thead>

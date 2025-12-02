@@ -100,10 +100,13 @@ export async function GET(request: NextRequest) {
         notes: invoice.notes || 'Thank you for your business!',
         template: invoice.template || 1,
         // Include all invoice calculation fields
-        arrearAmount: invoice.arrearAmount || 0,
+        arrAmount: invoice.arrAmount || 0, // Gross arrear
+        arrearAmount: invoice.arrearAmount || 0, // Net arrear
         balanceAmount: invoice.balanceAmount || 0,
         dueAmount: invoice.dueAmount || 0,
         receivedAmount: invoice.receivedAmount || 0,
+        receivedArrearAmount: invoice.receivedArrearAmount || 0,
+        totalReceivedAmount: invoice.totalReceivedAmount || ((invoice.receivedAmount || 0) + (invoice.receivedArrearAmount || 0)),
         pendingAmount: invoice.pendingAmount || 0,
         totalAmount: invoice.totalAmount || 0,
         createdAt: invoice.createdAt,
@@ -344,6 +347,7 @@ export async function POST(request: NextRequest) {
     // If user manually entered balance amount, use it; otherwise calculate using 21st rule
     const receivedAmount = invoiceData.receivedAmount || 0;
     const receivedArrearAmount = invoiceData.receivedArrearAmount || 0;
+    const arrAmount = invoiceData.arrAmount || 0; // Gross arrear from previous invoice
     let balanceAmount: number;
     
     if (invoiceData.manualBalanceAmount !== undefined && invoiceData.manualBalanceAmount !== null) {
@@ -438,6 +442,9 @@ export async function POST(request: NextRequest) {
     // Always use memberNumber from enrollment (created during user creation)
     const memberNumber = enrollment.memberNumber;
 
+    // Calculate total received amount
+    const totalReceivedAmount = receivedAmount + receivedArrearAmount;
+
     // Create new invoice in database with all calculated values
     const newInvoice = new Invoice({
       ...completeInvoiceData,
@@ -446,9 +453,11 @@ export async function POST(request: NextRequest) {
       memberNumber, // Ensure memberNumber is always set
       dueNumber: dueNumber.toString(), // Store as string per schema
       dueAmount: calculatedDueAmount,
-      arrearAmount,
+      arrAmount, // Store gross arrear
+      arrearAmount, // Store net arrear (calculated or from previous)
       receivedAmount,
       receivedArrearAmount,
+      totalReceivedAmount, // Total = receivedAmount + receivedArrearAmount
       balanceAmount,
       totalAmount,
       paymentMonth,
@@ -465,8 +474,11 @@ export async function POST(request: NextRequest) {
       planId: newInvoice.planId,
       dueNumber,
       dueAmount: calculatedDueAmount,
-      arrearAmount,
+      arrAmount, // Log gross arrear
+      arrearAmount, // Log net arrear
       receivedAmount,
+      receivedArrearAmount,
+      totalReceivedAmount, // Log total received
       balanceAmount,
       totalAmount,
       paymentMonth,

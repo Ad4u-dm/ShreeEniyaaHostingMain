@@ -71,11 +71,13 @@ export async function GET(
       memberName: invoice.memberName,
       paymentMonth: invoice.paymentMonth,
       dueAmount: invoice.dueAmount,
+      arrAmount: invoice.arrAmount,
       arrearAmount: invoice.arrearAmount,
       pendingAmount: invoice.pendingAmount,
       receivedAmount: invoice.receivedAmount,
+      receivedArrearAmount: invoice.receivedArrearAmount,
       balanceAmount: invoice.balanceAmount,
-      totalReceivedAmount: invoice.totalReceivedAmount,
+      totalReceivedAmount: invoice.totalReceivedAmount || ((invoice.receivedAmount || 0) + (invoice.receivedArrearAmount || 0)),
       issuedBy: invoice.issuedBy,
       
       customerId: {
@@ -120,6 +122,8 @@ export async function GET(
     console.log('  memberNumber:', processedInvoice.memberNumber);
     console.log('  dueAmount:', processedInvoice.dueAmount);
     console.log('  receivedAmount:', processedInvoice.receivedAmount);
+    console.log('  receivedArrearAmount:', processedInvoice.receivedArrearAmount);
+    console.log('  totalReceivedAmount:', processedInvoice.totalReceivedAmount);
     console.log('  balanceAmount:', processedInvoice.balanceAmount);
     console.log('  dueNumber:', processedInvoice.dueNumber);
 

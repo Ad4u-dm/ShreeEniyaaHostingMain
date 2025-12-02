@@ -87,7 +87,7 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
       
       {/* Total */}
       <div style={{fontSize: '11px', fontWeight: 'bold', textAlign: 'center', margin: '2px 0'}}>
-        Total Received : ₹ {(invoice.totalReceivedAmount || invoice.receivedAmount || 0).toLocaleString('en-IN')}
+        Total Received : ₹ {((invoice.receivedAmount || 0) + (invoice.receivedArrearAmount || 0)).toLocaleString('en-IN')}
       </div>
       
       <div style={{borderTop: '1px dashed #000', margin: '3px 0', width: '100%'}}></div>

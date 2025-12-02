@@ -76,7 +76,8 @@ const InvoiceSchema = new mongoose.Schema({
   memberName: String,
   paymentMonth: String, // YYYY-MM format for which month this payment is for
   dueAmount: Number,
-  arrearAmount: { type: Number, default: 0 },
+  arrAmount: { type: Number, default: 0 }, // Gross arrear from previous invoice
+  arrearAmount: { type: Number, default: 0 }, // Net arrear = arrAmount - receivedArrearAmount
   pendingAmount: { type: Number, default: 0 },
   receivedAmount: Number,
   receivedArrearAmount: { type: Number, default: 0 }, // Amount paid specifically for arrears

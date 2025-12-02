@@ -623,7 +623,7 @@ export default function InvoicesPage() {
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Invoice Number</th>
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Date</th>
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Customer</th>
-                    <th className="text-left py-3 px-4 font-medium text-slate-600">Amount</th>
+                    <th className="text-left py-3 px-4 font-medium text-slate-600">Total Received Amount</th>
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Issued By</th>
                     <th className="text-left py-3 px-4 font-medium text-slate-600">Actions</th>
                   </tr>

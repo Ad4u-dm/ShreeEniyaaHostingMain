@@ -55,7 +55,8 @@ interface InvoiceForm {
     dueNo: string; // READ-ONLY - calculated by backend
     paymentMonth: string; // READ-ONLY - calculated by backend
     dueAmount: number; // READ-ONLY - calculated by backend
-    arrearAmount: number; // READ-ONLY - calculated by backend
+    arrAmount: number; // Gross arrear from previous invoice
+    arrearAmount: number; // Net arrear = arrAmount - receivedArrearAmount
     pendingAmount: number; // READ-ONLY - calculated by backend
     receivedAmount: number;
     receivedArrearAmount?: number; // Amount paid specifically for arrears
@@ -358,7 +359,8 @@ export default function CreateInvoicePage() {
       dueNo: '1', // Will be calculated by backend
       paymentMonth: new Date().toISOString().slice(0, 7), // Will be calculated by backend
       dueAmount: 0, // Will be calculated by backend
-      arrearAmount: 0, // Will be calculated by backend
+      arrAmount: 0, // Gross arrear from previous invoice
+      arrearAmount: 0, // Net arrear = arrAmount - receivedArrearAmount
       pendingAmount: 0, // Will be calculated by backend
       receivedAmount: 0,
       receivedArrearAmount: 0, // Amount paid for arrears
@@ -957,38 +959,40 @@ export default function CreateInvoicePage() {
         const data = await response.json();
         if (data.success && data.invoices && data.invoices.length > 0) {
           const latestInvoice = data.invoices[0];
-          const invoiceArrearAmount = latestInvoice.arrearAmount || 0;
-          const invoiceReceivedArrearAmount = latestInvoice.receivedArrearAmount || 0;
+          const grossArrearAmount = latestInvoice.arrearAmount || 0; // Fetch gross arrear
           
-          // Calculate actual pending arrear: Arrear - ReceivedArrear
-          const previousArrear = invoiceArrearAmount - invoiceReceivedArrearAmount;
-          
-          console.log('📊 Fetched Previous Invoice Arrear:', {
-            invoiceArrearAmount,
-            invoiceReceivedArrearAmount,
-            calculatedPreviousArrear: previousArrear
+          console.log('📊 Fetched Previous Invoice Arr Amount (Gross):', {
+            grossArrearAmount,
+            fromInvoice: latestInvoice.invoiceNumber || latestInvoice.receiptNo || 'N/A'
           });
           
-          // Step 3: Set editing mode and update the arrear amount with the previous invoice's arrear
+          // Step 3: Set editing mode and update the arrAmount with gross arrear from previous invoice
           setIsEditingArrear(true);
           setManualArrearConfirmed(true);
           
           setFormData(prev => {
             const dueAmount = prev.receiptDetails.dueAmount || 0;
             const receivedAmount = prev.receiptDetails.receivedAmount || 0;
-            const newBalance = (dueAmount + previousArrear) - receivedAmount;
+            const receivedArrearAmount = prev.receiptDetails.receivedArrearAmount || 0;
+            
+            // Calculate net arrear: Arr Amount - Received Arrear Amount
+            const netArrear = grossArrearAmount - receivedArrearAmount;
+            
+            // Calculate balance: Due + Net Arrear - Received
+            const newBalance = (dueAmount + netArrear) - receivedAmount;
             
             return {
               ...prev,
               receiptDetails: {
                 ...prev.receiptDetails,
-                arrearAmount: previousArrear,
+                arrAmount: grossArrearAmount, // Store gross arrear
+                arrearAmount: netArrear, // Calculate and store net arrear
                 balanceAmount: newBalance
               }
             };
           });
           
-          alert(`Previous invoice arrear fetched successfully: ₹${previousArrear.toLocaleString('en-IN')}\n\nFrom Invoice: ${latestInvoice.invoiceNumber || latestInvoice.receiptNo || 'N/A'}`);
+          alert(`Previous invoice arr amount fetched successfully: ₹${grossArrearAmount.toLocaleString('en-IN')}\n\nFrom Invoice: ${latestInvoice.invoiceNumber || latestInvoice.receiptNo || 'N/A'}`);
         } else {
           alert('No previous invoice found for this customer and plan.');
         }
@@ -1117,31 +1121,34 @@ export default function CreateInvoicePage() {
       }
 
       // Get the received amount (prioritize form receivedAmount, then receiptDetails, then plan amount)
-      const receivedAmount = formData.receivedAmount || formData.receiptDetails?.receivedAmount || selectedPlan.monthlyAmount || 0;
+      const receivedAmount = formData.receivedAmount || formData.receiptDetails?.receivedAmount || 0;
+      const receivedArrearAmount = formData.receiptDetails?.receivedArrearAmount || 0;
       
-      console.log('Debugging amounts:', {
+      console.log('📊 Debugging amounts before sending:', {
         'formData.receivedAmount': formData.receivedAmount,
         'formData.receiptDetails?.receivedAmount': formData.receiptDetails?.receivedAmount,
-        'selectedPlan.monthlyAmount': selectedPlan.monthlyAmount,
-        'final receivedAmount': receivedAmount
+        'formData.receiptDetails?.receivedArrearAmount': formData.receiptDetails?.receivedArrearAmount,
+        'final receivedAmount': receivedAmount,
+        'final receivedArrearAmount': receivedArrearAmount,
+        'FULL formData': formData
       });
 
-      if (receivedAmount <= 0) {
-        alert('Please enter a valid received amount greater than 0');
-        setLoading(false);
-        return;
-      }
+      // Allow receivedAmount to be 0 (customer may not have paid anything)
+      // No validation needed - 0 is a valid value
+      
+      // Calculate total received (due payment + arrear payment)
+      const totalReceived = receivedAmount + receivedArrearAmount;
       
       // Create a single item for the payment
       const paymentItem = {
         description: formData.description || `Payment for ${selectedPlan.planName}`,
         quantity: 1,
-        rate: receivedAmount,
-        amount: receivedAmount
+        rate: totalReceived,
+        amount: totalReceived
       };
 
-      const total = receivedAmount;
-      const subtotal = receivedAmount;
+      const total = totalReceived;
+      const subtotal = totalReceived;
 
       console.log('Payment details:', { receivedAmount, total, paymentItem });
 
@@ -1156,16 +1163,19 @@ export default function CreateInvoicePage() {
         // Invoice date for dueNumber calculation (defaults to now if not provided)
         invoiceDate: new Date().toISOString(),
 
-        // Received amount (what customer paid)
-        receivedAmount: total,
+        // Received amount (what customer paid for DUE only, not arrear)
+        receivedAmount: receivedAmount,
         
         // Received arrear amount (what customer paid for arrears)
-        receivedArrearAmount: formData.receiptDetails.receivedArrearAmount || 0,
+        receivedArrearAmount: receivedArrearAmount,
 
         // Manual balance amount (if user edited it, send it to backend)
         manualBalanceAmount: formData.receiptDetails.balanceAmount,
         
-        // Manual arrear amount (if user edited it, send it to backend)
+        // Gross arrear amount (arrAmount from previous invoice)
+        arrAmount: formData.receiptDetails.arrAmount || 0,
+        
+        // Manual arrear amount (if user edited it, send it to backend - this is net arrear)
         manualArrearAmount: isEditingArrear ? formData.receiptDetails.arrearAmount : undefined,
 
         // Customer details snapshot
@@ -1625,7 +1635,7 @@ export default function CreateInvoicePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Received Amount (Today)
+                    Received Due Amount
                   </label>
                   <Input
                     type="number"
@@ -1634,8 +1644,11 @@ export default function CreateInvoicePage() {
                       const amount = parseFloat(e.target.value) || 0;
                       await handleReceivedAmountChange(amount);
                     }}
-                    placeholder="Enter received amount"
+                    placeholder="Amount for monthly due"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Amount paid for monthly due
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -1647,9 +1660,12 @@ export default function CreateInvoicePage() {
                     onChange={(e) => {
                       const receivedArrearAmount = parseFloat(e.target.value) || 0;
                       
+                      // Recalculate net arrear: Arr Amount - Received Arrear Amount
+                      const arrAmount = formData.receiptDetails.arrAmount || 0;
+                      const netArrear = arrAmount - receivedArrearAmount;
+                      
                       // Recalculate balance when received arrear amount changes
                       const dueAmount = formData.receiptDetails.dueAmount || 0;
-                      const arrearAmount = formData.receiptDetails.arrearAmount || 0;
                       const receivedAmount = formData.receiptDetails.receivedAmount || 0;
                       
                       // Get previous balance from the form or assume 0
@@ -1657,14 +1673,11 @@ export default function CreateInvoicePage() {
                       let newBalance;
                       
                       if (currentDay === 21) {
-                        // On 21st: Balance = (DueAmount + ArrearAmount) - ReceivedAmount
-                        newBalance = (dueAmount + arrearAmount) - receivedAmount;
+                        // On 21st: Balance = (DueAmount + NetArrear) - ReceivedAmount
+                        newBalance = (dueAmount + netArrear) - receivedAmount;
                       } else {
-                        // On other days: Balance = PreviousBalance - ReceivedAmount + ArrearAmount - ReceivedArrearAmount
-                        // For now, calculate based on current balance + arrear change
-                        const currentBalance = formData.receiptDetails.balanceAmount || 0;
-                        const currentReceivedArrear = formData.receiptDetails.receivedArrearAmount || 0;
-                        newBalance = currentBalance + currentReceivedArrear - receivedArrearAmount;
+                        // On other days: Balance = DueAmount + NetArrear - ReceivedAmount
+                        newBalance = dueAmount + netArrear - receivedAmount;
                       }
                       
                       setFormData({
@@ -1672,6 +1685,7 @@ export default function CreateInvoicePage() {
                         receiptDetails: { 
                           ...formData.receiptDetails, 
                           receivedArrearAmount: receivedArrearAmount,
+                          arrearAmount: netArrear, // Update net arrear
                           balanceAmount: newBalance
                         }
                       });
@@ -1680,9 +1694,13 @@ export default function CreateInvoicePage() {
                     disabled={!formData.receiptDetails.arrearAmount || formData.receiptDetails.arrearAmount === 0}
                     className={(!formData.receiptDetails.arrearAmount || formData.receiptDetails.arrearAmount === 0) ? 'bg-gray-100 cursor-not-allowed' : ''}
                   />
-                  {(!formData.receiptDetails.arrearAmount || formData.receiptDetails.arrearAmount === 0) && (
+                  {(!formData.receiptDetails.arrearAmount || formData.receiptDetails.arrearAmount === 0) ? (
                     <p className="text-xs text-gray-500 mt-1">
                       No arrear amount - this field is disabled
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Amount paid for arrears
                     </p>
                   )}
                 </div>
@@ -1856,7 +1874,7 @@ export default function CreateInvoicePage() {
                 </div>
                 <div style={{fontSize: '9px', margin: '2px 0', display: 'flex', justifyContent: 'space-between'}}>
                   <span>Received Amount:</span>
-                  <span>{formData.receiptDetails.receivedAmount.toLocaleString('en-IN')}</span>
+                  <span>{((formData.receiptDetails.receivedAmount || 0) + (formData.receiptDetails.receivedArrearAmount || 0)).toLocaleString('en-IN')}</span>
                 </div>
                 <div style={{fontSize: '9px', margin: '2px 0', display: 'flex', justifyContent: 'space-between'}}>
                   <span>Balance Amount:</span>
@@ -1866,7 +1884,7 @@ export default function CreateInvoicePage() {
                 <div style={{borderTop: '1px dashed #000', margin: '3px 0'}}></div>
                 <div style={{fontSize: '9px', margin: '2px 0', display: 'flex', justifyContent: 'space-between'}}>
                   <span>Total Received Amount:</span>
-                  <span>{formData.receiptDetails.receivedAmount.toLocaleString('en-IN')}</span>
+                  <span>{((formData.receiptDetails.receivedAmount || 0) + (formData.receiptDetails.receivedArrearAmount || 0)).toLocaleString('en-IN')}</span>
                 </div>
                 <div style={{fontSize: '9px', margin: '2px 0', textAlign: 'left'}}>
                   By: {formData.receiptDetails.issuedBy}
@@ -1956,8 +1974,8 @@ export default function CreateInvoicePage() {
                 <span className="text-gray-900">₹{(createdInvoice.arrearAmount || 0).toLocaleString('en-IN')}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="font-medium text-gray-700">Received Amount:</span>
-                <span className="text-green-600 font-semibold">₹{(createdInvoice.receivedAmount || 0).toLocaleString('en-IN')}</span>
+                <span className="font-medium text-gray-700">Total Received Amount:</span>
+                <span className="text-green-600 font-semibold">₹{((createdInvoice.receivedAmount || 0) + (createdInvoice.receivedArrearAmount || 0)).toLocaleString('en-IN')}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="font-medium text-gray-700">Balance Amount:</span>
