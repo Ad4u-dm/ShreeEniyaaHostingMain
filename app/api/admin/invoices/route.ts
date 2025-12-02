@@ -21,12 +21,34 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch invoices without populating customerId
-    const invoices = await Invoice.find({})
+    // Get query parameters for filtering
+    const { searchParams } = new URL(request.url);
+    const customerId = searchParams.get('customerId');
+    const planId = searchParams.get('planId');
+    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined;
+    const sortBy = searchParams.get('sortBy') || 'createdAt';
+    const sortOrder = searchParams.get('sortOrder') === 'asc' ? 1 : -1;
+
+    // Build query filter
+    const filter: any = {};
+    if (customerId) {
+      filter.customerId = customerId;
+    }
+    if (planId) {
+      filter.planId = planId;
+    }
+
+    // Fetch invoices with optional filtering
+    let query = Invoice.find(filter)
       .populate('planId', 'planName totalAmount monthlyAmount duration')
       .populate('enrollmentId', 'enrollmentId memberNumber status')
-      .sort({ createdAt: -1 })
-      .lean();
+      .sort({ [sortBy]: sortOrder });
+    
+    if (limit) {
+      query = query.limit(limit);
+    }
+    
+    const invoices = await query.lean();
 
     // Manually fetch user details for each invoice
     const processedInvoices = await Promise.all(invoices.map(async invoice => {
@@ -76,6 +98,13 @@ export async function GET(request: NextRequest) {
         paymentTerms: invoice.paymentTerms || '30 days',
         notes: invoice.notes || 'Thank you for your business!',
         template: invoice.template || 1,
+        // Include all invoice calculation fields
+        arrearAmount: invoice.arrearAmount || 0,
+        balanceAmount: invoice.balanceAmount || 0,
+        dueAmount: invoice.dueAmount || 0,
+        receivedAmount: invoice.receivedAmount || 0,
+        pendingAmount: invoice.pendingAmount || 0,
+        totalAmount: invoice.totalAmount || 0,
         createdAt: invoice.createdAt,
         updatedAt: invoice.updatedAt
       };

@@ -927,7 +927,7 @@ export default function CreateInvoicePage() {
 
       // Step 2: Fetch the latest invoice to get the arrear
       const response = await fetch(
-        `/api/invoices?customerId=${customerIdToSend}&planId=${formData.planId}&limit=1`,
+        `/api/admin/invoices?customerId=${customerIdToSend}&planId=${formData.planId}&limit=1&sortBy=createdAt&sortOrder=desc`,
         {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
@@ -941,18 +941,24 @@ export default function CreateInvoicePage() {
           const latestInvoice = data.invoices[0];
           const previousArrear = latestInvoice.arrearAmount || 0;
           
-          // Step 3: Update the arrear amount with the previous invoice's arrear
-          setFormData(prev => ({
-            ...prev,
-            receiptDetails: {
-              ...prev.receiptDetails,
-              arrearAmount: previousArrear
-            }
-          }));
+          // Step 3: Set editing mode and update the arrear amount with the previous invoice's arrear
+          setIsEditingArrear(true);
+          setManualArrearConfirmed(true);
           
-          // Step 4: Refresh preview to recalculate with the new arrear
-          await new Promise(resolve => setTimeout(resolve, 300));
-          await fetchInvoicePreview();
+          setFormData(prev => {
+            const dueAmount = prev.receiptDetails.dueAmount || 0;
+            const receivedAmount = prev.receiptDetails.receivedAmount || 0;
+            const newBalance = (dueAmount + previousArrear) - receivedAmount;
+            
+            return {
+              ...prev,
+              receiptDetails: {
+                ...prev.receiptDetails,
+                arrearAmount: previousArrear,
+                balanceAmount: newBalance
+              }
+            };
+          });
           
           alert(`Previous invoice arrear fetched successfully: ₹${previousArrear.toLocaleString('en-IN')}\n\nFrom Invoice: ${latestInvoice.invoiceNumber || latestInvoice.receiptNo || 'N/A'}`);
         } else {
