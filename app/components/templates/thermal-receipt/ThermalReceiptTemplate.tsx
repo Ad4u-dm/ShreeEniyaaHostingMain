@@ -78,7 +78,7 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
         <div style={{margin: '1px 0'}}>Group Name     : {invoice.planId?.name || invoice.planDetails?.planName || invoice.planId?.planName || invoice.planName || 'N/A'}</div>
         <div style={{margin: '1px 0'}}>Due No         : {invoice.dueNumber || '1'}</div>
         <div style={{margin: '1px 0'}}>Due Amount     : ₹ {(invoice.dueAmount || 0).toLocaleString('en-IN')}</div>
-        <div style={{margin: '1px 0'}}>Arrear Amount  : ₹ {(invoice.arrearAmount || 0).toLocaleString('en-IN')}</div>
+        <div style={{margin: '1px 0'}}>Arrear Amount  : ₹ {(invoice.balanceArrear || invoice.arrearAmount || 0).toLocaleString('en-IN')}</div>
         <div style={{margin: '1px 0'}}>Received Amount: ₹ {((invoice.receivedAmount || 0) + (invoice.receivedArrearAmount || 0)).toLocaleString('en-IN')}</div>
         <div style={{margin: '1px 0'}}>Balance Amount : ₹ {(invoice.balanceAmount || 0).toLocaleString('en-IN')}</div>
       </div>

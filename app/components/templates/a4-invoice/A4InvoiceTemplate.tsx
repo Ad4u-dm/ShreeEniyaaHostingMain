@@ -53,7 +53,7 @@ export function A4InvoiceTemplate({ invoice }: A4InvoiceTemplateProps) {
           <div style={{margin: '4px 0'}}>Group Name     : <b>{invoice.planId?.name || invoice.planDetails?.planName || invoice.planId?.planName || invoice.planName || 'N/A'}</b></div>
           <div style={{margin: '4px 0'}}>Due No         : <b>{invoice.dueNumber || '1'}</b></div>
           <div style={{margin: '4px 0'}}>Due Amount     : <b>₹ {(invoice.dueAmount || 0).toLocaleString('en-IN')}</b></div>
-          <div style={{margin: '4px 0'}}>Arrear Amount  : <b>₹ {(invoice.arrearAmount || 0).toLocaleString('en-IN')}</b></div>
+          <div style={{margin: '4px 0'}}>Arrear Amount  : <b>₹ {(invoice.balanceArrear || invoice.arrearAmount || 0).toLocaleString('en-IN')}</b></div>
           <div style={{margin: '4px 0'}}>Received Amount: <b>₹ {(invoice.receivedAmount || 0).toLocaleString('en-IN')}</b></div>
           <div style={{margin: '4px 0'}}>Balance Amount : <b>₹ {(invoice.balanceAmount || 0).toLocaleString('en-IN')}</b></div>
         </div>

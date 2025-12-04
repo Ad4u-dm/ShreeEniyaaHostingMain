@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
 
     // Calculate amounts from invoice snapshot fields (with safety checks)
     const dueAmount = Number(invoiceData.dueAmount || invoiceData.planId?.monthlyAmount || 0);
-    const arrearAmount = Number(invoiceData.arrearAmount || 0);
+    const arrearAmount = Number(invoiceData.balanceArrear || invoiceData.arrearAmount || 0);
     const pendingAmount = Number(invoiceData.pendingAmount || dueAmount);
     const receivedAmount = Number(invoiceData.paidAmount || invoiceData.total || 0);
     const balanceAmount = Number(invoiceData.balanceAmount || (pendingAmount - receivedAmount));

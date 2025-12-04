@@ -218,6 +218,9 @@ export async function calculateArrearAmount(
     });
   }
 
+  // Ensure arrear amount is never negative
+  arrearAmount = Math.max(0, arrearAmount);
+
   return arrearAmount;
 }
 
@@ -266,6 +269,9 @@ export function calculateBalanceAmount(
       formula: 'previousBalance - receivedAmount + arrearAmount - receivedArrearAmount'
     });
   }
+
+  // Ensure balance amount is never negative
+  balanceAmount = Math.max(0, balanceAmount);
 
   return balanceAmount;
 }
