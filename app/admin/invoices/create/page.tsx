@@ -2096,7 +2096,7 @@ export default function CreateInvoicePage() {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="font-medium text-gray-700">Arrear Amount:</span>
-                <span className="text-gray-900">₹{formatNumberStable(createdInvoice.arrearAmount || 0)}</span>
+                <span className="text-gray-900">₹{formatNumberStable(createdInvoice.balanceArrear || 0)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="font-medium text-gray-700">Total Received Amount:</span>

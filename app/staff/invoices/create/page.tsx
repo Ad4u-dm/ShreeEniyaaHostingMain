@@ -55,9 +55,12 @@ interface InvoiceForm {
     dueNo: string; // READ-ONLY - calculated by backend
     paymentMonth: string; // READ-ONLY - calculated by backend
     dueAmount: number; // READ-ONLY - calculated by backend
-    arrearAmount: number; // READ-ONLY - calculated by backend
+    arrAmount: number; // Gross arrear from previous invoice
+    arrearAmount: number; // Arrear Amount (Last Month Pending) - Auto-calculated, no subtraction
+    balanceArrear: number; // Balance Arrear = arrearAmount - receivedArrearAmount
     pendingAmount: number; // READ-ONLY - calculated by backend
     receivedAmount: number;
+    receivedArrearAmount?: number; // Amount paid specifically for arrears
     balanceAmount: number; // READ-ONLY - calculated by backend
     issuedBy: string;
   };
@@ -362,9 +365,12 @@ export default function CreateInvoicePage() {
       dueNo: '1', // Will be calculated by backend
       paymentMonth: new Date().toISOString().slice(0, 7), // Will be calculated by backend
       dueAmount: 0, // Will be calculated by backend
-      arrearAmount: 0, // Will be calculated by backend
+      arrAmount: 0, // Gross arrear from previous invoice
+      arrearAmount: 0, // Arrear Amount (Last Month Pending) - Auto-calculated
+      balanceArrear: 0, // Balance Arrear = arrearAmount - receivedArrearAmount
       pendingAmount: 0, // Will be calculated by backend
       receivedAmount: 0,
+      receivedArrearAmount: 0, // Amount paid for arrears
       balanceAmount: 0, // Will be calculated by backend
       issuedBy: 'ADMIN'
     }
@@ -1511,7 +1517,7 @@ export default function CreateInvoicePage() {
                 </div>
                 <div style={{fontSize: '9px', margin: '2px 0', display: 'flex', justifyContent: 'space-between'}}>
                   <span>Arrear Amount:</span>
-                  <span>{formData.receiptDetails.arrearAmount.toLocaleString('en-IN')}</span>
+                  <span>{(formData.receiptDetails.balanceArrear || formData.receiptDetails.arrearAmount || 0).toLocaleString('en-IN')}</span>
                 </div>
                 <div style={{fontSize: '9px', margin: '2px 0', display: 'flex', justifyContent: 'space-between'}}>
                   <span>Received Amount:</span>
@@ -1613,7 +1619,7 @@ export default function CreateInvoicePage() {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="font-medium text-gray-700">Arrear Amount:</span>
-                <span className="text-gray-900">₹{formatIndianNumber(createdInvoice.arrearAmount ?? 0)}</span>
+                <span className="text-gray-900">₹{formatIndianNumber(createdInvoice.balanceArrear ?? 0)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="font-medium text-gray-700">Received Amount:</span>
