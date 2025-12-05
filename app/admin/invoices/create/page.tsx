@@ -86,6 +86,8 @@ export default function CreateInvoicePage() {
   const [isEditingArrear, setIsEditingArrear] = useState(false);
   const [manualArrearConfirmed, setManualArrearConfirmed] = useState(false);
   const [fetchingArrear, setFetchingArrear] = useState(false);
+  const [isEditingReceivedAmount, setIsEditingReceivedAmount] = useState(false);
+  const [tempReceivedAmount, setTempReceivedAmount] = useState<number>(0);
 
   // Debounce hook to prevent flickering during rapid updates
   const useDebounce = (value: any, delay: number) => {
@@ -1686,19 +1688,68 @@ export default function CreateInvoicePage() {
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     Received Due Amount
                   </label>
-                  <Input
-                    type="number"
-                    value={formData.receiptDetails.receivedAmount}
-                    onChange={async (e) => {
-                      const amount = Math.max(0, parseFloat(e.target.value) || 0);
-                      await handleReceivedAmountChange(amount);
-                    }}
-                    min="0"
-                    step="0.01"
-                    placeholder="Amount for monthly due"
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      value={isEditingReceivedAmount ? tempReceivedAmount : formData.receiptDetails.receivedAmount}
+                      onChange={(e) => {
+                        if (isEditingReceivedAmount) {
+                          const amount = Math.max(0, parseFloat(e.target.value) || 0);
+                          setTempReceivedAmount(amount);
+                        }
+                      }}
+                      disabled={!isEditingReceivedAmount}
+                      min="0"
+                      step="0.01"
+                      placeholder="Amount for monthly due"
+                      className={!isEditingReceivedAmount ? 'bg-gray-50' : ''}
+                    />
+                    {!isEditingReceivedAmount ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setTempReceivedAmount(formData.receiptDetails.receivedAmount);
+                          setIsEditingReceivedAmount(true);
+                        }}
+                        className="flex-shrink-0"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    ) : (
+                      <>
+                        <Button
+                          type="button"
+                          variant="default"
+                          size="sm"
+                          onClick={async () => {
+                            await handleReceivedAmountChange(tempReceivedAmount);
+                            setIsEditingReceivedAmount(false);
+                          }}
+                          className="flex-shrink-0 bg-green-600 hover:bg-green-700"
+                        >
+                          <Save className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setTempReceivedAmount(formData.receiptDetails.receivedAmount);
+                            setIsEditingReceivedAmount(false);
+                          }}
+                          className="flex-shrink-0"
+                        >
+                          <XCircle className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    Amount paid for monthly due
+                    {isEditingReceivedAmount
+                      ? '⚠️ Click Save to apply changes or Cancel to discard'
+                      : 'Amount paid for monthly due - Click Edit to change'}
                   </p>
                 </div>
                 <div>
