@@ -316,11 +316,13 @@ export default function CreateInvoicePage() {
         pendingAmount = previousBalance;
         balanceAmount = previousBalance; // Full previous balance when received = 0
       }
+      // NOTE: We no longer set dueAmount here because fetchInvoicePreview handles it
+      // This prevents conflicts between local calculation and backend preview API
       setFormData(prev => ({
         ...prev,
         receiptDetails: {
           ...prev.receiptDetails,
-          dueAmount: paymentDetails.currentDueAmount,
+          // dueAmount is set by fetchInvoicePreview, not here
           arrearAmount: arrearAmount,
           balanceAmount: balanceAmount,
           receivedAmount: receivedAmount,
@@ -450,11 +452,13 @@ export default function CreateInvoicePage() {
 
   // Auto-fetch invoice preview when customer, plan, or received amount changes
   useEffect(() => {
-    if (formData.customerId && formData.planId) {
+    // Wait for enrollments to be loaded before fetching preview to ensure accurate calculations
+    if (formData.customerId && formData.planId && enrollmentsLoaded) {
+      console.log('🎯 Fetching invoice preview after enrollments loaded');
       fetchInvoicePreview();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.customerId, formData.planId, formData.receivedAmount, formData.receiptDetails?.receivedAmount]);
+  }, [formData.customerId, formData.planId, formData.receivedAmount, formData.receiptDetails?.receivedAmount, enrollmentsLoaded]);
 
   // Helper function to check if customer is enrolled in a specific plan
   const isCustomerEnrolled = (customerId: string, planId?: string) => {
@@ -500,20 +504,14 @@ export default function CreateInvoicePage() {
 
       const matches = userMatch && statusMatch && planMatch;
 
-      console.log('Enrollment check:', {
-        matches,
-        userMatch,
-        statusMatch,
-        planMatch,
-        enrollmentUserId,
-        hasUserIdString: !!enrollment.userIdString,
-        enrollmentUserIdType: typeof enrollment.userId,
-        selectedCustomerUserId: selectedCustomer.userId,
-        selectedCustomerId: selectedCustomer._id,
-        enrollmentPlanId: typeof enrollment.planId === 'object' ? enrollment.planId?._id : enrollment.planId,
-        formPlanId: planId,
-        enrollmentStatus: enrollment.status
-      });
+      // Only log if there's a match to reduce console noise
+      if (matches) {
+        console.log('✅ Enrollment match found:', {
+          enrollmentUserId,
+          selectedCustomerUserId: selectedCustomer.userId,
+          planId
+        });
+      }
 
       return matches;
     });
@@ -553,15 +551,43 @@ export default function CreateInvoicePage() {
 
   // Auto-calculate daily amounts when customer and plan are both selected
   useEffect(() => {
-    const planIdStr = typeof formData.planId === 'string' ? formData.planId : 
+    const planIdStr = typeof formData.planId === 'string' ? formData.planId :
                      (formData.planId as any)?._id || String(formData.planId);
-    
-    // IMPORTANT: Wait for enrollments to be loaded before calculating
-    if (formData.customerId && planIdStr && plans.length > 0 && enrollmentsLoaded && !isEditingArrear) {
-      console.log('Auto-calculating amounts for customer:', formData.customerId, 'plan:', planIdStr);
+
+    console.log('🔄 Auto-calc useEffect triggered', {
+      customerId: formData.customerId,
+      planIdStr,
+      plansLength: plans.length,
+      enrollmentsLoaded,
+      isEditingArrear
+    });
+
+    // Find the selected plan and verify it has monthlyData
+    const selectedPlan = plans.find(p => p._id === planIdStr);
+    const hasPlanData = selectedPlan && selectedPlan.monthlyData && selectedPlan.monthlyData.length > 0;
+
+    console.log('🔍 Plan data check:', {
+      selectedPlan: !!selectedPlan,
+      hasMonthlyData: !!selectedPlan?.monthlyData,
+      monthlyDataLength: selectedPlan?.monthlyData?.length || 0,
+      hasPlanData
+    });
+
+    // IMPORTANT: Wait for enrollments to be loaded AND plan data with monthlyData before calculating
+    if (formData.customerId && planIdStr && hasPlanData && enrollmentsLoaded && !isEditingArrear) {
+      console.log('✅ Auto-calculating amounts for customer:', formData.customerId, 'plan:', planIdStr);
       calculateChitFundAmounts(formData.receiptDetails.paymentMonth || new Date().toISOString().slice(0, 7));
+    } else {
+      console.log('❌ Skipping auto-calculation. Conditions:', {
+        hasCustomer: !!formData.customerId,
+        hasPlan: !!planIdStr,
+        hasPlanData,
+        enrollmentsLoaded,
+        isEditingArrear,
+        plansLength: plans.length
+      });
     }
-  }, [formData.customerId, typeof formData.planId === 'string' ? formData.planId : (formData.planId as any)?._id, plans.length, enrollmentsLoaded, isEditingArrear]);
+  }, [formData.customerId, typeof formData.planId === 'string' ? formData.planId : (formData.planId as any)?._id, plans, enrollmentsLoaded, isEditingArrear]);
 
   // Debug form state changes for receivedAmount
   useEffect(() => {
@@ -571,6 +597,14 @@ export default function CreateInvoicePage() {
       timestamp: new Date().toISOString()
     });
   }, [formData.receivedAmount, formData.receiptDetails.receivedAmount]);
+
+  // Debug: Log when dueAmount changes in the form state
+  useEffect(() => {
+    console.log('📊 Due Amount in form state changed:', {
+      dueAmount: formData.receiptDetails.dueAmount,
+      timestamp: new Date().toISOString()
+    });
+  }, [formData.receiptDetails.dueAmount]);
 
   const generateNextReceiptNumber = async () => {
     try {
@@ -887,23 +921,41 @@ export default function CreateInvoicePage() {
 
       if (previewRes.ok) {
         const previewData = await previewRes.json();
-        
+
         if (previewData.success && previewData.preview) {
           const { dueNumber, dueAmount, arrearAmount, balanceAmount } = previewData.preview;
-          
+
+          console.log('💰 Preview API response:', {
+            dueNumber,
+            dueAmount,
+            arrearAmount,
+            balanceAmount,
+            isEditingArrear
+          });
+
           // Update form with backend-calculated values
           // BUT preserve manual arrear if user is editing it
-          setFormData(prev => ({
-            ...prev,
-            receiptDetails: {
-              ...prev.receiptDetails,
-              dueNo: dueNumber.toString(),
-              dueAmount: dueAmount,
-              arrearAmount: isEditingArrear ? prev.receiptDetails.arrearAmount : arrearAmount,
-              receivedAmount: receivedAmount,
-              balanceAmount: balanceAmount
-            }
-          }));
+          setFormData(prev => {
+            const newFormData = {
+              ...prev,
+              receiptDetails: {
+                ...prev.receiptDetails,
+                dueNo: dueNumber.toString(),
+                dueAmount: dueAmount,
+                arrearAmount: isEditingArrear ? prev.receiptDetails.arrearAmount : arrearAmount,
+                receivedAmount: receivedAmount,
+                balanceAmount: balanceAmount
+              }
+            };
+
+            console.log('✅ Form state updated:', {
+              oldDueAmount: prev.receiptDetails.dueAmount,
+              newDueAmount: dueAmount,
+              newState: newFormData.receiptDetails
+            });
+
+            return newFormData;
+          });
         }
       }
     } catch (error) {
