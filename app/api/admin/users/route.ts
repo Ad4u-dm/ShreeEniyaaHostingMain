@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     const [users, total] = await Promise.all([
       User.find(query)
         .select('name email phone address role createdAt updatedAt createdBy userId dateOfBirth weddingDate')
-        .sort({ createdAt: -1 })
+        .sort({ createdAt: 1 })
         .limit(limit)
         .skip((page - 1) * limit)
         .lean(),

@@ -55,8 +55,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Collect all planIds and staffIds
-    const planIds = [...new Set(invoices.map((inv: any) => inv.planId?.toString()))];
-    const staffIds = [...new Set(invoices.map((inv: any) => inv.createdBy))];
+    const planIds = Array.from(new Set(invoices.map((inv: any) => inv.planId?.toString())));
+    const staffIds = Array.from(new Set(invoices.map((inv: any) => inv.createdBy)));
 
     // Fetch plan and staff details
     const plans = await ChitPlan.find({ _id: { $in: planIds } }).select('_id planName').lean();
@@ -152,7 +152,7 @@ export async function GET(request: NextRequest) {
     let grandTotalPending = 0;
 
     // Iterate through each plan's invoices
-    for (const [planId, planInvoices] of invoicesByPlan) {
+    for (const [planId, planInvoices] of Array.from(invoicesByPlan.entries())) {
       // Check if we need a new page for plan header
       if (y > pageHeight - 50) {
         doc.addPage();

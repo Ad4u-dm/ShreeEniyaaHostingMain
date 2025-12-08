@@ -41,9 +41,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Collect all userIds, planIds, and staffIds
-    const userIds = [...new Set(invoices.map((inv: any) => inv.customerId))];
-    const planIds = [...new Set(invoices.map((inv: any) => inv.planId))];
-    const staffIds = [...new Set(invoices.map((inv: any) => inv.createdBy))];
+    const userIds = Array.from(new Set(invoices.map((inv: any) => inv.customerId)));
+    const planIds = Array.from(new Set(invoices.map((inv: any) => inv.planId)));
+    const staffIds = Array.from(new Set(invoices.map((inv: any) => inv.createdBy)));
 
     // Fetch user, plan, and staff details
     const users = await User.find({ userId: { $in: userIds } }).select('userId name').lean();
