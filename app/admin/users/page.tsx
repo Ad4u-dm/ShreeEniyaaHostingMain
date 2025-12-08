@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Users, Search, Filter, UserCheck, UserX, Mail, Phone, Calendar, Eye, AlertTriangle, RefreshCw, Edit2, Plus, Trash2, UserPlus } from 'lucide-react';
+import { ArrowLeft, Users, Search, Filter, UserCheck, UserX, Mail, Phone, Calendar, Eye, AlertTriangle, RefreshCw, Edit2, Plus, Trash2, UserPlus, FileText, Download, Loader2, X } from 'lucide-react';
 import { formatIndianNumber } from '@/lib/helpers';
 import { fetchWithCache } from '@/lib/fetchWithCache';
 import { OfflineDB } from '@/lib/offlineDb';
@@ -117,6 +117,19 @@ export default function UsersPage() {
   });
   const [isEditingMemberNumber, setIsEditingMemberNumber] = useState(false);
   const [newMemberNumber, setNewMemberNumber] = useState('');
+
+  // Report-related state
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportType, setReportType] = useState<'all-users' | 'single-user'>('all-users');
+  const [selectedReportUser, setSelectedReportUser] = useState<string>('');
+  const [reportTimeFilter, setReportTimeFilter] = useState<'all-time' | 'specific-date' | 'date-range'>('all-time');
+  const [reportSpecificDate, setReportSpecificDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [reportStartDate, setReportStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [reportEndDate, setReportEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [userEnrolledPlans, setUserEnrolledPlans] = useState<Plan[]>([]);
+  const [selectedPlans, setSelectedPlans] = useState<Set<string>>(new Set());
+  const [allPlansSelected, setAllPlansSelected] = useState(true);
+  const [downloadingReport, setDownloadingReport] = useState(false);
 
   useEffect(() => {
     fetchCustomers();
@@ -569,6 +582,156 @@ export default function UsersPage() {
     }
   };
 
+  // Report-related functions
+  const fetchUserPlansForReport = async (userId: string) => {
+    try {
+      const response = await fetch(`/api/enrollments?userId=${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.enrollments) {
+          // Extract unique plans from enrollments
+          const plans = data.enrollments
+            .filter((e: any) => e.status === 'active')
+            .map((e: any) => ({
+              _id: typeof e.planId === 'object' ? e.planId._id : e.planId,
+              planName: typeof e.planId === 'object' ? e.planId.planName : 'Unknown',
+              totalAmount: typeof e.planId === 'object' ? e.planId.totalAmount : 0,
+              monthlyAmount: typeof e.planId === 'object' ? e.planId.monthlyAmount : 0,
+              duration: typeof e.planId === 'object' ? e.planId.duration : 0
+            }));
+
+          // Remove duplicates
+          const uniquePlans = Array.from(
+            new Map(plans.map((p: Plan) => [p._id, p])).values()
+          );
+
+          setUserEnrolledPlans(uniquePlans);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch user plans:', error);
+    }
+  };
+
+  const handleOpenReportModal = () => {
+    setShowReportModal(true);
+    setReportType('all-users');
+    setSelectedReportUser('');
+    setReportTimeFilter('all-time');
+    setAllPlansSelected(true);
+    setSelectedPlans(new Set());
+    setUserEnrolledPlans([]);
+  };
+
+  const handleReportUserChange = async (userId: string) => {
+    setSelectedReportUser(userId);
+    if (userId) {
+      await fetchUserPlansForReport(userId);
+    } else {
+      setUserEnrolledPlans([]);
+    }
+  };
+
+  const handlePlanSelectionToggle = (planId: string) => {
+    const newSelectedPlans = new Set(selectedPlans);
+    if (newSelectedPlans.has(planId)) {
+      newSelectedPlans.delete(planId);
+    } else {
+      newSelectedPlans.add(planId);
+    }
+    setSelectedPlans(newSelectedPlans);
+  };
+
+  const handleAllPlansToggle = () => {
+    setAllPlansSelected(!allPlansSelected);
+    if (!allPlansSelected) {
+      setSelectedPlans(new Set());
+    }
+  };
+
+  const handleDownloadReport = async () => {
+    setDownloadingReport(true);
+    try {
+      let url = '';
+
+      if (reportType === 'all-users') {
+        url = '/api/reports/user-invoices/all-users/pdf?';
+
+        if (reportTimeFilter === 'specific-date') {
+          url += `date=${reportSpecificDate}`;
+        } else if (reportTimeFilter === 'date-range') {
+          url += `startDate=${reportStartDate}&endDate=${reportEndDate}`;
+        }
+      } else {
+        // Single user report
+        if (!selectedReportUser) {
+          alert('Please select a user');
+          setDownloadingReport(false);
+          return;
+        }
+
+        url = `/api/reports/user-invoices/single-user/pdf?userId=${selectedReportUser}`;
+
+        // Add plan filter if not all plans selected
+        if (!allPlansSelected && selectedPlans.size > 0) {
+          url += `&planIds=${Array.from(selectedPlans).join(',')}`;
+        }
+
+        // Add date filter
+        if (reportTimeFilter === 'specific-date') {
+          url += `&date=${reportSpecificDate}`;
+        } else if (reportTimeFilter === 'date-range') {
+          url += `&startDate=${reportStartDate}&endDate=${reportEndDate}`;
+        }
+      }
+
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        }
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+
+        // Get filename from Content-Disposition header or use default
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = 'report.pdf';
+        if (contentDisposition) {
+          const matches = /filename="([^"]+)"/.exec(contentDisposition);
+          if (matches && matches[1]) {
+            filename = matches[1];
+          }
+        }
+
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(downloadUrl);
+        document.body.removeChild(a);
+
+        // Close modal after successful download
+        setShowReportModal(false);
+      } else {
+        const errorData = await response.json();
+        alert('Failed to download report: ' + (errorData.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error downloading report:', error);
+      alert('Failed to download report');
+    } finally {
+      setDownloadingReport(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'text-green-600 bg-green-100';
@@ -626,16 +789,27 @@ export default function UsersPage() {
             </div>
           </div>
 
-          <Button 
-            onClick={fetchCustomers} 
-            variant="outline" 
-            size="sm" 
-            className="w-fit flex items-center gap-2"
-            disabled={loading}
-          >
-            <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={handleOpenReportModal}
+              variant="default"
+              size="sm"
+              className="w-fit flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+            >
+              <FileText className="h-3 w-3 sm:h-4 sm:w-4" />
+              Reports
+            </Button>
+            <Button
+              onClick={fetchCustomers}
+              variant="outline"
+              size="sm"
+              className="w-fit flex items-center gap-2"
+              disabled={loading}
+            >
+              <RefreshCw className={`h-3 w-3 sm:h-4 sm:w-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -1231,6 +1405,228 @@ export default function UsersPage() {
                     className="flex-1"
                   >
                     Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Report Modal */}
+        {showReportModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                {/* Modal Header */}
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                    <FileText className="h-6 w-6" />
+                    User Invoice Reports
+                  </h2>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowReportModal(false)}
+                  >
+                    <X className="h-5 w-5" />
+                  </Button>
+                </div>
+
+                {/* Report Type Selection */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-slate-700 mb-3">
+                    Report Type
+                  </label>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-slate-50">
+                      <input
+                        type="radio"
+                        name="reportType"
+                        value="all-users"
+                        checked={reportType === 'all-users'}
+                        onChange={(e) => setReportType(e.target.value as 'all-users')}
+                        className="w-4 h-4"
+                      />
+                      <div>
+                        <div className="font-medium text-slate-900">All Users Report</div>
+                        <div className="text-sm text-slate-600">Generate report for all users</div>
+                      </div>
+                    </label>
+                    <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-slate-50">
+                      <input
+                        type="radio"
+                        name="reportType"
+                        value="single-user"
+                        checked={reportType === 'single-user'}
+                        onChange={(e) => setReportType(e.target.value as 'single-user')}
+                        className="w-4 h-4"
+                      />
+                      <div>
+                        <div className="font-medium text-slate-900">Single User Report</div>
+                        <div className="text-sm text-slate-600">Generate report for a specific user</div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* User Selection (for single user report) */}
+                {reportType === 'single-user' && (
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Select User
+                    </label>
+                    <select
+                      value={selectedReportUser}
+                      onChange={(e) => handleReportUserChange(e.target.value)}
+                      className="w-full p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">-- Select User --</option>
+                      {customers.map((customer) => (
+                        <option key={customer._id} value={customer.userId}>
+                          {customer.userId} - {customer.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Plan Selection (for single user report) */}
+                {reportType === 'single-user' && selectedReportUser && userEnrolledPlans.length > 0 && (
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Select Plans
+                    </label>
+                    <div className="border border-slate-300 rounded-lg p-4 space-y-2 max-h-48 overflow-y-auto">
+                      <label className="flex items-center gap-2 font-medium">
+                        <input
+                          type="checkbox"
+                          checked={allPlansSelected}
+                          onChange={handleAllPlansToggle}
+                          className="w-4 h-4"
+                        />
+                        All Plans
+                      </label>
+                      <div className="h-px bg-slate-200 my-2"></div>
+                      {userEnrolledPlans.map((plan) => (
+                        <label
+                          key={plan._id}
+                          className={`flex items-center gap-2 ${allPlansSelected ? 'opacity-50' : ''}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedPlans.has(plan._id)}
+                            onChange={() => handlePlanSelectionToggle(plan._id)}
+                            disabled={allPlansSelected}
+                            className="w-4 h-4"
+                          />
+                          {plan.planName}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Time Period Selection */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-slate-700 mb-3">
+                    Time Period
+                  </label>
+                  <div className="space-y-3">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="timeFilter"
+                        value="all-time"
+                        checked={reportTimeFilter === 'all-time'}
+                        onChange={(e) => setReportTimeFilter(e.target.value as any)}
+                        className="w-4 h-4"
+                      />
+                      All Time
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="timeFilter"
+                        value="specific-date"
+                        checked={reportTimeFilter === 'specific-date'}
+                        onChange={(e) => setReportTimeFilter(e.target.value as any)}
+                        className="w-4 h-4"
+                      />
+                      Specific Date
+                    </label>
+                    {reportTimeFilter === 'specific-date' && (
+                      <div className="ml-6">
+                        <Input
+                          type="date"
+                          value={reportSpecificDate}
+                          onChange={(e) => setReportSpecificDate(e.target.value)}
+                          max={new Date().toISOString().split('T')[0]}
+                          className="w-full"
+                        />
+                      </div>
+                    )}
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="timeFilter"
+                        value="date-range"
+                        checked={reportTimeFilter === 'date-range'}
+                        onChange={(e) => setReportTimeFilter(e.target.value as any)}
+                        className="w-4 h-4"
+                      />
+                      Date Range
+                    </label>
+                    {reportTimeFilter === 'date-range' && (
+                      <div className="ml-6 grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs text-slate-600 mb-1">From</label>
+                          <Input
+                            type="date"
+                            value={reportStartDate}
+                            onChange={(e) => setReportStartDate(e.target.value)}
+                            max={reportEndDate}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-slate-600 mb-1">To</label>
+                          <Input
+                            type="date"
+                            value={reportEndDate}
+                            onChange={(e) => setReportEndDate(e.target.value)}
+                            min={reportStartDate}
+                            max={new Date().toISOString().split('T')[0]}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3">
+                  <Button
+                    onClick={() => setShowReportModal(false)}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleDownloadReport}
+                    disabled={downloadingReport || (reportType === 'single-user' && !selectedReportUser)}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  >
+                    {downloadingReport ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Downloading...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4 mr-2" />
+                        Download PDF
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>
