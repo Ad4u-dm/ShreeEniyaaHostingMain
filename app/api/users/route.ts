@@ -88,19 +88,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user already exists (only check email if provided)
-    const existingUserQuery: any = { phone };
-    if (email) {
-      existingUserQuery.$or = [{ email }, { phone }];
-    }
-    
+    // Check if user already exists
+    // Allow same phone for different roles (e.g., staff and user can have same phone)
+    // but prevent duplicates within the same role
+    const existingUserQuery: any = {
+      phone,
+      role // Check phone uniqueness within the same role only
+    };
+
     const existingUser = await User.findOne(existingUserQuery);
 
     if (existingUser) {
       return NextResponse.json(
-        { success: false, error: 'User with this email or phone already exists' },
+        { success: false, error: `A ${role} with this phone number already exists` },
         { status: 400 }
       );
+    }
+
+    // Check email separately (email must be unique across all roles if provided)
+    if (email) {
+      const existingEmailUser = await User.findOne({ email });
+      if (existingEmailUser) {
+        return NextResponse.json(
+          { success: false, error: 'A user with this email already exists' },
+          { status: 400 }
+        );
+      }
     }
 
     // Hash password (only if provided)

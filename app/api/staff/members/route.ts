@@ -36,17 +36,28 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check if email or phone already exists
-    const existingUser = await User.findOne({
-      $or: [
-        { email: memberData.email },
-        { phone: memberData.phone }
-      ]
+    // Check if email or phone already exists for the same role (user)
+    // Allow same phone for different roles (e.g., staff and user can have same phone)
+    const existingPhoneUser = await User.findOne({
+      phone: memberData.phone,
+      role: 'user' // Only check within user role since we're creating a user
     });
 
-    if (existingUser) {
+    if (existingPhoneUser) {
       return NextResponse.json(
-        { error: 'User with this email or phone already exists' },
+        { error: 'A customer with this phone number already exists' },
+        { status: 400 }
+      );
+    }
+
+    // Check email separately (email must be unique across all roles)
+    const existingEmailUser = await User.findOne({
+      email: memberData.email
+    });
+
+    if (existingEmailUser) {
+      return NextResponse.json(
+        { error: 'A user with this email already exists' },
         { status: 400 }
       );
     }
