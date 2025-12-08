@@ -595,9 +595,9 @@ export default function UsersPage() {
         const data = await response.json();
         if (data.success && data.enrollments) {
           // Extract unique plans from enrollments
-          const plans = data.enrollments
+          const plans: Plan[] = data.enrollments
             .filter((e: any) => e.status === 'active')
-            .map((e: any) => ({
+            .map((e: any): Plan => ({
               _id: typeof e.planId === 'object' ? e.planId._id : e.planId,
               planName: typeof e.planId === 'object' ? e.planId.planName : 'Unknown',
               totalAmount: typeof e.planId === 'object' ? e.planId.totalAmount : 0,
@@ -606,7 +606,7 @@ export default function UsersPage() {
             }));
 
           // Remove duplicates
-          const uniquePlans = Array.from(
+          const uniquePlans: Plan[] = Array.from(
             new Map(plans.map((p: Plan) => [p._id, p])).values()
           );
 

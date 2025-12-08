@@ -97,6 +97,7 @@ export async function GET(request: NextRequest) {
         invoiceId: invoice.invoiceId,
         enrollmentId,
         receivedAmount: invoice.receivedAmount,
+        receivedArrearAmount: invoice.receivedArrearAmount,
         totalReceivedAmount: invoice.totalReceivedAmount,
         paidAmount: invoice.paidAmount,
         balanceAmount: invoice.balanceAmount
@@ -110,8 +111,10 @@ export async function GET(request: NextRequest) {
         });
       }
       const data = enrollmentPaymentsMap.get(enrollmentId);
-      data.totalPaid += invoice.receivedAmount || 0;
-      console.log('Updated totalPaid for enrollment:', enrollmentId, 'to:', data.totalPaid);
+      // Use totalReceivedAmount (receivedAmount + receivedArrearAmount) for accurate total paid calculation
+      const amountReceived = invoice.totalReceivedAmount || ((invoice.receivedAmount || 0) + (invoice.receivedArrearAmount || 0));
+      data.totalPaid += amountReceived;
+      console.log('Updated totalPaid for enrollment:', enrollmentId, 'to:', data.totalPaid, '(added:', amountReceived, ')');
     });
     console.log('=== END PAYMENT CALCULATION ===');
 
