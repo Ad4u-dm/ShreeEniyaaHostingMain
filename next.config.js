@@ -13,6 +13,11 @@ const nextConfig = {
     output: 'standalone',
     serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core"],
     turbopack: {},
+    experimental: {
+        // Disable worker threads to avoid prerendering context issues
+        workerThreads: false,
+        cpus: 1,
+    },
     webpack: (config) => {
         config.module.rules.push({
             test: /\.map$/,

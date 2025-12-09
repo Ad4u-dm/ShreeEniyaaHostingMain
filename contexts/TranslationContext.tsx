@@ -1,20 +1,19 @@
-import React, { createContext, useContext } from "react";
+"use client";
 
-// Next Intl
-import { useTranslations } from "next-intl";
+import * as React from "react";
 
 const defaultTranslationContext = {
-    _t: (key: string) => "",
+    _t: (key: string) => key,
 };
 
-export const TranslationContext = createContext(defaultTranslationContext);
+export const TranslationContext = React.createContext(defaultTranslationContext);
 
 export const useTranslation = () => {
-    return useContext(TranslationContext);
+    return React.useContext(TranslationContext);
 };
 
 export const useTranslationContext = () => {
-    return useContext(TranslationContext);
+    return React.useContext(TranslationContext);
 };
 
 type TranslationProviderProps = {
@@ -22,7 +21,8 @@ type TranslationProviderProps = {
 };
 
 export const TranslationProvider = ({ children }: TranslationProviderProps) => {
-    const _t = useTranslations();
+    // Simple pass-through translation (no internationalization)
+    const _t = (key: string) => key;
 
     return (
         <TranslationContext.Provider value={{ _t }}>
