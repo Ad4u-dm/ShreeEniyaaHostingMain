@@ -79,20 +79,21 @@ export default function PrintInvoicePage() {
           console.log('Plan data:', data.invoice?.planId);
           
           setInvoice(data.invoice);
-          
+
           // Check if this is a download request or print request
           const urlParams = new URLSearchParams(window.location.search);
           const isDownload = urlParams.get('download') === 'true';
-          
-          // Auto-print after data loads (but not if it's a download request)
-          setTimeout(() => {
-            if (!isDownload) {
+
+          // Auto-print immediately after data loads (but not if it's a download request)
+          if (!isDownload) {
+            // Use requestAnimationFrame to ensure DOM is ready
+            requestAnimationFrame(() => {
               console.log('Auto-printing invoice...');
               window.print();
-            } else {
-              console.log('Download mode - not auto-printing');
-            }
-          }, 1000);
+            });
+          } else {
+            console.log('Download mode - not auto-printing');
+          }
         } else {
           const errorText = await response.text();
           console.error('Failed to fetch invoice:', response.status, response.statusText, errorText);

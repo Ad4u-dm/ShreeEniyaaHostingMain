@@ -33,8 +33,8 @@ export async function GET(request: NextRequest) {
       totalEnrollments: enrollments.length,
       activeEnrollments: enrollments.filter(e => e.status === 'active').length,
       completedEnrollments: enrollments.filter(e => e.status === 'completed').length,
-      totalPaid: payments.reduce((sum, p) => sum + p.amount, 0),
-      totalDue: enrollments.reduce((sum, e) => sum + e.totalDue, 0)
+      totalPaid: enrollments.reduce((sum, e) => sum + (e.totalPaid || 0), 0),
+      totalDue: enrollments.reduce((sum, e) => sum + (e.totalDue || 0), 0)
     };
     
     // Upcoming payments

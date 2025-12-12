@@ -12,6 +12,7 @@
         "start": "next start",
         "lint": "next lint",
         "analyze": "cross-env ANALYZE=true next build",
+        "migrate:dev": "node scripts/migrate-to-dev-db.js",
         "seed": "node scripts/seedFromJson.js",
         "seed-chitfund": "tsx scripts/seed.ts",
         "add-admin": "tsx scripts/add-admin.ts",

@@ -131,22 +131,42 @@ export default function UsersPage() {
   const [allPlansSelected, setAllPlansSelected] = useState(true);
   const [downloadingReport, setDownloadingReport] = useState(false);
 
+  // Debounce search to avoid querying on every keystroke
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+      // Reset to page 1 when search term changes
+      if (searchTerm !== debouncedSearchTerm) {
+        setCurrentPage(1);
+      }
+    }, 500); // Wait 500ms after user stops typing
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   useEffect(() => {
     fetchCustomers();
-  }, [currentPage, roleFilter]);
+  }, [currentPage, roleFilter, debouncedSearchTerm]); // Use debounced search term
 
   useEffect(() => {
     filterCustomers();
-  }, [customers, searchTerm, statusFilter]);
+  }, [customers, statusFilter]); // Remove searchTerm from here since it's handled by API
 
   const fetchCustomers = async () => {
     try {
       const url = new URL('/api/admin/users', window.location.origin);
       url.searchParams.append('page', currentPage.toString());
       url.searchParams.append('limit', '20'); // Increase limit to show more users per page
-      
+
       if (roleFilter !== 'all') {
         url.searchParams.append('role', roleFilter);
+      }
+
+      // Add search parameter to query ALL users in database
+      if (debouncedSearchTerm && debouncedSearchTerm.trim()) {
+        url.searchParams.append('search', debouncedSearchTerm.trim());
       }
       
       const response = await fetch(url.toString(), {

@@ -36,7 +36,8 @@ export async function GET(request: NextRequest) {
       query.$or = [
         { name: { $regex: searchTerm, $options: 'i' } },
         { email: { $regex: searchTerm, $options: 'i' } },
-        { phone: { $regex: searchTerm, $options: 'i' } }
+        { phone: { $regex: searchTerm, $options: 'i' } },
+        { userId: { $regex: searchTerm, $options: 'i' } } // Search by customer ID
       ];
     }
 
