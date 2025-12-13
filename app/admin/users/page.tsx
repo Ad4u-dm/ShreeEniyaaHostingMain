@@ -130,6 +130,8 @@ export default function UsersPage() {
   const [selectedPlans, setSelectedPlans] = useState<Set<string>>(new Set());
   const [allPlansSelected, setAllPlansSelected] = useState(true);
   const [downloadingReport, setDownloadingReport] = useState(false);
+  const [allUsers, setAllUsers] = useState<Customer[]>([]); // All users for report dropdown (not paginated)
+  const [loadingAllUsers, setLoadingAllUsers] = useState(false);
 
   // Debounce search to avoid querying on every keystroke
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
@@ -638,7 +640,7 @@ export default function UsersPage() {
     }
   };
 
-  const handleOpenReportModal = () => {
+  const handleOpenReportModal = async () => {
     setShowReportModal(true);
     setReportType('all-users');
     setSelectedReportUser('');
@@ -646,6 +648,33 @@ export default function UsersPage() {
     setAllPlansSelected(true);
     setSelectedPlans(new Set());
     setUserEnrolledPlans([]);
+
+    // Fetch all users for the dropdown (not paginated)
+    await fetchAllUsersForReport();
+  };
+
+  const fetchAllUsersForReport = async () => {
+    setLoadingAllUsers(true);
+    try {
+      const response = await fetch('/api/users?role=user&limit=10000', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Sort users by name for better UX
+        const sortedUsers = (data.users || []).sort((a: Customer, b: Customer) =>
+          a.name.localeCompare(b.name)
+        );
+        setAllUsers(sortedUsers);
+      }
+    } catch (error) {
+      console.error('Error fetching all users:', error);
+    } finally {
+      setLoadingAllUsers(false);
+    }
   };
 
   const handleReportUserChange = async (userId: string) => {
@@ -1494,14 +1523,16 @@ export default function UsersPage() {
                   <div className="mb-6">
                     <label className="block text-sm font-medium text-slate-700 mb-2">
                       Select User
+                      {loadingAllUsers && <span className="ml-2 text-xs text-slate-500">(Loading...)</span>}
                     </label>
                     <select
                       value={selectedReportUser}
                       onChange={(e) => handleReportUserChange(e.target.value)}
                       className="w-full p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      disabled={loadingAllUsers}
                     >
                       <option value="">-- Select User --</option>
-                      {customers.map((customer) => (
+                      {allUsers.map((customer) => (
                         <option key={customer._id} value={customer.userId}>
                           {customer.userId} - {customer.name}
                         </option>
