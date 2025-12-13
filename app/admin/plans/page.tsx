@@ -50,6 +50,8 @@ export default function PlansPage() {
   const [loading, setLoading] = useState(true);
   const [offlineMode, setOfflineMode] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
+  const [enrolledUsers, setEnrolledUsers] = useState<any[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
@@ -71,6 +73,15 @@ export default function PlansPage() {
     fetchPlans();
   }, []);
 
+  // Fetch enrolled users when a plan is selected
+  useEffect(() => {
+    if (selectedPlan) {
+      fetchEnrolledUsers(selectedPlan._id);
+    } else {
+      setEnrolledUsers([]);
+    }
+  }, [selectedPlan]);
+
   const fetchPlans = async () => {
     try {
       const response = await fetch('/api/plans', {
@@ -87,6 +98,26 @@ export default function PlansPage() {
       console.error('Failed to fetch plans:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchEnrolledUsers = async (planId: string) => {
+    setLoadingUsers(true);
+    try {
+      const response = await fetch(`/api/enrollments?planId=${planId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        }
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setEnrolledUsers(result.enrollments);
+      }
+    } catch (error) {
+      console.error('Failed to fetch enrolled users:', error);
+    } finally {
+      setLoadingUsers(false);
     }
   };
 
@@ -616,6 +647,72 @@ export default function PlansPage() {
                         ))}
                       </tbody>
                     </table>
+                  </div>
+
+                  {/* Enrolled Users Section */}
+                  <div className="mt-8">
+                    <h3 className="text-xl font-semibold text-slate-800 mb-4 flex items-center gap-2">
+                      <Users className="h-5 w-5" />
+                      Enrolled Users ({enrolledUsers.length})
+                    </h3>
+
+                    {loadingUsers ? (
+                      <div className="text-center py-8">
+                        <p className="text-slate-500">Loading enrolled users...</p>
+                      </div>
+                    ) : enrolledUsers.length === 0 ? (
+                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-8 text-center">
+                        <Users className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+                        <p className="text-slate-500">No users enrolled in this plan yet</p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full border-collapse">
+                          <thead>
+                            <tr className="bg-slate-100">
+                              <th className="border p-3 text-left font-semibold">Member #</th>
+                              <th className="border p-3 text-left font-semibold">Name</th>
+                              <th className="border p-3 text-left font-semibold">Email</th>
+                              <th className="border p-3 text-left font-semibold">Phone</th>
+                              <th className="border p-3 text-left font-semibold">Status</th>
+                              <th className="border p-3 text-left font-semibold">Enrollment Date</th>
+                              <th className="border p-3 text-right font-semibold">Total Paid</th>
+                              <th className="border p-3 text-right font-semibold">Remaining</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {enrolledUsers.map((enrollment: any) => (
+                              <tr key={enrollment._id} className="hover:bg-slate-50">
+                                <td className="border p-3 font-medium">{enrollment.memberNumber}</td>
+                                <td className="border p-3">{enrollment.userId?.name || 'N/A'}</td>
+                                <td className="border p-3 text-sm text-slate-600">{enrollment.userId?.email || 'N/A'}</td>
+                                <td className="border p-3">{enrollment.userId?.phone || 'N/A'}</td>
+                                <td className="border p-3">
+                                  <Badge
+                                    variant={
+                                      enrollment.status === 'active' ? 'default' :
+                                      enrollment.status === 'completed' ? 'secondary' :
+                                      'destructive'
+                                    }
+                                  >
+                                    {enrollment.status}
+                                  </Badge>
+                                </td>
+                                <td className="border p-3 text-sm">
+                                  {new Date(enrollment.enrollmentDate).toLocaleDateString('en-IN')}
+                                </td>
+                                <td className="border p-3 text-right font-medium text-green-600">
+                                  ₹{formatIndianNumber(enrollment.totalPaid || 0)}
+                                </td>
+                                <td className="border p-3 text-right font-medium text-orange-600">
+                                  ₹{formatIndianNumber(enrollment.remainingAmount || 0)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
