@@ -272,21 +272,9 @@ export async function POST(request: NextRequest) {
     
     console.log('Found user:', { _id: targetUser._id, userId: targetUser.userId, name: targetUser.name });
 
-    // Check if user is already actively enrolled in this plan
-    console.log('Checking for existing active enrollment with userId:', targetUser.userId, 'planId:', planId);
-    const existingActiveEnrollment = await Enrollment.findOne({
-      userId: targetUser.userId,
-      planId,
-      status: 'active'
-    });
-    console.log('Existing active enrollment found:', existingActiveEnrollment ? 'Yes' : 'No');
-
-    if (existingActiveEnrollment) {
-      return NextResponse.json(
-        { error: 'User already has an active enrollment in this plan' },
-        { status: 400 }
-      );
-    }
+    // NOTE: Removed duplicate enrollment check - users can enroll in the same plan multiple times
+    // This allows customers to invest in multiple instances of the same chit fund plan
+    // Each enrollment will have its own unique enrollmentId
 
     // MEMBER NUMBER LOGIC:
     // Check if this user has any existing enrollments (to get their member number)
