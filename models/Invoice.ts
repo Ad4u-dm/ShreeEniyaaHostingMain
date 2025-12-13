@@ -99,27 +99,55 @@ const InvoiceSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 });
 
-// Generate invoiceId automatically
+// Generate invoiceId and receiptNo automatically
 InvoiceSchema.pre('save', async function(next) {
+  // Generate invoiceId if not present
   if (!this.invoiceId) {
-    // Find the latest invoice by invoiceId to get the highest number
-    const latestInvoice: any = await mongoose.model('Invoice')
-      .findOne({ invoiceId: { $exists: true, $ne: null } })
-      .sort({ invoiceId: -1 })
+    // Find all invoices with invoiceId and get the max number
+    const allInvoices: any = await mongoose.model('Invoice')
+      .find({ invoiceId: { $exists: true, $ne: null } })
       .select('invoiceId')
       .lean();
 
     let nextNumber = 1;
-    if (latestInvoice && latestInvoice.invoiceId) {
-      // Extract the number from invoiceId (e.g., "INV000039" -> 39)
-      const match = String(latestInvoice.invoiceId).match(/INV(\d+)/);
-      if (match) {
-        nextNumber = parseInt(match[1], 10) + 1;
-      }
+    if (allInvoices && allInvoices.length > 0) {
+      // Extract all numbers and find maximum
+      const numbers = allInvoices.map((inv: any) => {
+        const match = String(inv.invoiceId).match(/INV(\d+)/);
+        return match ? parseInt(match[1], 10) : 0;
+      });
+      const maxNumber = Math.max(...numbers);
+      nextNumber = maxNumber + 1;
     }
 
     this.invoiceId = `INV${String(nextNumber).padStart(6, '0')}`;
   }
+
+  // Generate receiptNo if not present
+  if (!this.receiptNo) {
+    // Find all invoices with receiptNo and get the max number
+    const allReceipts: any = await mongoose.model('Invoice')
+      .find({ receiptNo: { $exists: true, $ne: null } })
+      .select('receiptNo')
+      .lean();
+
+    let nextReceiptNumber = 1;
+    if (allReceipts && allReceipts.length > 0) {
+      // Extract all numbers and find maximum
+      const numbers = allReceipts.map((inv: any) => {
+        const receiptNo = inv.receiptNo;
+        const number = typeof receiptNo === 'string'
+          ? parseInt(receiptNo.replace(/\D/g, ''))
+          : parseInt(String(receiptNo));
+        return isNaN(number) ? 0 : number;
+      });
+      const maxNumber = Math.max(...numbers);
+      nextReceiptNumber = maxNumber + 1;
+    }
+
+    this.receiptNo = String(nextReceiptNumber).padStart(4, '0');
+  }
+
   this.updatedAt = new Date();
   next();
 });
