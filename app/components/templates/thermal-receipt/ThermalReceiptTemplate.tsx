@@ -79,7 +79,7 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
         <div style={{margin: '1px 0'}}>Due No         : {invoice.dueNumber || '1'}</div>
         <div style={{margin: '1px 0'}}>Due Amount     : ₹ {(invoice.dueAmount || 0).toLocaleString('en-IN')}</div>
         <div style={{margin: '1px 0'}}>Arrear Amount  : ₹ {(invoice.balanceArrear !== undefined ? invoice.balanceArrear : invoice.arrearAmount || 0).toLocaleString('en-IN')}</div>
-        <div style={{margin: '1px 0'}}>Received Amount: ₹ {((invoice.receivedAmount || 0) + (invoice.receivedArrearAmount || 0)).toLocaleString('en-IN')}</div>
+        <div style={{margin: '1px 0'}}>Received Amount: ₹ {(invoice.totalReceivedAmount || ((invoice.receivedAmount || 0) + (invoice.receivedArrearAmount || 0))).toLocaleString('en-IN')}</div>
         <div style={{margin: '1px 0'}}>Balance Amount : ₹ {(invoice.balanceAmount || 0).toLocaleString('en-IN')}</div>
       </div>
       
@@ -87,7 +87,7 @@ export function ThermalReceiptTemplate({ invoice }: ThermalReceiptProps) {
       
       {/* Total */}
       <div style={{fontSize: '11px', fontWeight: 'bold', textAlign: 'center', margin: '2px 0'}}>
-        Total Received : ₹ {((invoice.receivedAmount || 0) + (invoice.receivedArrearAmount || 0)).toLocaleString('en-IN')}
+        Total Received : ₹ {(invoice.totalReceivedAmount || ((invoice.receivedAmount || 0) + (invoice.receivedArrearAmount || 0))).toLocaleString('en-IN')}
       </div>
       
       <div style={{borderTop: '1px dashed #000', margin: '3px 0', width: '100%'}}></div>
