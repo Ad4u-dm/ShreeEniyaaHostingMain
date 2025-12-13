@@ -102,8 +102,23 @@ const InvoiceSchema = new mongoose.Schema({
 // Generate invoiceId automatically
 InvoiceSchema.pre('save', async function(next) {
   if (!this.invoiceId) {
-    const count = await mongoose.model('Invoice').countDocuments();
-    this.invoiceId = `INV${String(count + 1).padStart(6, '0')}`;
+    // Find the latest invoice by invoiceId to get the highest number
+    const latestInvoice: any = await mongoose.model('Invoice')
+      .findOne({ invoiceId: { $exists: true, $ne: null } })
+      .sort({ invoiceId: -1 })
+      .select('invoiceId')
+      .lean();
+
+    let nextNumber = 1;
+    if (latestInvoice && latestInvoice.invoiceId) {
+      // Extract the number from invoiceId (e.g., "INV000039" -> 39)
+      const match = String(latestInvoice.invoiceId).match(/INV(\d+)/);
+      if (match) {
+        nextNumber = parseInt(match[1], 10) + 1;
+      }
+    }
+
+    this.invoiceId = `INV${String(nextNumber).padStart(6, '0')}`;
   }
   this.updatedAt = new Date();
   next();
