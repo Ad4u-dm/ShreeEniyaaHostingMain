@@ -238,7 +238,8 @@ export async function GET(request: NextRequest) {
         });
         const dueNo = inv.receiptDetails?.dueNo || inv.dueNo || 'N/A';
         const dueAmount = inv.receiptDetails?.dueAmount || inv.dueAmount || 0;
-        const receivedAmount = inv.receiptDetails?.receivedAmount || inv.receivedAmount || 0;
+        // Use totalReceivedAmount (receivedAmount + receivedArrearAmount) for accurate reporting
+        const receivedAmount = inv.totalReceivedAmount || inv.receiptDetails?.receivedAmount || inv.receivedAmount || 0;
         const balanceAmount = inv.receiptDetails?.balanceAmount || inv.balanceAmount || 0;
         const arrearAmount = inv.receiptDetails?.arrearAmount || inv.arrearAmount || 0;
         const staffName = staffMap.get(inv.createdBy) || 'Unknown';

@@ -167,7 +167,8 @@ export async function GET(request: NextRequest) {
       const userId = inv.customerId;
       const userName = userMap.get(userId) || inv.customerDetails?.name || 'Unknown';
       const planName = planMap.get(inv.planId?.toString()) || 'N/A';
-      const paymentMade = inv.receiptDetails?.receivedAmount || inv.receivedAmount || 0;
+      // Use totalReceivedAmount (receivedAmount + receivedArrearAmount) for accurate reporting
+      const paymentMade = inv.totalReceivedAmount || inv.receiptDetails?.receivedAmount || inv.receivedAmount || 0;
       const staffName = staffMap.get(inv.createdBy) || 'Unknown';
       const invoiceNo = String(inv.invoiceNumber || inv.receiptNo || 'N/A');
       const invoiceDate = new Date(inv.createdAt).toLocaleDateString('en-IN', {
