@@ -51,18 +51,22 @@ export async function POST(request: NextRequest) {
   let invoiceId: string | undefined;
   let paymentId: string | undefined;
   let invoiceData: any;
-  
+
   try {
+    console.log('========== ESC/POS REQUEST START ==========');
     await connectDB();
-    
+
     const user = getUserFromRequest(request);
+    console.log('User authenticated:', { userId: user?.userId, name: user?.name });
     if (!user) {
+      console.log('ERROR: Unauthorized - no user found');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
     invoiceId = body.invoiceId;
     paymentId = body.paymentId;
+    console.log('Request body:', { invoiceId, paymentId });
 
     if (paymentId) {
       // Fetch payment data with populated references
@@ -93,14 +97,29 @@ export async function POST(request: NextRequest) {
       };
     } else if (invoiceId) {
       // Fetch invoice data and populate customer/plan fields
+      console.log('Fetching invoice by ID:', invoiceId);
       const invoice = await Invoice.findById(invoiceId)
         .populate('customerId', 'name phone address')
         .populate('planId', 'planName monthlyAmount')
         .lean();
 
+      console.log('Invoice found:', !!invoice);
       if (!invoice) {
+        console.log('ERROR: Invoice not found for ID:', invoiceId);
         return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
       }
+
+      console.log('Invoice raw data:', {
+        _id: invoice._id,
+        receiptNo: invoice.receiptNo,
+        dueAmount: invoice.dueAmount,
+        arrAmount: invoice.arrAmount,
+        arrearAmount: invoice.arrearAmount,
+        receivedAmount: invoice.receivedAmount,
+        receivedArrearAmount: invoice.receivedArrearAmount,
+        totalReceivedAmount: invoice.totalReceivedAmount,
+        balanceAmount: invoice.balanceAmount
+      });
 
       // Use populated fields from invoice document
       invoiceData = {
@@ -168,6 +187,14 @@ export async function POST(request: NextRequest) {
     const receivedAmount = Number(invoiceData.totalReceivedAmount || invoiceData.paidAmount || invoiceData.total || 0);
     const balanceAmount = Number(invoiceData.balanceAmount || (pendingAmount - receivedAmount));
 
+    console.log('Calculated amounts:', {
+      dueAmount,
+      arrearAmount,
+      pendingAmount,
+      receivedAmount,
+      balanceAmount
+    });
+
     // Build ESC/POS receipt
     let receipt = '';
     
@@ -211,10 +238,13 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    console.log('Encoding receipt to buffer...');
     const receiptBuffer = Buffer.from(receipt, 'binary');
     const base64Data = receiptBuffer.toString('base64');
-    
+    console.log('Receipt encoded successfully, size:', base64Data.length, 'bytes');
+
     // Return as JSON with base64-encoded ESC/POS data
+    console.log('========== ESC/POS REQUEST SUCCESS ==========');
     return NextResponse.json({
       success: true,
       data: base64Data,
