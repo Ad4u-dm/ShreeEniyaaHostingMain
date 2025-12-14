@@ -132,7 +132,11 @@ export async function POST(request: NextRequest) {
         arrearAmount: invoice.arrearAmount || 0,
         pendingAmount: invoice.pendingAmount || 0,
         paidAmount: invoice.paidAmount || 0,
-        balanceAmount: invoice.balanceAmount || 0
+        balanceAmount: invoice.balanceAmount || 0,
+        // Payment breakdown fields
+        receivedAmount: invoice.receivedAmount || 0,
+        receivedArrearAmount: invoice.receivedArrearAmount || 0,
+        totalReceivedAmount: invoice.totalReceivedAmount || ((invoice.receivedAmount || 0) + (invoice.receivedArrearAmount || 0))
       };
     } else {
       return NextResponse.json({ error: 'Invoice ID or Payment ID required' }, { status: 400 });
@@ -161,7 +165,8 @@ export async function POST(request: NextRequest) {
     const dueAmount = Number(invoiceData.dueAmount || invoiceData.planId?.monthlyAmount || 0);
     const arrearAmount = Number(invoiceData.balanceArrear || invoiceData.arrearAmount || 0);
     const pendingAmount = Number(invoiceData.pendingAmount || dueAmount);
-    const receivedAmount = Number(invoiceData.paidAmount || invoiceData.total || 0);
+    // Use totalReceivedAmount (receivedAmount + receivedArrearAmount) for accurate total
+    const receivedAmount = Number(invoiceData.totalReceivedAmount || invoiceData.paidAmount || invoiceData.total || 0);
     const balanceAmount = Number(invoiceData.balanceAmount || (pendingAmount - receivedAmount));
 
     // Build ESC/POS receipt
