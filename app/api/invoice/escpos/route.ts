@@ -64,8 +64,6 @@ export async function POST(request: NextRequest) {
     invoiceId = body.invoiceId;
     paymentId = body.paymentId;
 
-    let invoiceData;
-
     if (paymentId) {
       // Fetch payment data with populated references
       const payment = await Payment.findOne({ paymentId })
