@@ -127,6 +127,7 @@ export async function POST(request: NextRequest) {
         // Additional receipt fields
         dueNumber: invoice.dueNumber || 'N/A',
         dueAmount: invoice.dueAmount || 0,
+        arrAmount: invoice.arrAmount || 0,
         arrearAmount: invoice.arrearAmount || 0,
         pendingAmount: invoice.pendingAmount || 0,
         paidAmount: invoice.paidAmount || 0,
@@ -161,7 +162,7 @@ export async function POST(request: NextRequest) {
 
     // Calculate amounts from invoice snapshot fields (with safety checks)
     const dueAmount = Number(invoiceData.dueAmount || invoiceData.planId?.monthlyAmount || 0);
-    const arrearAmount = Number(invoiceData.balanceArrear || invoiceData.arrearAmount || 0);
+    const arrearAmount = Number(invoiceData.arrearAmount || invoiceData.arrAmount || 0);
     const pendingAmount = Number(invoiceData.pendingAmount || dueAmount);
     // Use totalReceivedAmount (receivedAmount + receivedArrearAmount) for accurate total
     const receivedAmount = Number(invoiceData.totalReceivedAmount || invoiceData.paidAmount || invoiceData.total || 0);
