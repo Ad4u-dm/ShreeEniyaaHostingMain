@@ -105,7 +105,14 @@ export default function ThermalReceiptPage() {
 
       if (!escposResponse.ok) {
         const errorData = await escposResponse.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to generate receipt data');
+        const errorDetails = `
+          Status: ${escposResponse.status}
+          Error: ${errorData.error || 'Unknown'}
+          Details: ${errorData.details || 'No details'}
+          Message: ${errorData.message || 'No message'}
+        `;
+        console.error('ESC/POS API Error:', errorDetails);
+        throw new Error(errorDetails);
       }
 
       const { data: escposData } = await escposResponse.json();
