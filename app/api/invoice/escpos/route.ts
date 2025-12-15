@@ -96,12 +96,9 @@ export async function POST(request: NextRequest) {
         notes: payment.notes
       };
     } else if (invoiceId) {
-      // Fetch invoice data and populate customer/plan fields
+      // Fetch invoice data - DON'T populate since customerId is String type, not ObjectId
       console.log('Fetching invoice by ID:', invoiceId);
-      const invoice = await Invoice.findById(invoiceId)
-        .populate('customerId', 'name phone address')
-        .populate('planId', 'planName monthlyAmount')
-        .lean();
+      const invoice = await Invoice.findById(invoiceId).lean();
 
       console.log('Invoice found:', !!invoice);
       if (!invoice) {
@@ -112,6 +109,8 @@ export async function POST(request: NextRequest) {
       console.log('Invoice raw data:', {
         _id: invoice._id,
         receiptNo: invoice.receiptNo,
+        customerId: invoice.customerId,
+        memberName: invoice.memberName,
         dueAmount: invoice.dueAmount,
         arrAmount: invoice.arrAmount,
         arrearAmount: invoice.arrearAmount,
@@ -121,19 +120,19 @@ export async function POST(request: NextRequest) {
         balanceAmount: invoice.balanceAmount
       });
 
-      // Use populated fields from invoice document
+      // Use snapshot data from invoice document (customerDetails, planDetails)
       invoiceData = {
         _id: invoice._id,
         invoiceNumber: invoice.receiptNo || invoice.invoiceId || `INV${Date.now()}`,
         issueDate: invoice.invoiceDate || new Date().toISOString(),
         customerId: {
-          name: invoice.customerId?.name || invoice.memberName || invoice.customerDetails?.name || 'N/A',
-          phone: invoice.customerId?.phone || invoice.customerDetails?.phone || '',
-          address: invoice.customerId?.address || invoice.customerDetails?.address || '',
+          name: invoice.memberName || invoice.customerDetails?.name || 'N/A',
+          phone: invoice.customerDetails?.phone || '',
+          address: invoice.customerDetails?.address || '',
         },
         planId: {
-          planName: invoice.planId?.planName || invoice.planDetails?.planName || 'N/A',
-          monthlyAmount: invoice.dueAmount || invoice.planId?.monthlyAmount || invoice.planDetails?.monthlyAmount || 0
+          planName: invoice.planDetails?.planName || 'N/A',
+          monthlyAmount: invoice.dueAmount || invoice.planDetails?.monthlyAmount || 0
         },
         amount: invoice.totalAmount || 0,
         total: invoice.paidAmount || invoice.totalAmount || 0,
