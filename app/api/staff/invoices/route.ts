@@ -176,30 +176,67 @@ export async function POST(request: NextRequest) {
       await plan.save();
     }
 
-    // STEP 1: Calculate dueNumber automatically using enrollmentDate + invoiceDate + 20th cut-off
+    // STEP 1: Calculate dueNumber - either manual override or automatic calculation
     const invoiceDate = invoiceData.invoiceDate ? new Date(invoiceData.invoiceDate) : new Date();
     // Use startDate (when plan starts) not enrollmentDate (when they signed up)
     const enrollmentDate = new Date(enrollment.startDate);
 
     let dueNumber: number;
-    try {
-      dueNumber = calculateDueNumber(enrollmentDate, invoiceDate, plan.duration);
-    } catch (error: any) {
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: 400 }
-      );
-    }
 
-    // Validate dueNumber against plan duration
-    if (dueNumber > plan.duration) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Invalid due number ${dueNumber}: plan has only ${plan.duration} installments`
-        },
-        { status: 400 }
-      );
+    // Check if manual due number is provided (advance payment option)
+    if (invoiceData.manualDueNumber !== undefined && invoiceData.manualDueNumber !== null) {
+      // Manual override mode - staff selected specific due number
+      dueNumber = Number(invoiceData.manualDueNumber);
+
+      console.log('Manual due number mode:', { manualDueNumber: dueNumber });
+
+      // Validate: must be within plan duration
+      if (dueNumber < 1 || dueNumber > plan.duration) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Invalid due number ${dueNumber}. Must be between 1 and ${plan.duration}`
+          },
+          { status: 400 }
+        );
+      }
+
+      // Check for duplicate invoice with same dueNumber for this enrollment
+      const existingInvoice = await Invoice.findOne({
+        enrollmentId: enrollment._id,
+        dueNumber: dueNumber.toString()
+      }).lean();
+
+      if (existingInvoice) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Invoice already exists for due ${dueNumber}. Receipt No: ${existingInvoice.receiptNo || existingInvoice.invoiceId}`
+          },
+          { status: 400 }
+        );
+      }
+    } else {
+      // Default mode - use date-based calculation with 20th cut-off rule
+      try {
+        dueNumber = calculateDueNumber(enrollmentDate, invoiceDate, plan.duration);
+      } catch (error: any) {
+        return NextResponse.json(
+          { success: false, error: error.message },
+          { status: 400 }
+        );
+      }
+
+      // Validate dueNumber against plan duration
+      if (dueNumber > plan.duration) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Invalid due number ${dueNumber}: plan has only ${plan.duration} installments`
+          },
+          { status: 400 }
+        );
+      }
     }
 
     // STEP 2: Calculate dueAmount from monthlyData based on dueNumber
