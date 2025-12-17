@@ -88,6 +88,8 @@ export default function CreateInvoicePage() {
   const [fetchingArrear, setFetchingArrear] = useState(false);
   const [isEditingReceivedAmount, setIsEditingReceivedAmount] = useState(false);
   const [tempReceivedAmount, setTempReceivedAmount] = useState<number>(0);
+  const [isAdvancePayment, setIsAdvancePayment] = useState(false);
+  const [manualDueNumber, setManualDueNumber] = useState<number | null>(null);
 
   // Debounce hook to prevent flickering during rapid updates
   const useDebounce = (value: any, delay: number) => {
@@ -1233,7 +1235,14 @@ export default function CreateInvoicePage() {
 
       // Allow receivedAmount to be 0 (customer may not have paid anything)
       // No validation needed - 0 is a valid value
-      
+
+      // Validate manual due number if advance payment is enabled
+      if (isAdvancePayment && !manualDueNumber) {
+        alert('Please select a due number for advance payment');
+        setLoading(false);
+        return;
+      }
+
       // Calculate total received (due payment + arrear payment)
       const totalReceived = receivedAmount + receivedArrearAmount;
       
@@ -1260,6 +1269,9 @@ export default function CreateInvoicePage() {
 
         // Invoice date for dueNumber calculation (defaults to now if not provided)
         invoiceDate: new Date().toISOString(),
+
+        // Manual due number (for advance payments)
+        ...(isAdvancePayment && manualDueNumber ? { manualDueNumber } : {}),
 
         // Received amount (what customer paid for DUE only, not arrear)
         receivedAmount: receivedAmount,
@@ -1578,6 +1590,55 @@ export default function CreateInvoicePage() {
                     )}
                   </div>
                 </div>
+              </div>
+
+              {/* Advance Payment Option */}
+              <div className="border-t pt-4 mt-4">
+                <div className="flex items-center space-x-2 mb-4">
+                  <input
+                    type="checkbox"
+                    id="advancePayment"
+                    checked={isAdvancePayment}
+                    onChange={(e) => {
+                      setIsAdvancePayment(e.target.checked);
+                      if (!e.target.checked) {
+                        setManualDueNumber(null);
+                      }
+                    }}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                  />
+                  <label htmlFor="advancePayment" className="text-sm font-medium text-slate-700">
+                    Pay for next month / Advance payment
+                  </label>
+                </div>
+
+                {isAdvancePayment && (
+                  <div className="ml-6 mb-4">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Select Due Number *
+                    </label>
+                    <select
+                      value={manualDueNumber || ''}
+                      onChange={(e) => setManualDueNumber(e.target.value ? Number(e.target.value) : null)}
+                      className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required={isAdvancePayment}
+                    >
+                      <option value="">Select due number</option>
+                      {(() => {
+                        const selectedPlan = formData.planId ? plans.find(p => p._id === formData.planId) : null;
+                        const duration = selectedPlan?.duration || 0;
+                        return duration > 0 ? Array.from({ length: duration }, (_, i) => i + 1).map(num => (
+                          <option key={num} value={num}>
+                            Due {num}
+                          </option>
+                        )) : null;
+                      })()}
+                    </select>
+                    <p className="text-xs text-amber-600 mt-1">
+                      ⚠️ This will create an invoice for the selected due number, bypassing the normal date-based calculation.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2149,6 +2210,8 @@ export default function CreateInvoicePage() {
               <div className="flex justify-between text-sm">
                 <span className="font-medium text-gray-700">Arrear Amount:</span>
                 <span className="text-gray-900">₹{formatNumberStable(createdInvoice.balanceArrear || 0)}</span>
+  
+  
               </div>
               <div className="flex justify-between text-sm">
                 <span className="font-medium text-gray-700">Total Received Amount:</span>
