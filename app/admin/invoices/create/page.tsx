@@ -1617,25 +1617,64 @@ export default function CreateInvoicePage() {
                     <label className="block text-sm font-medium text-slate-700 mb-2">
                       Select Due Number *
                     </label>
-                    <select
-                      value={manualDueNumber || ''}
-                      onChange={(e) => setManualDueNumber(e.target.value ? Number(e.target.value) : null)}
-                      className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required={isAdvancePayment}
-                    >
-                      <option value="">Select due number</option>
-                      {(() => {
-                        const selectedPlan = formData.planId ? plans.find(p => p._id === formData.planId) : null;
-                        const duration = selectedPlan?.duration || 0;
-                        return duration > 0 ? Array.from({ length: duration }, (_, i) => i + 1).map(num => (
-                          <option key={num} value={num}>
-                            Due {num}
-                          </option>
-                        )) : null;
-                      })()}
-                    </select>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={manualDueNumber || ''}
+                        onChange={(e) => setManualDueNumber(e.target.value ? Number(e.target.value) : null)}
+                        className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required={isAdvancePayment}
+                      >
+                        <option value="">Select due number</option>
+                        {(() => {
+                          const selectedPlan = formData.planId ? plans.find(p => p._id === formData.planId) : null;
+                          const duration = selectedPlan?.duration || 0;
+                          return duration > 0 ? Array.from({ length: duration }, (_, i) => i + 1).map(num => (
+                            <option key={num} value={num}>
+                              Due {num}
+                            </option>
+                          )) : null;
+                        })()}
+                      </select>
+                      {manualDueNumber && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // Update due amount based on selected due number
+                            const selectedPlan = plans.find(p => p._id === formData.planId);
+                            if (selectedPlan && manualDueNumber) {
+                              const index = manualDueNumber - 1;
+                              let dueAmount = 0;
+
+                              // Get amount from monthlyData
+                              if (selectedPlan.monthlyData && selectedPlan.monthlyData[index]) {
+                                dueAmount = selectedPlan.monthlyData[index].installmentAmount || 0;
+                              }
+                              // Fallback to monthlyAmount array
+                              else if (Array.isArray(selectedPlan.monthlyAmount) && selectedPlan.monthlyAmount[index]) {
+                                dueAmount = selectedPlan.monthlyAmount[index];
+                              }
+
+                              // Update form with the due amount
+                              setFormData(prev => ({
+                                ...prev,
+                                receiptDetails: {
+                                  ...prev.receiptDetails,
+                                  dueNo: manualDueNumber.toString(),
+                                  dueAmount: dueAmount
+                                }
+                              }));
+
+                              alert(`Due amount updated to ₹${dueAmount.toLocaleString('en-IN')} for Due ${manualDueNumber}`);
+                            }
+                          }}
+                          className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 flex items-center gap-1 whitespace-nowrap"
+                        >
+                          ✓ Confirm
+                        </button>
+                      )}
+                    </div>
                     <p className="text-xs text-amber-600 mt-1">
-                      ⚠️ This will create an invoice for the selected due number, bypassing the normal date-based calculation.
+                      ⚠️ Select a due number and click "Confirm" to update the due amount below.
                     </p>
                   </div>
                 )}
