@@ -220,18 +220,28 @@ export async function POST(request: NextRequest) {
     }
 
     // STEP 1: Calculate dueNumber automatically using enrollmentDate + invoiceDate + 20th cut-off
+    // OR use manualDueNumber if provided (for advance payments)
     const invoiceDate = invoiceData.invoiceDate ? new Date(invoiceData.invoiceDate) : new Date();
     // Use startDate (when plan starts) not enrollmentDate (when they signed up)
     const enrollmentDate = new Date(enrollment.startDate);
 
     let dueNumber: number;
-    try {
-      dueNumber = calculateDueNumber(enrollmentDate, invoiceDate, plan.duration);
-    } catch (error: any) {
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: 400 }
-      );
+    
+    // Check if manual due number is provided (for advance payments)
+    if (invoiceData.manualDueNumber) {
+      dueNumber = invoiceData.manualDueNumber;
+      console.log('✅ Using MANUAL due number for advance payment:', dueNumber);
+    } else {
+      // Auto-calculate due number
+      try {
+        dueNumber = calculateDueNumber(enrollmentDate, invoiceDate, plan.duration);
+        console.log('💰 Using AUTO-CALCULATED due number:', dueNumber);
+      } catch (error: any) {
+        return NextResponse.json(
+          { success: false, error: error.message },
+          { status: 400 }
+        );
+      }
     }
 
     // Validate dueNumber against plan duration

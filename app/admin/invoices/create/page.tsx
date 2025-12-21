@@ -339,16 +339,32 @@ export default function CreateInvoicePage() {
 
   // Function to recalculate balance when received amount changes (memoized to prevent unnecessary re-renders)
   const handleReceivedAmountChange = useCallback(async (newReceivedAmount: number) => {
-    // Update the received amount and trigger the preview calculation
-    setFormData(prev => ({
-      ...prev,
-      receiptDetails: {
-        ...prev.receiptDetails,
+    // Immediately calculate balance based on current values
+    setFormData(prev => {
+      const dueAmount = prev.receiptDetails.dueAmount || 0;
+      const arrearAmount = prev.receiptDetails.arrearAmount || 0;
+      const receivedArrearAmount = prev.receiptDetails.receivedArrearAmount || 0;
+      const balanceArrear = Math.max(0, arrearAmount - receivedArrearAmount);
+      
+      // Calculate pending amount (total owed)
+      const pendingAmount = dueAmount + arrearAmount;
+      
+      // Calculate balance amount (what remains after payment)
+      const totalReceived = newReceivedAmount + receivedArrearAmount;
+      const balanceAmount = Math.max(0, pendingAmount - totalReceived);
+      
+      return {
+        ...prev,
+        receiptDetails: {
+          ...prev.receiptDetails,
+          receivedAmount: newReceivedAmount,
+          pendingAmount: pendingAmount,
+          balanceAmount: balanceAmount,
+          balanceArrear: balanceArrear
+        },
         receivedAmount: newReceivedAmount
-      },
-      receivedAmount: newReceivedAmount
-    }));
-    // The useEffect will automatically fetch updated preview
+      };
+    });
   }, []);
 
   // Calculate fixed due date (20th of current month, or next month if past 20th)
@@ -937,13 +953,14 @@ export default function CreateInvoicePage() {
 
           // Update form with backend-calculated values
           // BUT preserve manual arrear if user is editing it
+          // AND preserve manual due amount if in advance payment mode
           setFormData(prev => {
             const newFormData = {
               ...prev,
               receiptDetails: {
                 ...prev.receiptDetails,
-                dueNo: dueNumber.toString(),
-                dueAmount: dueAmount,
+                dueNo: isAdvancePayment && manualDueNumber ? prev.receiptDetails.dueNo : dueNumber.toString(),
+                dueAmount: isAdvancePayment && manualDueNumber ? prev.receiptDetails.dueAmount : dueAmount,
                 arrearAmount: isEditingArrear ? prev.receiptDetails.arrearAmount : arrearAmount,
                 receivedAmount: receivedAmount,
                 balanceAmount: balanceAmount
@@ -951,8 +968,11 @@ export default function CreateInvoicePage() {
             };
 
             console.log('✅ Form state updated:', {
+              isAdvancePayment,
+              manualDueNumber,
+              preservedDueAmount: isAdvancePayment && manualDueNumber,
               oldDueAmount: prev.receiptDetails.dueAmount,
-              newDueAmount: dueAmount,
+              newDueAmount: isAdvancePayment && manualDueNumber ? prev.receiptDetails.dueAmount : dueAmount,
               newState: newFormData.receiptDetails
             });
 
@@ -1365,7 +1385,8 @@ export default function CreateInvoicePage() {
           receiptDetails: {
             ...prev.receiptDetails,
             balanceAmount: backendInvoice.balanceAmount,
-            dueAmount: backendInvoice.dueAmount,
+            // Don't update dueAmount if in advance payment mode with manual due number
+            ...(!(isAdvancePayment && manualDueNumber) && { dueAmount: backendInvoice.dueAmount }),
             arrearAmount: backendInvoice.arrearAmount,
             receivedAmount: backendInvoice.receivedAmount,
             pendingAmount: backendInvoice.pendingAmount,
@@ -1922,27 +1943,20 @@ export default function CreateInvoicePage() {
                       const dueAmount = formData.receiptDetails.dueAmount || 0;
                       const receivedAmount = formData.receiptDetails.receivedAmount || 0;
                       
-                      // Calculate new balance using balance arrear
-                      const currentDay = new Date().getDate();
-                      let newBalance;
+                      // Calculate pending amount (total owed)
+                      const pendingAmount = dueAmount + arrearAmount;
                       
-                      if (currentDay === 21) {
-                        // On 21st: Balance = (DueAmount + BalanceArrear) - ReceivedAmount
-                        newBalance = (dueAmount + balanceArrear) - receivedAmount;
-                      } else {
-                        // On other days: Balance = DueAmount + BalanceArrear - ReceivedAmount
-                        newBalance = dueAmount + balanceArrear - receivedAmount;
-                      }
-                      
-                      // Ensure balance is never negative
-                      newBalance = Math.max(0, newBalance);
+                      // Calculate balance amount (what remains after payment)
+                      const totalReceived = receivedAmount + receivedArrearAmount;
+                      const newBalance = Math.max(0, pendingAmount - totalReceived);
                       
                       setFormData({
                         ...formData,
                         receiptDetails: { 
                           ...formData.receiptDetails, 
                           receivedArrearAmount: receivedArrearAmount,
-                          balanceArrear: balanceArrear, // Update balance arrear
+                          balanceArrear: balanceArrear,
+                          pendingAmount: pendingAmount,
                           balanceAmount: newBalance
                         }
                       });
@@ -2251,7 +2265,7 @@ export default function CreateInvoicePage() {
                 <span className="text-gray-900">₹{formatNumberStable(createdInvoice.balanceArrear || 0)}</span>
   
   
-              </div>
+                  </div>
               <div className="flex justify-between text-sm">
                 <span className="font-medium text-gray-700">Total Received Amount:</span>
                 <span className="text-green-600 font-semibold">₹{formatNumberStable((createdInvoice.receivedAmount || 0) + (createdInvoice.receivedArrearAmount || 0))}</span>
