@@ -1,6 +1,4 @@
-// SMS SERVICE TEMPORARILY COMMENTED OUT - WAITING FOR DLT APPROVAL
-/*
-// SMS service using Fast2SMS (Indian provider, no DLT needed for testing)
+// SMS service using MSG91 (Indian SMS provider with DLT support)
 import SMSLog from '@/models/SMSLog';
 import connectDB from '@/lib/mongodb';
 
@@ -11,73 +9,108 @@ interface SMSResponse {
   errorCode?: string;
 }
 
-class Fast2SMSService {
-  private apiKey: string;
+interface MSG91SendResponse {
+  type: string;
+  message: string;
+  request_id?: string;
+}
+
+class MSG91Service {
+  private authKey: string;
   private senderId: string;
   private route: string;
-  private baseUrl = 'https://www.fast2sms.com/dev/bulkV2';
+  private baseUrl = 'https://api.msg91.com/api/v5';
+  private entity_id: string;
+  private dlt_template_id: string;
 
   constructor() {
-    this.apiKey = process.env.FAST2SMS_API_KEY || '';
-    this.senderId = process.env.FAST2SMS_SENDER_ID || 'FSTSMS';
-    this.route = process.env.FAST2SMS_ROUTE || 'q';
+    this.authKey = process.env.MSG91_AUTH_KEY || '';
+    this.senderId = process.env.MSG91_SENDER_ID || 'SHRENF'; // DLT approved sender ID
+    this.route = process.env.MSG91_ROUTE || '4'; // 4 = Transactional, 1 = Promotional
+    this.entity_id = process.env.MSG91_ENTITY_ID || ''; // Your DLT entity ID
+    this.dlt_template_id = process.env.MSG91_DLT_TEMPLATE_ID || ''; // Default template ID
   }
 
-  async sendSMS(payload: { mobiles: string; message: string }): Promise<SMSResponse> {
+  async sendSMS(payload: { 
+    mobiles: string; 
+    message: string;
+    templateId?: string;
+    variables?: Record<string, string>;
+  }): Promise<SMSResponse> {
     try {
-      if (!this.apiKey) {
-        throw new Error('Fast2SMS API Key not configured');
+      if (!this.authKey) {
+        throw new Error('MSG91 Auth Key not configured');
       }
 
-      // Remove +91 if present, Fast2SMS expects 10-digit numbers
-      let phoneNumber = payload.mobiles.replace(/^\+91/, '');
+      // Remove +91 if present, MSG91 expects 10-digit numbers
+      let phoneNumber = payload.mobiles.replace(/^\+91/, '').replace(/\s+/g, '');
       
+      // Validate phone number format
+      if (!/^[6-9]\d{9}$/.test(phoneNumber)) {
+        return {
+          success: false,
+          message: 'Invalid Indian phone number format',
+          errorCode: 'INVALID_NUMBER'
+        };
+      }
+
+      // For DLT compliance, use template-based SMS if template ID provided
       const smsData = {
-        authorization: this.apiKey,
-        sender_id: this.senderId,
-        message: payload.message,
+        sender: this.senderId,
         route: this.route,
-        numbers: phoneNumber
+        country: '91',
+        sms: [
+          {
+            message: payload.message,
+            to: [phoneNumber]
+          }
+        ]
       };
 
-      console.log('Sending SMS via Fast2SMS:', {
+      // Add DLT parameters if available
+      if (this.entity_id) {
+        Object.assign(smsData, { entity_id: this.entity_id });
+      }
+      if (payload.templateId || this.dlt_template_id) {
+        Object.assign(smsData.sms[0], { 
+          template_id: payload.templateId || this.dlt_template_id 
+        });
+      }
+
+      console.log('Sending SMS via MSG91:', {
         ...smsData,
-        authorization: '[HIDDEN]'
+        authkey: '[HIDDEN]',
+        to: phoneNumber
       });
 
-      const response = await fetch(this.baseUrl, {
+      const response = await fetch(`${this.baseUrl}/flow/`, {
         method: 'POST',
         headers: {
-          'authorization': this.apiKey,
-          'Content-Type': 'application/x-www-form-urlencoded'
+          'authkey': this.authKey,
+          'Content-Type': 'application/json'
         },
-        body: new URLSearchParams({
-          sender_id: this.senderId,
-          message: payload.message,
-          route: this.route,
-          numbers: phoneNumber
-        })
+        body: JSON.stringify(smsData)
       });
 
-      const result = await response.json();
-      console.log('Fast2SMS Response:', result);
+      const result: MSG91SendResponse = await response.json();
+      console.log('MSG91 Response:', result);
 
-      if (result.return === true || result.message?.includes('SMS sent successfully')) {
+      if (result.type === 'success' || response.ok) {
         return {
           success: true,
           message: 'SMS sent successfully',
-          requestId: result.request_id || 'FAST2SMS_' + Date.now()
+          requestId: result.request_id || 'MSG91_' + Date.now()
         };
       }
 
       return {
         success: false,
         message: result.message || 'SMS sending failed',
-        errorCode: result.code || 'UNKNOWN'
+        errorCode: result.type || 'UNKNOWN'
       };
 
     } catch (error: any) {
-      console.error('Fast2SMS error:', error);
+      console.error('MSG91 error:', error);
       return {
         success: false,
         message: error.message || 'SMS sending failed',
@@ -86,18 +119,23 @@ class Fast2SMSService {
     }
   }
 
-  async sendBulkSMS(recipients: { phone: string; message: string }[]): Promise<SMSResponse[]> {
+  async sendBulkSMS(recipients: { 
+    phone: string; 
+    message: string;
+    templateId?: string;
+  }[]): Promise<SMSResponse[]> {
     const results: SMSResponse[] = [];
     
     for (const recipient of recipients) {
       const result = await this.sendSMS({
         mobiles: recipient.phone,
-        message: recipient.message
+        message: recipient.message,
+        templateId: recipient.templateId
       });
       results.push(result);
       
       // Small delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
     
     return results;
@@ -111,19 +149,22 @@ class Fast2SMSService {
     requestId?: string;
     errorMessage?: string;
     sentBy: string;
+    provider?: string;
   }) {
     try {
       await connectDB();
       
       const smsLog = new SMSLog({
         userId: data.userId,
-        phone: data.phone,
+        phoneNumber: data.phone,
         message: data.message,
         status: data.status,
         requestId: data.requestId,
         errorMessage: data.errorMessage,
         sentBy: data.sentBy,
-        sentAt: new Date()
+        provider: data.provider || 'MSG91',
+        sentAt: data.status === 'sent' ? new Date() : undefined,
+        createdAt: new Date()
       });
 
       await smsLog.save();
@@ -134,7 +175,8 @@ class Fast2SMSService {
     }
   }
 
-  // Predefined message templates  
+  // Predefined DLT-approved message templates
+  // NOTE: Replace these with your actual DLT-approved templates
   getTemplate(type: string, variables: Record<string, any> = {}): string {
     const templates: Record<string, string> = {
       payment_reminder: `Dear ${variables.customerName}, your chit fund payment of Rs.${variables.amount} is due on ${variables.dueDate}. Plan: ${variables.planName}. Pay now to avoid late fees. - Shree Eniyaa Chitfunds`,
@@ -143,24 +185,26 @@ class Fast2SMSService {
       
       due_alert: `Dear ${variables.customerName}, your payment of Rs.${variables.amount} is overdue for ${variables.planName}. Please pay immediately to avoid penalty. - Shree Eniyaa Chitfunds`,
       
-      welcome: `Welcome to Shree Eniyaa Chitfunds, ${variables.customerName}! Your enrollment in ${variables.planName} is confirmed. Monthly amount: Rs.${variables.amount}. Member No: ${variables.memberNo}`,
+      welcome: `Welcome to Shree Eniyaa Chitfunds, ${variables.customerName}! Your enrollment in ${variables.planName} is confirmed. Monthly amount: Rs.${variables.amount}. Member No: ${variables.memberNo}. Contact: 96266 66527`,
       
-      custom: variables.message || 'Custom message from Shree Eniyaa Chitfunds'
+      custom: variables.message || 'Message from Shree Eniyaa Chitfunds'
     };
 
     return templates[type] || templates.custom;
   }
+
+  // Get DLT template IDs (you'll need to configure these after DLT approval)
+  getTemplateId(type: string): string | undefined {
+    const templateIds: Record<string, string> = {
+      payment_reminder: process.env.MSG91_TEMPLATE_PAYMENT_REMINDER || '',
+      payment_confirmation: process.env.MSG91_TEMPLATE_PAYMENT_CONFIRMATION || '',
+      due_alert: process.env.MSG91_TEMPLATE_DUE_ALERT || '',
+      welcome: process.env.MSG91_TEMPLATE_WELCOME || '',
+    };
+
+    return templateIds[type] || this.dlt_template_id;
+  }
 }
 
-export const smsService = new Fast2SMSService();
-export default smsService;
-*/
-
-// Temporary placeholder service to prevent import errors
-export const smsService = {
-  sendSMS: () => Promise.resolve({ success: false, message: 'SMS service disabled' }),
-  sendBulkSMS: () => Promise.resolve([]),
-  logSMS: () => Promise.resolve(null),
-  getTemplate: () => 'SMS service disabled'
-};
+export const smsService = new MSG91Service();
 export default smsService;

@@ -11,6 +11,7 @@ import {
   calculateArrearAmount,
   calculateBalanceAmount
 } from '@/lib/invoiceUtils';
+import smsService from '@/lib/sms';
 
 export async function GET(request: NextRequest) {
   try {
@@ -474,6 +475,41 @@ export async function POST(request: NextRequest) {
         enrollmentDate: invoiceEnrollment.enrollmentDate
       } : newInvoice.enrollmentId
     };
+
+    // Send SMS notification if payment received
+    if (customerUser && customerUser.phone && receivedAmount > 0) {
+      try {
+        const smsMessage = smsService.getTemplate('payment_confirmation', {
+          customerName: customerUser.name,
+          amount: receivedAmount.toLocaleString('en-IN'),
+          planName: invoicePlan?.planName || 'Chit Fund',
+          receiptNo: newInvoice.invoiceNumber
+        });
+
+        const smsResult = await smsService.sendSMS({
+          mobiles: customerUser.phone,
+          message: smsMessage,
+          templateId: smsService.getTemplateId('payment_confirmation')
+        });
+
+        // Log SMS
+        await smsService.logSMS({
+          userId: customerUser.userId || customerUser._id.toString(),
+          phone: customerUser.phone,
+          message: smsMessage,
+          status: smsResult.success ? 'sent' : 'failed',
+          requestId: smsResult.requestId,
+          errorMessage: smsResult.success ? undefined : smsResult.message,
+          sentBy: user.userId,
+          provider: 'MSG91'
+        });
+
+        console.log('SMS notification sent:', smsResult.success ? 'Success' : 'Failed');
+      } catch (smsError) {
+        // Don't fail invoice creation if SMS fails
+        console.error('SMS notification failed:', smsError);
+      }
+    }
 
     return NextResponse.json({
       success: true,
