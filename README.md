@@ -1,99 +1,250 @@
-[![Discord](https://img.shields.io/badge/Discord-%40Invoify-000000?style=flat&logo=Discord&logoColor=#5865F2)](https://discord.gg/uhXKHbVKHZ)
-# Invoify
+# Shree Eniyaa Chitfunds (P) Ltd. - Management System
 
-Invoify is a web-based invoice generator application built with Next.js 13, TypeScript, React, and the Shadcn UI library. It provides an easy way to create and manage professional invoices.
+A complete chit fund management system with separated frontend and backend architecture for scalable deployment.
 
-![Invoify Website image](/public/assets/img/invoify-web-app.png)
+## 🏗️ Architecture
 
-## Table of Contents
+This application is built with a **modern separated architecture**:
 
-- [Invoify](#invoify)
-  - [Table of Contents](#table-of-contents)
-  - [Technologies](#technologies)
-    - [Core Technologies](#core-technologies)
-    - [Additional Dependencies](#additional-dependencies)
-  - [Roadmap](#roadmap)
-  - [Demo](#demo)
-  - [Getting Started](#getting-started)
-    - [Prerequisites](#prerequisites)
-    - [Installation](#installation)
-  - [License](#license)
+- **Frontend**: Next.js 14 with TypeScript (Deploy to Hostinger)
+- **Backend**: Express.js REST API (Deploy to Railway/Render/VPS)
+- **Database**: MongoDB (MongoDB Atlas)
+- **SMS**: MSG91 Integration
 
+---
 
-## Technologies
+## 📚 Quick Links
 
-### Core Technologies
+- **[🚀 Quick Start Guide](QUICK_START.md)** - Get running in 5 minutes
+- **[📖 Deployment Guide](DEPLOYMENT_GUIDE.md)** - Complete deployment instructions  
+- **[✅ Deployment Checklist](DEPLOYMENT_CHECKLIST.md)** - Step-by-step checklist
+- **[📊 Separation Summary](SEPARATION_SUMMARY.md)** - Architecture details
+- **[🔧 Backend README](backend/README.md)** - Backend API docs
+- **[📱 SMS Setup Guide](SMS_SETUP_GUIDE.md)** - MSG91 configuration
 
-- **Next.js:** React framework for SSR and client-side navigation.
-- **TypeScript:** JavaScript superset with static typing.
-- **Shadcn-UI:** UI library for enhanced visuals.
-- **Tailwind:** Utility-first CSS framework.
-- **React Hook Form:** Form management for React.
-- **Zod:** TypeScript-first schema validation.
-- **Puppeteer:** PDF generation with headless browsers.
+---
 
-### Additional Dependencies
+## ✨ Features
 
-- **Nodemailer:** Node.js module for sending emails.
-- **Lucide Icons:** Collection of customizable SVG icons.
+### Invoice Management
+- ✅ Create and manage invoices with automatic calculations
+- ✅ Automatic receipt number generation
+- ✅ Due number and arrear tracking
+- ✅ Thermal receipt printing (80mm)
+- ✅ PDF export and email delivery
 
-## Roadmap
+### Customer Management
+- ✅ Customer enrollment in chit plans
+- ✅ Member number assignment
+- ✅ Profile management
+- ✅ Payment history tracking
 
-- [x] **Easily Create Invoices:** Utilize a simple form to quickly generate invoices.
-- [x] **Save for Future Access:** Store your invoices directly in your browser for easy retrieval.
-- [x] **Retrieve Invoices Effortlessly:** Load and access invoices seamlessly from your saved list.
-- [x] **Flexible Download Options:** Download invoices directly or send them via email in PDF format.
-- [x] **Template Variety:** Choose from multiple (currently 2) invoice templates.
-- [x] **Live Preview:** Edit the form and see changes in real-time with the live preview feature.
-- [x] **Export in Various Formats:** Export invoices in different formats, including JSON, XLSX, CSV, and XML.
-- [ ] **I18N Support:** i18n support with multiple languages for UI and templates.
-- [ ] **Themeable Templates:** Select a theme color for the invoice
-- [ ] **Custom Inputs:** Define your own inputs that are missing from the default invoice builder. (Ex: VAT number)
-- [ ] **Individual Tax for Line Items:** Add tax details for a specific line item other than the general tax
+### Plan Management
+- ✅ Multiple chit fund plans
+- ✅ Monthly installment tracking
+- ✅ Dividend calculations
+- ✅ Duration management
 
-## Demo
+### SMS Integration
+- ✅ Automatic payment confirmation SMS
+- ✅ Payment reminders & due alerts
+- ✅ MSG91 with DLT support
+- ✅ SMS logging and tracking
 
-> [!NOTE]
-> Please be advised that there are currently issues when using this application in the Mozilla Firefox browser. For more information, refer to [Issue #11](https://github.com/aliabb01/invoify/issues/11).
+### Reports & Analytics
+- ✅ Daily invoice reports
+- ✅ Staff performance tracking
+- ✅ Plan-wise and user-wise reports
+- ✅ PDF export functionality
 
-Visit the [live demo](https://invoify.vercel.app) to see Invoify in action.
+### Security & Access Control
+- ✅ Role-based access (Admin/Staff/User)
+- ✅ JWT authentication
+- ✅ Secure password hashing
+- ✅ CORS protection
 
-## Getting Started
+---
 
-Follow these instructions to get Invoify up and running on your local machine.
+## 🚀 Quick Start
 
 ### Prerequisites
+- Node.js 18+ and npm
+- MongoDB (local or Atlas)
+- Git
 
-- Node.js and npm installed on your system.
+### Local Development (5 minutes)
 
-### Installation
+**1. Clone & Setup Backend**
+```bash
+git clone <your-repo-url>
+cd shri_iniya_chit_funds/backend
+npm install
+cp .env.example .env
+# Edit .env with MongoDB URI and secrets
+npm run dev
+# Backend runs on http://localhost:5000
+```
 
-1. Clone the repository:
+**2. Setup Frontend**
+```bash
+# New terminal, project root
+cd ..
+npm install
+cp .env.example .env.local
+# Edit: NEXT_PUBLIC_API_URL=http://localhost:5000
+npm run dev
+# Frontend runs on http://localhost:3000
+```
 
-   ```bash
-   git clone https://github.com/al1abb/invoify.git
-   cd invoify
-   ```
-2. Install dependencies
-   
-   ```bash
-   npm install
-   ```
-3. Create an .env.local file with this content (This step is for sending pdf to email feature):
-   ```env
-   NODEMAILER_EMAIL=your_email@example.com
-   NODEMAILER_PW=your_email_password
-   ```
-4. Start development server
+**3. Test**
+Visit `http://localhost:3000` - Everything works!
 
-    ```bash
-    npm run dev
-    ```
-5. Open your web browser and access the application at [http://localhost:3000](http://localhost:3000)
-<!-- LICENSE -->
-## License
+---
 
-Distributed under the MIT License. See `LICENSE.txt` for more information.
+## 📦 Deployment
 
-## Discord
-Join the Discord server [here](https://discord.gg/uhXKHbVKHZ)
+### Backend Deployment (Choose one)
+
+**Railway** (Recommended - Free tier):
+1. Sign up at railway.app
+2. Deploy from GitHub
+3. Set root: `backend`
+4. Add environment variables
+5. Deploy!
+
+**Other Options**: Render, VPS, AWS
+
+### Frontend Deployment (Hostinger)
+
+```bash
+# Update environment
+NEXT_PUBLIC_API_URL=https://your-backend-url.railway.app
+
+# Build
+npm run build
+npx next export
+
+# Upload 'out' folder to Hostinger public_html
+```
+
+**Complete Instructions**: [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
+
+---
+
+## 📁 Project Structure
+
+```
+shri_iniya_chit_funds/
+├── backend/                    # Standalone Express backend
+│   ├── server.js              # Server entry point
+│   ├── routes.js              # API configuration
+│   └── package.json
+│
+├── app/                       # Next.js frontend
+│   ├── admin/                 # Admin pages
+│   ├── staff/                 # Staff pages
+│   └── api/                   # API routes (used by backend)
+│
+├── lib/
+│   ├── apiClient.ts           # Backend API client
+│   ├── fetchWrapper.ts        # Automatic routing
+│   └── ...
+│
+├── models/                    # MongoDB models
+│   ├── User.ts
+│   ├── Invoice.ts
+│   └── ...
+│
+└── components/                # React components
+```
+
+---
+
+## 🛠️ Tech Stack
+
+**Frontend**: Next.js 14, TypeScript, Tailwind CSS, Shadcn UI  
+**Backend**: Express.js, MongoDB, Mongoose, JWT  
+**SMS**: MSG91 with DLT support  
+**Hosting**: Hostinger (Frontend) + Railway/Render (Backend)
+
+---
+
+## 🔑 Environment Variables
+
+### Frontend `.env.local`
+```env
+NEXT_PUBLIC_API_URL=https://your-backend-url.com
+NEXT_PUBLIC_APP_URL=https://your-domain.com
+```
+
+### Backend `.env`
+```env
+PORT=5000
+FRONTEND_URL=https://your-domain.com
+MONGODB_URI=mongodb+srv://...
+JWT_SECRET=your-secret-key
+MSG91_AUTH_KEY=your-msg91-key
+```
+
+Full configuration: [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
+
+---
+
+## ✅ Key Benefits of Separated Architecture
+
+- **Scalable**: Frontend & backend scale independently
+- **Secure**: Database credentials never exposed
+- **Cost-Effective**: Use free hosting tiers
+- **Fast**: Static frontend on CDN
+- **Zero Breaking Changes**: All existing code works!
+
+---
+
+## 🧪 Testing
+
+```bash
+# Test backend
+cd backend && npm run dev
+curl http://localhost:5000/health
+
+# Test frontend
+npm run dev
+# Visit http://localhost:3000
+```
+
+---
+
+## 📖 Documentation
+
+All documentation is in the root folder:
+
+- `QUICK_START.md` - 5-minute setup guide
+- `DEPLOYMENT_GUIDE.md` - Complete deployment
+- `DEPLOYMENT_CHECKLIST.md` - Deployment steps
+- `SEPARATION_SUMMARY.md` - Architecture details
+- `SMS_SETUP_GUIDE.md` - MSG91 setup
+- `backend/README.md` - Backend API docs
+
+---
+
+## 🎯 Getting Started
+
+1. Read [QUICK_START.md](QUICK_START.md)
+2. Test locally (5 minutes)
+3. Deploy backend to Railway
+4. Deploy frontend to Hostinger
+5. Follow [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md)
+6. Go live! 🚀
+
+---
+
+## 📝 License
+
+Private - Shree Eniyaa Chitfunds (P) Ltd.  
+All rights reserved.
+
+---
+
+**Built with ❤️ for Shree Eniyaa Chitfunds (P) Ltd.**
+
+Need help? Start with [QUICK_START.md](QUICK_START.md)!

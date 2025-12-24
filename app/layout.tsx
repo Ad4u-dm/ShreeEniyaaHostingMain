@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import "@/app/globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { outfit } from "@/lib/fonts";
+import { FetchInitializer } from "@/components/FetchInitializer";
 
 type Props = {
     children: ReactNode;
@@ -24,6 +25,7 @@ export default function RootLayout({ children }: Props) {
                 className={`${outfit.className} min-h-screen bg-background font-sans antialiased`}
                 suppressHydrationWarning
             >
+                <FetchInitializer />
                 {children}
                 <Toaster />
             </body>

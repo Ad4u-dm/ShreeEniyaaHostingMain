@@ -1,0 +1,18 @@
+# Render Deployment Configuration
+# Place this file in the backend folder
+
+services:
+  - type: web
+    name: chitfund-backend
+    runtime: node
+    region: singapore
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+    # Add other environment variables in Render dashboard

@@ -25,7 +25,12 @@
         "prebuild": "npm run build:standalone",
         "bridge": "node scripts/bridge-simple.js",
         "bridge:dev": "nodemon scripts/bridge-simple.js",
-        "dev:all": "concurrently \"npm run dev\" \"npm run bridge\""
+        "dev:all": "concurrently \"npm run dev\" \"npm run bridge\"",
+        "backend:dev": "cd backend && npm run dev",
+        "backend:start": "cd backend && npm start",
+        "backend:install": "cd backend && npm install",
+        "dev:fullstack": "concurrently \"npm run dev\" \"npm run backend:dev\"",
+        "migrate:separate": "bash migrate-to-separate-backend.sh"
     },
     "dependencies": {
         "@dnd-kit/core": "^6.1.0",
