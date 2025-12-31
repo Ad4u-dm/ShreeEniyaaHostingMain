@@ -158,7 +158,8 @@ export default function UsersPage() {
 
   const fetchCustomers = async () => {
     try {
-      const url = new URL('/api/admin/users', window.location.origin);
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || window.location.origin;
+      const url = new URL('/api/admin/users', baseUrl);
       url.searchParams.append('page', currentPage.toString());
       url.searchParams.append('limit', '20'); // Increase limit to show more users per page
 

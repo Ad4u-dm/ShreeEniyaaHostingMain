@@ -2219,7 +2219,8 @@ export default function CreateInvoicePage() {
                       // For demo, prompt for invoice ID (replace with your logic)
                       const invoiceId = window.prompt('Enter Invoice ID to print:');
                       if (invoiceId) {
-                        window.open(`/receipt/thermal/${invoiceId}`, '_blank');
+                        const backendUrl = process.env.NEXT_PUBLIC_API_URL || window.location.origin;
+                        window.open(`${backendUrl}/receipt/thermal/${invoiceId}`, '_blank');
                       }
                     }}
                     variant="outline"

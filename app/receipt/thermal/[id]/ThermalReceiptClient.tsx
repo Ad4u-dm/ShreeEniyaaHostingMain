@@ -20,7 +20,9 @@ export default function ThermalReceiptPage() {
     
     const fetchInvoice = async () => {
       try {
-        const response = await fetch(`/api/invoices/${params.id}`);
+        // Use the backend API URL if available
+        const apiBase = process.env.NEXT_PUBLIC_API_URL || window.location.origin;
+        const response = await fetch(`${apiBase}/api/invoices/${params.id}`);
         
         if (response.ok) {
           const data = await response.json();

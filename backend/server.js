@@ -57,10 +57,8 @@ async function startServer() {
 
   server.use(cors(corsOptions));
   server.use(cookieParser());
-  server.use(express.json({ limit: '50mb' }));
-  server.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
-  // Health check endpoint
+  
+  // Health check endpoint (before body parsers to avoid conflicts)
   server.get('/health', (req, res) => {
     res.json({ 
       status: 'OK', 
@@ -77,20 +75,37 @@ async function startServer() {
     const next = require('next');
     const app = next({ 
       dev: true, 
-      dir: path.join(__dirname, '..'),
-      conf: {
-        // Ensure we don't use static export in dev
-        output: undefined
-      }
+      dir: path.join(__dirname, '..'), // Parent directory where next.config.js is
+      hostname: 'localhost',
+      port: PORT
     });
     const handle = app.getRequestHandler();
 
     await app.prepare();
     
-    // Handle all API routes through Next.js
-    server.all('/api/*', (req, res) => {
+    // Handle Next.js static files
+    server.all(/^\/_next\/.*/, (req, res) => {
       return handle(req, res);
     });
+    
+    // Handle all API routes through Next.js (without Express body parsing)
+    server.all(/^\/api\/.*/, (req, res) => {
+      // Let Next.js handle the request directly without Express body parsing
+      return handle(req, res);
+    });
+    
+    // Handle receipt and invoice print routes
+    server.all(/^\/receipt\/.*/, (req, res) => {
+      return handle(req, res);
+    });
+    
+    server.all(/^\/invoice\/print\/.*/, (req, res) => {
+      return handle(req, res);
+    });
+    
+    // Apply body parsers only for non-API routes (if needed)
+    server.use(express.json({ limit: '50mb' }));
+    server.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
     console.log('✅ Next.js prepared and ready');
   } else {
@@ -113,7 +128,7 @@ async function startServer() {
     const nextServer = require(nextServerPath);
     
     // Handle all API routes through standalone Next.js
-    server.all('/api/*', (req, res) => {
+    server.all(/^\/api\/.*/, (req, res) => {
       return nextServer(req, res);
     });
 
@@ -130,7 +145,7 @@ async function startServer() {
   });
 
   // 404 handler for API routes only
-  server.use('/api/*', (req, res) => {
+  server.use(/^\/api\/.*/, (req, res) => {
     res.status(404).json({ error: 'API route not found' });
   });
 

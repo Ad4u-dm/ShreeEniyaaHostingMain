@@ -284,7 +284,9 @@ export default function InvoicesPage() {
     
     // Add cache buster to force fresh data
     const cacheBuster = Date.now();
-    const printUrl = `/receipt/thermal/${invoice._id}?t=${cacheBuster}`;
+    // Use backend server for dynamic receipt rendering
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || window.location.origin;
+    const printUrl = `${backendUrl}/receipt/thermal/${invoice._id}?t=${cacheBuster}`;
     console.log('Print URL:', printUrl);
     
     // Open thermal receipt in new window for printing
