@@ -349,13 +349,13 @@ export const InvoiceContextProvider = ({
     const formValues = getValues();
 
     // Export invoice - download as JSON (simple client-side implementation)
-    if (exportAs === 'json') {
+    if (exportAs === ExportTypes.JSON) {
       const dataStr = JSON.stringify(formValues, null, 2);
       const dataBlob = new Blob([dataStr], { type: 'application/json' });
       const url = URL.createObjectURL(dataBlob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `invoice-${formValues.invoiceNumber || 'draft'}.json`;
+      link.download = `invoice-${formValues.details?.invoiceNumber || 'draft'}.json`;
       link.click();
       URL.revokeObjectURL(url);
     } else {

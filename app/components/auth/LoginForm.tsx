@@ -83,6 +83,7 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
               fill
               className="object-contain rounded-lg"
               priority
+              unoptimized
             />
           </div>
           <CardTitle className="text-xl sm:text-2xl font-bold text-slate-800 leading-tight">

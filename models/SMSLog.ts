@@ -1,19 +1,17 @@
-// SMS MODEL TEMPORARILY COMMENTED OUT - WAITING FOR DLT APPROVAL
-/*
 import mongoose from 'mongoose';
 
 const SMSLogSchema = new mongoose.Schema({
   // Recipient Details
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  phone: { type: String, required: true }, // Changed from phoneNumber to phone
+  phoneNumber: { type: String, required: true }, // SMS phone number
   
   // Message Details
-  message: { type: String, required: true }, // Changed from messageText to message
+  message: { type: String, required: true },
   
   // Status
   status: { 
     type: String, 
-    enum: ['pending', 'sent', 'failed'], // Simplified enum
+    enum: ['pending', 'sent', 'failed'],
     default: 'pending' 
   },
   
@@ -21,11 +19,14 @@ const SMSLogSchema = new mongoose.Schema({
   requestId: { type: String },
   errorMessage: { type: String },
   
+  // Provider
+  provider: { type: String, default: 'MSG91' },
+  
   // Staff Details
   sentBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   
   // Timestamps
-  sentAt: { type: Date, default: Date.now },
+  sentAt: { type: Date },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
@@ -36,10 +37,6 @@ SMSLogSchema.pre('save', function(next) {
   next();
 });
 
-export const SMSLog = mongoose.models.SMSLog || mongoose.model('SMSLog', SMSLogSchema);
+const SMSLog = (mongoose.models.SMSLog || mongoose.model('SMSLog', SMSLogSchema)) as any;
+export { SMSLog };
 export default SMSLog;
-*/
-
-// Temporary placeholder to prevent import errors
-export const SMSLog = null;
-export default null;

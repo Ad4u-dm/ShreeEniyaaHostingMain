@@ -92,6 +92,7 @@ const TemplateSelector = () => {
                                                         template.id
                                                     )
                                                 }
+                                                unoptimized
                                             />
                                             {/* {template.component} */}
                                         </div>

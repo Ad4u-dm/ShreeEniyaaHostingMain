@@ -22,6 +22,7 @@ const BaseNavbar = () => {
                             loading="eager"
                             style={{ height: "auto" }}
                             className="drop-shadow-sm w-auto h-8 sm:h-10"
+                            unoptimized
                         />
                     </Link>
                 </div>

@@ -5,18 +5,18 @@ const cookieParser = require('cookie-parser');
 const compression = require('compression');
 const helmet = require('helmet');
 const morgan = require('morgan');
-const next = require('next');
+const path = require('path');
 
-// Load environment variables
+// Load environment variables from both backend/.env and parent .env
 dotenv.config();
-
-const dev = process.env.NODE_ENV !== 'production';
-const app = next({ dev, dir: '..' }); // Point to parent directory where Next.js lives
-const handle = app.getRequestHandler();
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 const PORT = process.env.PORT || 5000;
+// Force development mode if not explicitly set to production
+const NODE_ENV = process.env.NODE_ENV === 'production' ? 'production' : 'development';
+const isDev = NODE_ENV !== 'production';
 
-app.prepare().then(() => {
+async function startServer() {
   const server = express();
 
   // Middleware
@@ -35,13 +35,18 @@ app.prepare().then(() => {
         process.env.FRONTEND_URL,
         'http://localhost:3000',
         'http://localhost:3001',
-        // Add your Hostinger domain here
+        'http://localhost:8000',
+        'http://localhost:8080',
       ].filter(Boolean);
       
-      if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      // Allow requests with no origin (mobile apps, curl, etc.)
+      if (!origin) return callback(null, true);
+      
+      if (allowedOrigins.indexOf(origin) !== -1) {
         callback(null, true);
       } else {
-        callback(new Error('Not allowed by CORS'));
+        console.warn(`CORS blocked origin: ${origin}`);
+        callback(null, true); // Allow in development, can restrict in production
       }
     },
     credentials: true,
@@ -60,21 +65,67 @@ app.prepare().then(() => {
     res.json({ 
       status: 'OK', 
       message: 'Backend server is running',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      environment: NODE_ENV,
+      mode: isDev ? 'development' : 'production'
     });
   });
 
-  // Handle all API routes through Next.js
-  server.all('/api/*', (req, res) => {
-    return handle(req, res);
-  });
+  if (isDev) {
+    // Development mode - use Next.js dev server
+    console.log('🔧 Starting in DEVELOPMENT mode with Next.js...');
+    const next = require('next');
+    const app = next({ 
+      dev: true, 
+      dir: path.join(__dirname, '..'),
+      conf: {
+        // Ensure we don't use static export in dev
+        output: undefined
+      }
+    });
+    const handle = app.getRequestHandler();
+
+    await app.prepare();
+    
+    // Handle all API routes through Next.js
+    server.all('/api/*', (req, res) => {
+      return handle(req, res);
+    });
+
+    console.log('✅ Next.js prepared and ready');
+  } else {
+    // Production mode - use standalone build
+    console.log('🚀 Starting in PRODUCTION mode with standalone build...');
+    
+    const standalonePath = path.join(__dirname, '..', '.next', 'standalone');
+    const nextServerPath = path.join(standalonePath, 'server.js');
+    
+    // Check if standalone build exists
+    const fs = require('fs');
+    if (!fs.existsSync(nextServerPath)) {
+      console.error('❌ Standalone build not found!');
+      console.error(`Expected at: ${nextServerPath}`);
+      console.error('Run: npm run build (from project root)');
+      process.exit(1);
+    }
+
+    // Import the standalone Next.js server
+    const nextServer = require(nextServerPath);
+    
+    // Handle all API routes through standalone Next.js
+    server.all('/api/*', (req, res) => {
+      return nextServer(req, res);
+    });
+
+    console.log('✅ Standalone Next.js server loaded');
+  }
 
   // Error handling middleware
   server.use((err, req, res, next) => {
     console.error('Error:', err);
     res.status(err.status || 500).json({
       error: err.message || 'Internal server error',
-      ...(dev && { stack: err.stack })
+      ...(isDev && { stack: err.stack })
     });
   });
 
@@ -86,12 +137,19 @@ app.prepare().then(() => {
   // Start server
   server.listen(PORT, (err) => {
     if (err) throw err;
+    console.log('\n' + '='.repeat(60));
     console.log(`🚀 Backend server running on port ${PORT}`);
     console.log(`📡 Health check: http://localhost:${PORT}/health`);
-    console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`🔗 Allowed frontend: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+    console.log(`🌍 Environment: ${NODE_ENV}`);
+    console.log(`🔗 Allowed origins:`);
+    console.log(`   - ${process.env.FRONTEND_URL || 'Not set'}`);
+    console.log(`   - http://localhost:3000`);
+    console.log(`   - http://localhost:8000`);
+    console.log('='.repeat(60) + '\n');
   });
-}).catch((ex) => {
-  console.error(ex.stack);
+}
+
+startServer().catch((ex) => {
+  console.error('Failed to start server:', ex);
   process.exit(1);
 });
