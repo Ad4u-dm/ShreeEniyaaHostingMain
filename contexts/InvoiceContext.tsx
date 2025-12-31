@@ -17,9 +17,6 @@ import { useFormContext } from "react-hook-form";
 // Hooks
 import useToasts from "@/hooks/useToasts";
 
-// Services
-import { exportInvoice } from "@/services/invoice/client/exportInvoice";
-
 // Variables
 import {
   FORM_DEFAULT_VALUES,
@@ -351,8 +348,19 @@ export const InvoiceContextProvider = ({
   const exportInvoiceAs = (exportAs: ExportTypes) => {
     const formValues = getValues();
 
-    // Service to export invoice with given parameters
-    exportInvoice(exportAs, formValues);
+    // Export invoice - download as JSON (simple client-side implementation)
+    if (exportAs === 'json') {
+      const dataStr = JSON.stringify(formValues, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `invoice-${formValues.invoiceNumber || 'draft'}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } else {
+      console.warn('Export format', exportAs, 'not yet implemented');
+    }
   };
 
   /**

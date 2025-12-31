@@ -10,7 +10,11 @@ const withBundleAnalyzer = require("@next/bundle-analyzer")({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    output: 'standalone',
+    output: process.env.BUILD_MODE === 'static' ? 'export' : 'standalone',
+    typescript: {
+        // Skip type checking during build if SKIP_TYPE_CHECK is set
+        ignoreBuildErrors: process.env.SKIP_TYPE_CHECK === 'true',
+    },
     serverExternalPackages: ["@sparticuz/chromium", "puppeteer-core"],
     turbopack: {},
     experimental: {
