@@ -18,6 +18,11 @@ contextBridge.exposeInMainWorld('electron', {
     getLocal: (key) => ipcRenderer.invoke('sync:getLocal', key),
     syncToServer: () => ipcRenderer.invoke('sync:syncToServer'),
     getLastSyncTime: () => ipcRenderer.invoke('sync:getLastSyncTime'),
+    // New sync methods for pull-only architecture
+    pullFromServer: () => ipcRenderer.invoke('sync:pull'),
+    getStatus: () => ipcRenderer.invoke('sync:status'),
+    setAuthToken: (token) => ipcRenderer.invoke('sync:setToken', token),
+    getOnlineStatus: () => ipcRenderer.invoke('sync:getOnlineStatus'),
   },
   
   // App Info

@@ -23,12 +23,14 @@ console.log('  ✓ Standalone build found\n');
 console.log('✓ Generating Prisma Client for Windows target...');
 try {
   // Set DATABASE_URL for generation
-  process.env.DATABASE_URL = 'file:./prisma/local_chitfund.db';
-  execSync('npx prisma generate', {
+  process.env.DATABASE_URL = 'file:./prisma/invoify.sqlite';
+  
+  // Generate with explicit windows target
+  execSync('npx prisma generate --schema=./prisma/schema.prisma', {
     stdio: 'inherit',
     env: { ...process.env }
   });
-  console.log('  ✓ Prisma Client generated\n');
+  console.log('  ✓ Prisma Client generated with Windows binary target\n');
 } catch (error) {
   console.error('❌ Failed to generate Prisma Client:', error.message);
   process.exit(1);
@@ -47,10 +49,14 @@ NODE_ENV=production
 PORT=3000
 HOSTNAME=localhost
 
-# Database - will be set dynamically by Electron
-DATABASE_URL=file:./database/local_chitfund.db
+# Database - will be set dynamically by Electron in userData directory
+# This is just a placeholder - actual path set at runtime
+DATABASE_URL=file:./database/invoify.sqlite
 
-# Add your MongoDB URI if needed (for online sync)
+# Backend API URL for sync (production)
+NEXT_PUBLIC_API_URL=${process.env.NEXT_PUBLIC_API_URL || 'https://your-backend.render.com'}
+
+# MongoDB URI if needed (for sync endpoint on backend)
 MONGODB_URI=${process.env.MONGODB_URI || ''}
 `.trim();
 

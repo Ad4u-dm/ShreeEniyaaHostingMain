@@ -4,6 +4,7 @@ const fs = require('fs');
 const { spawn } = require('child_process');
 const envHandler = require('./env-handler');
 const dbHelper = require('./database-helper');
+const SyncWorker = require('./sync-worker');
 
 // Load environment variables FIRST
 envHandler.loadEnv();
@@ -12,6 +13,8 @@ const isDev = process.env.NODE_ENV === 'development';
 
 let mainWindow;
 let serverProcess;
+let syncWorker = null;
+let isOnline = false;
 
 console.log('Invoify Desktop App Starting...');
 console.log('Is Dev:', isDev);
@@ -298,11 +301,13 @@ async function createWindow() {
   }
 }
 
-app.whenReady().then(() => {
-  createWindow();
+app.whenReady().then(async () => {
+  await createWindow();
+  await initializeSync();
 });
 
 app.on('window-all-closed', () => {
+  cleanupSync();
   if (process.platform !== 'darwin') {
     app.quit();
   }
@@ -311,5 +316,112 @@ app.on('window-all-closed', () => {
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
+  }
+});
+
+// Sync initialization and management
+async function initializeSync() {
+  try {
+    console.log('[Main] Initializing sync worker...');
+    
+    // Get backend URL and auth token from environment or config
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    const authToken = await getAuthToken(); // Will implement this
+    
+    syncWorker = new SyncWorker(backendUrl, authToken);
+    await syncWorker.initialize();
+    
+    console.log('[Main] Sync worker initialized successfully');
+    
+    // Check network status
+    isOnline = require('electron').net.isOnline();
+    console.log('[Main] Network status:', isOnline ? 'Online' : 'Offline');
+    
+    // Perform initial sync if online
+    if (isOnline && authToken) {
+      console.log('[Main] Performing initial sync...');
+      const result = await syncWorker.pullChanges();
+      console.log('[Main] Initial sync result:', result);
+    }
+    
+    // Set up periodic sync (every 5 minutes when online)
+    setInterval(async () => {
+      if (isOnline && syncWorker && authToken) {
+        console.log('[Main] Running periodic sync...');
+        await syncWorker.pullChanges();
+      }
+    }, 5 * 60 * 1000); // 5 minutes
+    
+  } catch (error) {
+    console.error('[Main] Failed to initialize sync:', error);
+  }
+}
+
+async function getAuthToken() {
+  // For now, return null - auth token should be stored securely after login
+  // In production, retrieve from secure storage (electron-store with encryption)
+  // or prompt user to login on first run
+  const Store = require('electron-store');
+  const store = new Store({ encryptionKey: 'invoify-secure-key-change-in-production' });
+  return store.get('authToken', null);
+}
+
+function setAuthToken(token) {
+  const Store = require('electron-store');
+  const store = new Store({ encryptionKey: 'invoify-secure-key-change-in-production' });
+  store.set('authToken', token);
+}
+
+function cleanupSync() {
+  if (syncWorker) {
+    syncWorker.cleanup();
+    syncWorker = null;
+  }
+}
+
+// IPC Handlers for sync operations
+ipcMain.handle('sync:pull', async () => {
+  if (!syncWorker) {
+    return { success: false, error: 'Sync worker not initialized' };
+  }
+  if (!isOnline) {
+    return { success: false, error: 'Device is offline' };
+  }
+  return await syncWorker.pullChanges();
+});
+
+ipcMain.handle('sync:status', async () => {
+  if (!syncWorker) {
+    return { initialized: false };
+  }
+  return {
+    initialized: true,
+    lastSync: syncWorker.getLastSyncStatus(),
+    isOnline
+  };
+});
+
+ipcMain.handle('sync:setToken', async (event, token) => {
+  setAuthToken(token);
+  if (syncWorker) {
+    syncWorker.authToken = token;
+    // Trigger immediate sync after login
+    if (isOnline) {
+      return await syncWorker.pullChanges();
+    }
+  }
+  return { success: true };
+});
+
+ipcMain.handle('sync:getOnlineStatus', async () => {
+  return require('electron').net.isOnline();
+});
+
+// Monitor network status changes
+require('electron').powerMonitor.on('resume', async () => {
+  console.log('[Main] System resumed from sleep');
+  isOnline = require('electron').net.isOnline();
+  if (isOnline && syncWorker) {
+    await syncWorker.pullChanges();
   }
 });
