@@ -4,9 +4,19 @@ const withPWA = require('next-pwa')({
   disable: process.env.NODE_ENV === 'development',
 });
 
-const withBundleAnalyzer = require("@next/bundle-analyzer")({
-    enabled: process.env.ANALYZE === "true",
-});
+let withBundleAnalyzer;
+try {
+    // Try to load the analyzer (devDependency). If it's not installed
+    // (for example in production builds where devDependencies are skipped),
+    // fall back to a no-op wrapper so the build does not fail.
+    withBundleAnalyzer = require("@next/bundle-analyzer")({
+        enabled: process.env.ANALYZE === "true",
+    });
+} catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn("@next/bundle-analyzer not available; continuing without it.");
+    withBundleAnalyzer = (cfg) => cfg;
+}
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
